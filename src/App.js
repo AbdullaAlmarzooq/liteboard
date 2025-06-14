@@ -1,25 +1,37 @@
-import logo from './logo.svg';
-import './App.css';
+"use client"
+import { useState } from "react"
+import Navigation from "./components/Navigation"
+import Dashboard from "./pages/Dashboard"
+import TicketsPage from "./pages/TicketsPage"
+import CreateTicketPage from "./pages/CreateTicketPage"
+import { ThemeProvider } from "./contexts/ThemeContext"
 
 function App() {
+  const [currentPage, setCurrentPage] = useState("dashboard")
+
+  const renderPage = () => {
+    switch (currentPage) {
+      case "dashboard":
+        return <Dashboard />
+      case "tickets":
+        return <TicketsPage />
+      case "create-ticket":
+        return <CreateTicketPage />
+      default:
+        return <Dashboard />
+    }
+  }
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+    <ThemeProvider>
+      <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
+        <Navigation currentPage={currentPage} setCurrentPage={setCurrentPage} />
+        <main className="container mx-auto px-4 py-8 max-w-7xl">
+          {renderPage()}
+        </main>
+      </div>
+    </ThemeProvider>
+  )
 }
 
-export default App;
+export default App
