@@ -3,22 +3,15 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "../components/Card"
 import Button from "../components/Button"
 import Badge from "../components/Badge"
+import useFetch from "../useFetch"
+
 
 const CreateTicketPage = () => {
   const [selectedTags, setSelectedTags] = useState([])
   const [customTag, setCustomTag] = useState("")
 
-  const availableTags = [
-    "urgent",
-    "feature",
-    "bug",
-    "enhancement",
-    "documentation",
-    "security",
-    "performance",
-    "ui",
-    "backend"
-  ]
+  const { data: availableTags, isPending: tagsLoading, error: tagsError } = useFetch('http://localhost:8000/tags')
+
 
   const addTag = tag => {
     if (tag && !selectedTags.includes(tag)) {
@@ -30,12 +23,89 @@ const CreateTicketPage = () => {
     setSelectedTags(selectedTags.filter(t => t !== tag))
   }
 
-  const addCustomTag = () => {
+  const addCustomTag = async () => {
     if (customTag.trim()) {
-      addTag(customTag.trim().toLowerCase())
+      const newTag = customTag.trim().toLowerCase()
+      
+      // Add to selected tags
+      addTag(newTag)
+      
+      // Check if tag already exists in available tags
+      const existingTags = availableTags || []
+      if (!existingTags.some(tag => tag.label === newTag)) {
+        // Add new tag to database
+        try {
+          const response = await fetch('http://localhost:8000/tags', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              label: newTag,
+            })
+          })
+          
+          if (!response.ok) {
+            console.error('Failed to add tag to database')
+          }
+        } catch (error) {
+          console.error('Error adding tag:', error)
+        }
+      }
+      
       setCustomTag("")
     }
   }
+
+  const deleteTagFromDB = async (tagId) => {
+    try {
+      const response = await fetch(`http://localhost:8000/tags/${tagId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        console.error('Failed to delete tag from database')
+      } else {
+        // Force refresh by reloading the page or refetching
+        window.location.reload()
+      }
+    } catch (error) {
+      console.error('Error deleting tag:', error)
+    }
+  }
+
+    if (tagsLoading) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            Create New Ticket
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Loading...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show error state
+  if (tagsError) {
+    return (
+      <div className="max-w-2xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            Create New Ticket
+          </h1>
+          <p className="text-red-600 dark:text-red-400">
+            Error loading tags: {tagsError.message}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+
 
   const handleKeyPress = e => {
     if (e.key === "Enter") {
@@ -199,19 +269,23 @@ const CreateTicketPage = () => {
             </label>
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2">
-                {availableTags.map(tag => (
-                  <Button
-                    key={tag}
-                    type="button"
-                    variant={selectedTags.includes(tag) ? "primary" : "outline"}
-                    size="sm"
-                    onClick={() =>
-                      selectedTags.includes(tag) ? removeTag(tag) : addTag(tag)
-                    }
-                  >
-                    {tag}
-                  </Button>
-                ))}
+                {availableTags && availableTags.length > 0 ? (
+                  availableTags.map(tag => (
+                    <Button
+                      key={tag.id}
+                      type="button"
+                      variant={selectedTags.includes(tag.label) ? "primary" : "outline"}
+                      size="sm"
+                      onClick={() =>
+                        selectedTags.includes(tag.label) ? removeTag(tag.label) : addTag(tag.label)
+                      }
+                    >
+                      {tag.label}
+                    </Button>
+                  ))
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">No tags available</p>
+                )}
               </div>
 
               <div className="flex gap-2">

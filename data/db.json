@@ -1,0 +1,180 @@
+{
+  "employees": [
+    {
+      "id": "EMP-001",
+      "name": "Abdulla",
+      "email": "abdulla@company.com",
+      "position": "Senior Digital Channels Specialist",
+      "department": "Customer Service",
+      "workgroup": "Digital Channels",
+      "skills": [
+        "React",
+        "UX",
+        "Customer Support",
+        "ISO 9001"
+      ],
+      "active": true,
+      "joined_date": "2020-03-15"
+    },
+    {
+      "id": "EMP-002",
+      "name": "Ali",
+      "email": "ali@company.com",
+      "position": "IT Support Engineer",
+      "department": "IT",
+      "workgroup": "Technical Support",
+      "skills": [
+        "Networks",
+        "Troubleshooting",
+        "Scripting"
+      ],
+      "active": true,
+      "joined_date": "2019-11-01"
+    },
+    {
+      "id": "EMP-003",
+      "name": "Mohammed",
+      "email": "mohammed@company.com",
+      "position": "System Administrator",
+      "department": "Infrastructure",
+      "workgroup": "Admin",
+      "skills": [
+        "Linux",
+        "Virtualization",
+        "Security"
+      ],
+      "active": false,
+      "joined_date": "2017-06-25"
+    },
+    {
+      "id": "EMP-004",
+      "name": "Hussain",
+      "email": "hussain@company.com",
+      "position": "Customer Experience Analyst",
+      "department": "Customer Service",
+      "workgroup": "Feedback & Complaints",
+      "skills": [
+        "Data Analysis",
+        "CRM",
+        "Survey Tools"
+      ],
+      "active": true,
+      "joined_date": "2021-01-10"
+    }
+  ],
+  "tickets": [
+    {
+      "id": "TCK-1001",
+      "title": "Unable to login to self-service portal",
+      "status": "Open",
+      "priority": "High",
+      "workGroup": "Customer Service",
+      "responsible": "Ali Hassan Ali",
+      "module": "Authentication",
+      "tags": [
+        "login",
+        "portal",
+        "urgent"
+      ],
+      "startDate": "2025-06-10",
+      "dueDate": "2025-06-12"
+    },
+    {
+      "id": "TCK-1002",
+      "title": "Report generation taking too long",
+      "status": "In Progress",
+      "priority": "Medium",
+      "workGroup": "IT",
+      "responsible": "Fatima Yousif",
+      "module": "Reporting Engine",
+      "tags": [
+        "performance",
+        "report"
+      ],
+      "startDate": "2025-06-11",
+      "dueDate": "2025-06-18"
+    },
+    {
+      "id": "TCK-1003",
+      "title": "Request to add new user role",
+      "status": "Closed",
+      "priority": "Low",
+      "workGroup": "Admin",
+      "responsible": "Mohammed Saleh",
+      "module": "User Management",
+      "tags": [
+        "role",
+        "user"
+      ],
+      "startDate": "2025-06-01",
+      "dueDate": "2025-06-05"
+    },
+    {
+      "id": "TCK-1004",
+      "title": "Email notifications not sent to users",
+      "status": "Open",
+      "priority": "High",
+      "workGroup": "IT",
+      "responsible": "Sara Ahmed",
+      "module": "Notification Service",
+      "tags": [
+        "email",
+        "notifications",
+        "critical"
+      ],
+      "startDate": "2025-06-14",
+      "dueDate": "2025-06-16"
+    }
+  ],
+  "tags": [
+    {
+      "id": "TAG-001",
+      "label": "urgent"
+    },
+    {
+      "id": "TAG-002",
+      "label": "feature"
+    },
+    {
+      "id": "TAG-003",
+      "label": "bug"
+    },
+    {
+      "id": "TAG-004",
+      "label": "enhancement"
+    },
+    {
+      "id": "TAG-005",
+      "label": "documentation"
+    },
+    {
+      "id": "TAG-006",
+      "label": "security"
+    },
+    {
+      "id": "TAG-007",
+      "label": "performance"
+    },
+    {
+      "id": "edd0",
+      "label": "ui/ux"
+    }
+  ],
+  "workgroups": [
+    {
+      "id": "WG-001",
+      "name": "Customer Service",
+      "description": "Handles customer inquiries and support requests."
+    },
+    {
+      "id": "WG-002",
+      "name": "IT",
+      "description": "Responsible for IT infrastructure and support."
+    },
+    {
+      "id": "WG-003",
+      "name": "Admin",
+      "description": "Manages user accounts and permissions."
+    }
+  ]
+}

@@ -1,58 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../components/Card"
 import Badge from "../components/Badge"
 import Button from "../components/Button"
+import useFetch from "../useFetch"
 
 const TicketsPage = ({ setCurrentPage }) => {
-  const tickets = [
-    {
-      id: "T-001",
-      title: "Fix login authentication bug",
-      status: "In Progress",
-      priority: "High",
-      workGroup: "Dev",
-      responsible: "John Smith",
-      module: "Auth",
-      tags: ["bug", "urgent"],
-      startDate: "15/01/2024 09:00:00",
-      dueDate: "20/01/2024"
-    },
-    {
-      id: "T-002",
-      title: "Design new dashboard layout",
-      status: "Todo",
-      priority: "Medium",
-      workGroup: "Design",
-      responsible: "Sarah Johnson",
-      module: "UI",
-      tags: ["feature", "design"],
-      startDate: "16/01/2024 10:30:00",
-      dueDate: "25/01/2024"
-    },
-    {
-      id: "T-003",
-      title: "Implement API rate limiting",
-      status: "Done",
-      priority: "Critical",
-      workGroup: "Backend",
-      responsible: "Mike Wilson",
-      module: "API",
-      tags: ["security", "performance"],
-      startDate: "10/01/2024 08:00:00",
-      dueDate: "18/01/2024"
-    },
-    {
-      id: "T-004",
-      title: "Update user documentation",
-      status: "In Progress",
-      priority: "Low",
-      workGroup: "Ops",
-      responsible: "Lisa Chen",
-      module: "Backend",
-      tags: ["documentation"],
-      startDate: "12/01/2024 14:00:00",
-      dueDate: "30/01/2024"
-    }
-  ]
+  const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
+
 
   const getStatusVariant = status => {
     switch (status) {
@@ -81,6 +34,10 @@ const TicketsPage = ({ setCurrentPage }) => {
         return "outline"
     }
   }
+
+  const displayTickets = tickets || [];
+
+
 
   return (
     <div className="space-y-6">
@@ -140,7 +97,7 @@ const TicketsPage = ({ setCurrentPage }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {tickets.map(ticket => (
+                  {displayTickets.map(ticket => (
                     <tr
                       key={ticket.id}
                       className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -197,7 +154,7 @@ const TicketsPage = ({ setCurrentPage }) => {
 
       {/* Mobile Card View */}
       <div className="lg:hidden space-y-4">
-        {tickets.map(ticket => (
+        {displayTickets.map(ticket => (
           <Card key={ticket.id}>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
