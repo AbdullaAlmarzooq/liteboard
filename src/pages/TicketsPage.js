@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/Card"
 import Badge from "../components/Badge"
 import Button from "../components/Button"
 
-const TicketsPage = () => {
+const TicketsPage = ({ setCurrentPage }) => {
   const tickets = [
     {
       id: "T-001",
@@ -93,7 +93,7 @@ const TicketsPage = () => {
             Manage and track all project tickets
           </p>
         </div>
-        <Button>
+        <Button onClick={() => setCurrentPage("create-ticket")}>
           <span className="mr-2">➕</span>
           Create Ticket
         </Button>

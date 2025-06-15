@@ -96,7 +96,7 @@ export default function TicketsPage() {
         <Button asChild>
           <Link href="/create-ticket">
             <Plus className="mr-2 h-4 w-4" />
-            Create Ticket
+            Create Tickets
           </Link>
         </Button>
       </div>

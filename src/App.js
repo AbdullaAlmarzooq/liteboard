@@ -14,7 +14,7 @@ function App() {
       case "dashboard":
         return <Dashboard />
       case "tickets":
-        return <TicketsPage />
+        return <TicketsPage setCurrentPage={setCurrentPage} />
       case "create-ticket":
         return <CreateTicketPage />
       default:

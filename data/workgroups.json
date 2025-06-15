@@ -1,0 +1,20 @@
+{
+  "workgroups": [
+    {
+      "id": "WG-001",
+      "label": "IT"
+    },
+    {
+      "id": "WG-002",
+      "label": "Dev"
+    },
+    {
+      "id": "WG-003",
+      "label": "Design"
+    },
+    {
+      "id": "WG-004",
+      "label": "Ops"
+    }
+  ]
+}
