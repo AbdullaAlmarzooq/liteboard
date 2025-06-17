@@ -2,18 +2,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/Card"
 import Badge from "../components/Badge"
 import Button from "../components/Button"
 import useFetch from "../useFetch"
+import { useRef, useState } from 'react';
+
 
 const TicketsPage = ({ setCurrentPage }) => {
-  const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
+const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
 
 
   const getStatusVariant = status => {
     switch (status) {
-      case "Done":
+      case "Closed":
         return "default"
       case "In Progress":
         return "secondary"
-      case "Todo":
+      case "Open":
         return "outline"
       default:
         return "outline"
@@ -37,6 +39,8 @@ const TicketsPage = ({ setCurrentPage }) => {
 
   const displayTickets = tickets || [];
 
+  
+
 
 
   return (
@@ -47,7 +51,6 @@ const TicketsPage = ({ setCurrentPage }) => {
             Tickets
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
-            Manage and track all project tickets
           </p>
         </div>
         <Button onClick={() => setCurrentPage("create-ticket")}>
@@ -60,7 +63,7 @@ const TicketsPage = ({ setCurrentPage }) => {
       <div className="hidden lg:block">
         <Card>
           <CardHeader>
-            <CardTitle>All Tickets</CardTitle>
+            <CardTitle></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">

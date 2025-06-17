@@ -276,7 +276,7 @@ const CreateTicketPage = () => {
           Create New Ticket
         </h1>
         <p className="text-gray-600 dark:text-gray-300">
-          Fill out the form below to create a new project ticket
+          Fill out the form below to create a new ticket
         </p>
       </div>
 
@@ -363,10 +363,10 @@ const CreateTicketPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select priority</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical">Critical</option>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
               </select>
             </div>
           </div>
@@ -387,10 +387,10 @@ const CreateTicketPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select work group</option>
-                <option value="it">IT</option>
-                <option value="dev">Dev</option>
-                <option value="design">Design</option>
-                <option value="ops">Ops</option>
+                <option value="IT">IT</option>
+                <option value="Dev">Dev</option>
+                <option value="Design">Design</option>
+                <option value="Ops">Ops</option>
               </select>
             </div>
 
