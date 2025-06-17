@@ -156,6 +156,9 @@ const CreateTicketPage = () => {
 
       const ticketId = await generateTicketId()
 
+      const now = new Date()
+      const bahrainTime = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Bahrain"}))
+      const initiateDate = bahrainTime.toISOString().slice(0, 19).replace('T', ' ') // Format: YYYY-MM-DD HH:MM:SS
 
       const ticketData = {
         id: ticketId,
@@ -168,7 +171,8 @@ const CreateTicketPage = () => {
         module: formData.module,
         tags: selectedTags,
         startDate: formatDate(formData.startDate),
-        dueDate: formatDate(formData.dueDate)
+        dueDate: formatDate(formData.dueDate),
+        initiateDate: initiateDate
       }
 
       const response = await fetch('http://localhost:8000/tickets', {

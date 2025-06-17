@@ -140,6 +140,23 @@
       ],
       "startDate": "2025-06-17",
       "dueDate": "2025-06-28"
+    },
+    {
+      "id": "TCK-1006",
+      "title": "dashboard - remove projects",
+      "description": "remove the projects from the dashboard as the application have tickets only not a projects",
+      "status": "Open",
+      "priority": "medium",
+      "workGroup": "it",
+      "responsible": "Hussain",
+      "module": "ui",
+      "tags": [
+        "ui/ux",
+        "bug"
+      ],
+      "startDate": "2025-06-17",
+      "dueDate": "2025-07-01",
+      "initiateDate": "2025-06-17 15:31:25"
     }
   ],
   "tags": [
