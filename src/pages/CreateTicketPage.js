@@ -9,9 +9,29 @@ import useFetch from "../useFetch"
 const CreateTicketPage = () => {
   const [selectedTags, setSelectedTags] = useState([])
   const [customTag, setCustomTag] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    status: "",
+    priority: "",
+    workGroup: "",
+    responsible: "",
+    module: "",
+    startDate: "",
+    dueDate: ""
+  })
 
   const { data: availableTags, isPending: tagsLoading, error: tagsError } = useFetch('http://localhost:8000/tags')
 
+    const handleInputChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }))
+  }
 
   const addTag = tag => {
     if (tag && !selectedTags.includes(tag)) {
@@ -27,13 +47,10 @@ const CreateTicketPage = () => {
     if (customTag.trim()) {
       const newTag = customTag.trim().toLowerCase()
       
-      // Add to selected tags
       addTag(newTag)
       
-      // Check if tag already exists in available tags
       const existingTags = availableTags || []
       if (!existingTags.some(tag => tag.label === newTag)) {
-        // Add new tag to database
         try {
           const response = await fetch('http://localhost:8000/tags', {
             method: 'POST',
@@ -66,12 +83,147 @@ const CreateTicketPage = () => {
       if (!response.ok) {
         console.error('Failed to delete tag from database')
       } else {
-        // Force refresh by reloading the page or refetching
         window.location.reload()
       }
     } catch (error) {
       console.error('Error deleting tag:', error)
     }
+  }
+
+  const generateTicketId = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/tickets')
+      const tickets = await response.json()
+      
+      const existingNumbers = tickets
+        .map(ticket => {
+          const match = ticket.id.match(/TCK-(\d+)/)
+          return match ? parseInt(match[1]) : 0
+        })
+        .filter(num => !isNaN(num))
+      
+      const highestNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 1000
+      const nextNumber = highestNumber + 1
+      
+      return `TCK-${nextNumber}`
+    } catch (error) {
+      console.error('Error generating ticket ID:', error)
+      const randomId = Math.floor(Math.random() * 9000) + 1000
+      return `TCK-${randomId}`
+    }
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return ""
+    
+    // If it's already in the correct format, return as is
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dateString
+    }
+    
+    // If it's in DD/MM/YYYY format, convert to YYYY-MM-DD
+    if (dateString.match(/^\d{2}\/\d{2}\/\d{4}/)) {
+      const [day, month, year] = dateString.split('/')[0].split('/')
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    }
+    
+    return dateString
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+
+    try {
+      // Validation
+      if (!formData.title.trim()) {
+        alert('Please enter a title')
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!formData.status) {
+        alert('Please select a status')
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!formData.priority) {
+        alert('Please select a priority')
+        setIsSubmitting(false)
+        return
+      }
+
+      const ticketId = await generateTicketId()
+
+
+      const ticketData = {
+        id: ticketId,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
+        status: formData.status,
+        priority: formData.priority,
+        workGroup: formData.workGroup,
+        responsible: formData.responsible,
+        module: formData.module,
+        tags: selectedTags,
+        startDate: formatDate(formData.startDate),
+        dueDate: formatDate(formData.dueDate)
+      }
+
+      const response = await fetch('http://localhost:8000/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(ticketData)
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      console.log('Ticket created successfully:', result)
+      
+      // Reset form
+      setFormData({
+        title: "",
+        description: "",
+        status: "",
+        priority: "",
+        workGroup: "",
+        responsible: "",
+        module: "",
+        startDate: "",
+        dueDate: ""
+      })
+      setSelectedTags([])
+      
+      alert('Ticket created successfully!')
+      
+    } catch (error) {
+      console.error('Error creating ticket:', error)
+      alert(`Error creating ticket: ${error.message}`)
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setFormData({
+      title: "",
+      description: "",
+      status: "",
+      priority: "",
+      workGroup: "",
+      responsible: "",
+      module: "",
+      startDate: "",
+      dueDate: ""
+    })
+    setSelectedTags([])
+    setCustomTag("")
   }
 
     if (tagsLoading) {
@@ -89,7 +241,6 @@ const CreateTicketPage = () => {
     )
   }
 
-  // Show error state
   if (tagsError) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
@@ -133,6 +284,8 @@ const CreateTicketPage = () => {
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
+          <form onSubmit={handleSubmit}>
+            <div className="space-y-6">
           <div className="space-y-2">
             <label
               htmlFor="title"
@@ -142,7 +295,10 @@ const CreateTicketPage = () => {
             </label>
             <input
               id="title"
+              name="title"
               type="text"
+              value={formData.title}
+              onChange={handleInputChange}
               placeholder="Enter ticket title"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
@@ -157,7 +313,10 @@ const CreateTicketPage = () => {
             </label>
             <textarea
               id="description"
+              name="description"
               rows={4}
+              value={formData.description}
+              onChange={handleInputChange}
               placeholder="Describe the ticket in detail"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
@@ -173,12 +332,15 @@ const CreateTicketPage = () => {
               </label>
               <select
                 id="status"
+                name="status"
+                value={formData.status}
+                onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select status</option>
-                <option value="todo">Todo</option>
-                <option value="in-progress">In Progress</option>
-                <option value="done">Done</option>
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Closed">Closed</option>
               </select>
             </div>
 
@@ -191,6 +353,9 @@ const CreateTicketPage = () => {
               </label>
               <select
                 id="priority"
+                name="priority"
+                value={formData.priority}
+                onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select priority</option>
@@ -212,6 +377,9 @@ const CreateTicketPage = () => {
               </label>
               <select
                 id="workgroup"
+                name="workGroup"
+                value={formData.workGroup}
+                onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select work group</option>
@@ -231,15 +399,16 @@ const CreateTicketPage = () => {
               </label>
               <select
                 id="responsible"
+                name="responsible"
+                value={formData.responsible}
+                onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select person</option>
-                <option value="john-smith">John Smith</option>
-                <option value="sarah-johnson">Sarah Johnson</option>
-                <option value="mike-wilson">Mike Wilson</option>
-                <option value="lisa-chen">Lisa Chen</option>
-                <option value="david-brown">David Brown</option>
-                <option value="emma-davis">Emma Davis</option>
+                <option value="Abdulla">Abdulla</option>
+                <option value="Ali">Ali</option>
+                <option value="Mohammed">Mohammed</option>
+                <option value="Hussain">Hussain</option>
               </select>
             </div>
           </div>
@@ -253,6 +422,9 @@ const CreateTicketPage = () => {
             </label>
             <select
               id="module"
+              name="module"
+              value={formData.module}
+              onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="">Select module</option>
@@ -341,7 +513,10 @@ const CreateTicketPage = () => {
               </label>
               <input
                 id="startdate"
-                type="text"
+                name="startDate"
+                type="date"
+                value={formData.startDate}
+                onChange={handleInputChange}
                 placeholder="DD/MM/YYYY HH:MM:SS"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
@@ -358,9 +533,11 @@ const CreateTicketPage = () => {
                 Due Date
               </label>
               <input
-                id="duedate"
-                type="text"
-                placeholder="DD/MM/YYYY"
+                id="dueDate"
+                name="dueDate"
+                type="date"
+                value={formData.dueDate}
+                onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -376,7 +553,9 @@ const CreateTicketPage = () => {
             <Button type="button" variant="outline">
               Cancel
             </Button>
+            </div>
           </div>
+          </form>
         </CardContent>
       </Card>
     </div>

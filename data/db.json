@@ -124,6 +124,22 @@
       ],
       "startDate": "2025-06-14",
       "dueDate": "2025-06-16"
+    },
+    {
+      "id": "TCK-1005",
+      "title": "dark mode issue",
+      "description": "dark mode button is not working, currently it shows the website in dark mode all the time",
+      "status": "Open",
+      "priority": "medium",
+      "workGroup": "dev",
+      "responsible": "Abdulla",
+      "module": "auth",
+      "tags": [
+        "ui/ux",
+        "bug"
+      ],
+      "startDate": "2025-06-17",
+      "dueDate": "2025-06-28"
     }
   ],
   "tags": [
