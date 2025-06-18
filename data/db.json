@@ -66,7 +66,7 @@
     {
       "id": "TCK-1001",
       "title": "Unable to login to self-service portal",
-      "status": "Open",
+      "status": "In Progress",
       "priority": "High",
       "workGroup": "Design",
       "responsible": "Ali Hassan Ali",
@@ -77,22 +77,24 @@
         "urgent"
       ],
       "startDate": "2025-06-10",
-      "dueDate": "2025-06-12"
+      "dueDate": "2025-06-12",
+      "description": ""
     },
     {
       "id": "TCK-1002",
-      "title": "Report generation taking too long",
+      "title": "Report generation taking too long already",
       "status": "In Progress",
       "priority": "Medium",
-      "workGroup": "IT",
-      "responsible": "Fatima Yousif",
-      "module": "Reporting Engine",
+      "workGroup": "Design",
+      "responsible": "Hussain",
+      "module": "User Management",
       "tags": [
         "performance",
         "report"
       ],
-      "startDate": "2025-06-11",
-      "dueDate": "2025-06-18"
+      "startDate": "2025-06-12",
+      "dueDate": "2025-06-18",
+      "description": "The backend needs enhancments"
     },
     {
       "id": "TCK-1003",
@@ -116,14 +118,15 @@
       "priority": "High",
       "workGroup": "IT",
       "responsible": "Sara Ahmed",
-      "module": "Notification Service",
+      "module": "Authentication",
       "tags": [
         "email",
         "notifications",
         "critical"
       ],
       "startDate": "2025-06-14",
-      "dueDate": "2025-06-16"
+      "dueDate": "2025-06-16",
+      "description": ""
     },
     {
       "id": "TCK-1005",

@@ -7,6 +7,7 @@ import { useRef, useState } from 'react';
 
 const TicketsPage = ({ setCurrentPage }) => {
 const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
+const [isDeleting, setIsDeleting] = useState(null);
 
 
   const getStatusVariant = status => {
@@ -39,7 +40,41 @@ const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tick
 
   const displayTickets = tickets || [];
 
-  
+  const handleEdit = (ticketId) => {
+    // Navigate to edit page with ticket ID
+    setCurrentPage(`edit-ticket-${ticketId}`);
+  };
+
+  const handleDelete = async (ticketId) => {
+    if (!window.confirm('Are you sure you want to delete this ticket?')) {
+      return;
+    }
+
+    setIsDeleting(ticketId);
+    
+    try {
+      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Refresh the page or update the tickets list
+        window.location.reload();
+      } else {
+        alert('Failed to delete ticket');
+      }
+    } catch (error) {
+      console.error('Error deleting ticket:', error);
+      alert('Error deleting ticket');
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const handleView = (ticketId) => {
+    // Navigate to view ticket details page
+    setCurrentPage(`view-ticket-${ticketId}`);
+  };
 
 
 
@@ -146,6 +181,29 @@ const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tick
                       <td className="p-3 text-sm text-gray-600 dark:text-gray-400">
                         {ticket.dueDate}
                       </td>
+                      <td className="p-3">
+                        <div className="flex gap-2">
+                        <button
+                            onClick={() => handleView(ticket.id)}
+                            className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleEdit(ticket.id)}
+                            className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(ticket.id)}
+                            disabled={isDeleting === ticket.id}
+                            className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                          >
+                            {isDeleting === ticket.id ? '' : ''} Delete
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -222,11 +280,33 @@ const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tick
                   ))}
                 </div>
               </div>
+              <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <button
+                  onClick={() => handleView(ticket.id)}
+                  className="flex-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  View
+                </button>
+                <button
+                  onClick={() => handleEdit(ticket.id)}
+                  className="flex-1 px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDelete(ticket.id)}
+                  disabled={isDeleting === ticket.id}
+                  className="flex-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                >
+                  {isDeleting === ticket.id ? '' : ''} Delete
+                </button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
     </div>
+    
   )
 }
 
