@@ -1,40 +1,33 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 
-const TicketStatusChart = () => {
+
+const TicketStatusChart = ({ tickets }) => { 
   const [data, setData] = useState([]);
 
-useEffect(() => {
-  fetch("http://localhost:8000/tickets")
-    .then(res => res.json())
-    .then(tickets => {
-      console.log("Fetched Tickets:", tickets); 
+  useEffect(() => {
+    if (tickets.length > 0) {
+      const counts = { Open: 0, "In Progress": 0, Closed: 0 }; 
 
-      const counts = { Open: 0, "In Progress": 0, Closed: 0 };
-
-      tickets.forEach(ticket => {
+      tickets.forEach(ticket => { 
         const status = ticket.status?.trim(); 
-        if (counts.hasOwnProperty(status)) {
-          counts[status]++;
+        if (counts.hasOwnProperty(status)) { 
+          counts[status]++; //
         } else {
           console.warn("Unknown status found:", status);
         }
       });
 
-      const chartData = Object.entries(counts).map(([status, count]) => ({
+      const chartData = Object.entries(counts).map(([status, count]) => ({ 
         status,
         count,
       }));
 
-      console.log("Chart Data:", chartData);
-
-      setData(chartData);
-    })
-    .catch(err => {
-      console.error("Failed to fetch tickets:", err);
-    });
-}, []);
-
+      setData(chartData); 
+    } else {
+        setData([]);
+    }
+  }, [tickets]); 
 
   return (
     <div className="rounded-xl shadow p-6 w-full">

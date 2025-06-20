@@ -10,34 +10,33 @@ import {
 
 const COLORS = ["#9cc1e0", "#6a9cc6", "#457caa", "#2c6799", "#155081"];
 
-const InProgressTicketsPieChart = () => {
-  const [data, setData] = useState([]);
+
+const InProgressTicketsPieChart = ({ tickets }) => { 
+  const [data, setData] = useState([]); 
 
   useEffect(() => {
-    fetch("http://localhost:8000/tickets")
-      .then(res => res.json())
-      .then(tickets => {
-        
-        const inProgressTickets = tickets.filter(t => t.status === "In Progress");
 
-        
-        const counts = {};
-        inProgressTickets.forEach(ticket => {
-          const group = ticket.workGroup?.trim() || "Unknown";
-          counts[group] = (counts[group] || 0) + 1;
-        });
+    if (tickets.length > 0) {
+      const inProgressTickets = tickets.filter(t => t.status === "In Progress"); 
 
-        
-        const chartData = Object.entries(counts).map(([name, value]) => ({
-          name,
-          value,
-        }));
-
-        setData(chartData);
+      const counts = {}; 
+      inProgressTickets.forEach(ticket => { 
+        const group = ticket.workGroup?.trim() || "Unknown"; 
+        counts[group] = (counts[group] || 0) + 1; 
       });
-  }, []);
 
-return (
+      const chartData = Object.entries(counts).map(([name, value]) => ({ 
+        name,
+        value,
+      }));
+
+      setData(chartData); 
+    } else {
+        setData([]); 
+    }
+  }, [tickets]); 
+
+  return (
     <div className="flex justify-center items-center min-h-[400px]">
         <div className="rounded-xl shadow p-6 w-full max-w-xl">
             <h2 className="text-xl font-bold mb-4 text-center">In Progress Tickets by Work Group</h2>
@@ -63,7 +62,7 @@ return (
             </ResponsiveContainer>
         </div>
     </div>
-);
+  );
 };
 
 export default InProgressTicketsPieChart;

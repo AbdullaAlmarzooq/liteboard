@@ -10,36 +10,36 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const TicketModuleStackedChart = () => {
+const TicketModuleStackedChart = ({ tickets }) => { 
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:8000/tickets")
-      .then(res => res.json())
-      .then(tickets => {
-        const counts = {};
+    if (tickets.length > 0) {
+      const counts = {}; 
 
-        tickets.forEach(ticket => {
-          const module = ticket.module?.trim() || "Unknown";
-          const status = ticket.status?.trim();
+      tickets.forEach(ticket => { 
+        const module = ticket.module?.trim() || "Unknown"; 
+        const status = ticket.status?.trim(); 
 
-          if (status === "Open" || status === "In Progress") {
-            if (!counts[module]) {
-              counts[module] = { module, Open: 0, InProgress: 0 };
-            }
-            if (status === "Open") {
-              counts[module].Open++;
-            }
-            if (status === "In Progress") {
-              counts[module].InProgress++;
-            }
+        if (status === "Open" || status === "In Progress") { 
+          if (!counts[module]) { 
+            counts[module] = { module, Open: 0, InProgress: 0 }; 
           }
-        });
-
-        const chartData = Object.values(counts);
-        setData(chartData);
+          if (status === "Open") { 
+            counts[module].Open++; 
+          }
+          if (status === "In Progress") { 
+            counts[module].InProgress++; 
+          }
+        }
       });
-  }, []);
+
+      const chartData = Object.values(counts); 
+      setData(chartData); 
+    } else {
+        setData([]);
+    }
+  }, [tickets]); 
 
   return (
     <div className="rounded-xl shadow p-6 w-full">

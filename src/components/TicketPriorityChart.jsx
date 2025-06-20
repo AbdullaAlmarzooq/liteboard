@@ -1,40 +1,33 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 
-const TicketPriorityChart = () => {
+
+const TicketPriorityChart = ({ tickets }) => { 
   const [data, setData] = useState([]);
 
-useEffect(() => {
-  fetch("http://localhost:8000/tickets")
-    .then(res => res.json())
-    .then(tickets => {
-      console.log("Fetched Tickets:", tickets); 
+  useEffect(() => {
+    if (tickets.length > 0) {
+      const counts = { High: 0, Medium: 0, Low: 0 }; 
 
-      const counts = { High: 0, Medium: 0, Low: 0 };
-
-      tickets.forEach(ticket => {
-        const priority = ticket.priority?.trim();
-        if (counts.hasOwnProperty(priority)) {
-          counts[priority]++;
+      tickets.forEach(ticket => { 
+        const priority = ticket.priority?.trim(); 
+        if (counts.hasOwnProperty(priority)) { 
+          counts[priority]++; 
         } else {
-          console.warn("Unknown priority found:", priority);
+          console.warn("Unknown priority found:", priority); 
         }
       });
 
-      const chartData = Object.entries(counts).map(([priority, count]) => ({
+      const chartData = Object.entries(counts).map(([priority, count]) => ({ 
         priority,
         count,
       }));
 
-      console.log("Chart Data:", chartData); 
-
-      setData(chartData);
-    })
-    .catch(err => {
-      console.error("Failed to fetch tickets:", err);
-    });
-}, []);
-
+      setData(chartData); 
+    } else {
+        setData([]);
+    }
+  }, [tickets]); 
 
   return (
     <div className="rounded-xl shadow p-6 w-full">
