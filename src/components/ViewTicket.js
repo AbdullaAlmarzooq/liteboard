@@ -130,7 +130,7 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
           {ticket.tags && ticket.tags.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Tags2</CardTitle>
+                <CardTitle className="text-lg">Tags</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">

@@ -10,6 +10,8 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
   const { data: tags } = useFetch('http://localhost:8000/tags');
   const { data: workgroups } = useFetch('http://localhost:8000/workgroups');
 
+  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -251,49 +253,44 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
                 <CardTitle>Assignment</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Work Group
-                  </label>
-                  <select
-                    name="workGroup"
-                    value={formData.workGroup}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="">Select Work Group</option>
-                    {workgroups && workgroups.map(wg => (
-                      <option key={wg.id} value={wg.name}>{wg.name}</option>
-                    ))}
-                    {/* Add common workgroups from your data */}
-                    <option value="Design">Design</option>
-                    <option value="IT">IT</option>
-                    <option value="Ops">Ops</option>
-                    <option value="Dev">Dev</option>
-                  </select>
-                </div>
+              <div>
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    Work Group
+  </label>
+  <select
+    name="workGroup"
+    value={formData.workGroup}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+  >
+    <option value="">Select Work Group</option>
+    {workgroups && workgroups.map(wg => (
+      <option key={wg.id} value={wg.name}>{wg.name}</option>
+    ))}
+  </select>
+</div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Responsible Person
-                  </label>
-                  <select
-                    name="responsible"
-                    value={formData.responsible}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="">Select Person</option>
-                    {employees && employees.filter(emp => emp.active).map(emp => (
-                      <option key={emp.id} value={emp.name}>{emp.name}</option>
-                    ))}
-                    {/* Add existing responsible persons from tickets */}
-                    <option value="Ali Hassan Ali">Ali Hassan Ali</option>
-                    <option value="Fatima Yousif">Fatima Yousif</option>
-                    <option value="Mohammed Saleh">Mohammed Saleh</option>
-                    <option value="Sara Ahmed">Sara Ahmed</option>
-                  </select>
-                </div>
+<div>
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    Responsible Person
+  </label>
+  <select
+    name="responsible"
+    value={formData.responsible}
+    onChange={handleInputChange}
+    disabled={!employees}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+  >
+    <option value="">
+      {employees ? "Select Person" : "Loading employees..."}
+    </option>
+    {employees && employees
+      .filter(emp => emp.active)
+      .map(emp => (
+        <option key={emp.id} value={emp.name}>{emp.name}</option>
+      ))}
+  </select>
+</div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

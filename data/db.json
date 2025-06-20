@@ -60,6 +60,17 @@
       ],
       "active": true,
       "joined_date": "2021-01-10"
+    },
+    {
+      "id": "EMP-005",
+      "name": "Hadi Altawash",
+      "email": "Hadi@company.com",
+      "position": "Customer Services Specialist",
+      "department": "Customer Service - Customer Service Centers",
+      "workgroup": "Customer Service",
+      "skills": [],
+      "active": true,
+      "joined_date": "2025-06-20"
     }
   ],
   "tickets": [
@@ -211,6 +222,10 @@
     {
       "id": "edd0",
       "label": "ui/ux"
+    },
+    {
+      "id": "TAG-009",
+      "label": ""
     }
   ],
   "workgroups": [

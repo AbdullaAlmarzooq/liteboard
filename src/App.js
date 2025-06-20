@@ -1,6 +1,7 @@
 "use client"
 import { useState } from "react"
 import Navigation from "./components/Navigation"
+import Admin from "./pages/AdminPanel"
 import Dashboard from "./pages/Dashboard"
 import TicketsPage from "./pages/TicketsPage"
 import CreateTicketPage from "./pages/CreateTicketPage"
@@ -39,6 +40,8 @@ function App() {
         return <TicketsPage setCurrentPage={setCurrentPage} />
       case "create-ticket":
         return <CreateTicketPage />
+        case "admin":
+        return <Admin />
       default:
         return <Dashboard />
     }

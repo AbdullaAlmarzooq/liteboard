@@ -7,7 +7,8 @@ const Navigation = ({ currentPage, setCurrentPage }) => {
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: "📊" },
     { id: "tickets", label: "Tickets", icon: "🎫" },
-    { id: "create-ticket", label: "Create Ticket", icon: "➕" }
+    { id: "create-ticket", label: "Create Ticket", icon: "➕" },
+    { id: "admin", label: "Admin Panel", icon: "🛠️" }
   ]
 
   return (
