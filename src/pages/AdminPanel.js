@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Edit2, Save, X, Plus, Users, Tag, Briefcase } from 'lucide-react';
+import { Edit2, Save, X, Plus, Users, Tag, Briefcase, AppWindow } from 'lucide-react';
+
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('employees');
   const [employees, setEmployees] = useState([]);
   const [tags, setTags] = useState([]);
+  const [modules, setModules] = useState([]);
   const [workgroups, setWorkgroups] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -18,15 +20,17 @@ const AdminPanel = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [empRes, tagsRes, wgRes] = await Promise.all([
+      const [empRes, tagsRes, wgRes, modRes] = await Promise.all([
         fetch('http://localhost:8000/employees'),
         fetch('http://localhost:8000/tags'),
-        fetch('http://localhost:8000/workgroups')
+        fetch('http://localhost:8000/workgroups'),
+        fetch('http://localhost:8000/modules')
       ]);
       
       setEmployees(await empRes.json());
       setTags(await tagsRes.json());
       setWorkgroups(await wgRes.json());
+      setModules(await modRes.json());
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -54,8 +58,10 @@ const AdminPanel = () => {
         setTags(prev => prev.map(tag => tag.id === editForm.id ? editForm : tag));
       } else if (activeTab === 'workgroups') {
         setWorkgroups(prev => prev.map(wg => wg.id === editForm.id ? editForm : wg));
+      } else if (activeTab === 'modules') {
+        setModules(prev => prev.map(mod => mod.id === editForm.id ? editForm : mod));
       }
-      
+
       setEditingItem(null);
       setEditForm({});
     } catch (error) {
@@ -94,6 +100,11 @@ const AdminPanel = () => {
         name: '',
         description: ''
       };
+    } else if (activeTab === 'modules') {
+      newItem = {
+        name: '',
+        description: ''
+      };
     }
 
     setCreateForm(newItem);
@@ -110,7 +121,10 @@ const AdminPanel = () => {
       newItem.id = `TAG-${String(tags.length + 1).padStart(3, '0')}`;
     } else if (activeTab === 'workgroups') {
       newItem.id = `WG-${String(workgroups.length + 1).padStart(3, '0')}`;
+    } else if (activeTab === 'modules') {
+      newItem.id = `MOD-${String(modules.length + 1).padStart(3, '0')}`;
     }
+
 
     try {
       const response = await fetch(`http://localhost:8000/${activeTab}`, {
@@ -127,6 +141,8 @@ const AdminPanel = () => {
         setTags(prev => [...prev, createdItem]);
       } else if (activeTab === 'workgroups') {
         setWorkgroups(prev => [...prev, createdItem]);
+      } else if (activeTab === 'modules') {
+        setModules(prev => [...prev, createdItem]);
       }
       
       setShowCreateModal(false);
@@ -174,11 +190,12 @@ const AdminPanel = () => {
   const tabs = [
     { id: 'employees', label: 'Employees', icon: Users },
     { id: 'tags', label: 'Tags', icon: Tag },
-    { id: 'workgroups', label: 'Workgroups', icon: Briefcase }
+    { id: 'workgroups', label: 'Workgroups', icon: Briefcase },
+    { id: 'modules', label: 'Modules', icon: AppWindow }
   ];
 
   const renderEmployeeItem = (employee) => (
-    <div key={employee.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+    <div key={employee.id}   className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm">
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium text-gray-500">{employee.id}</span>
@@ -208,42 +225,42 @@ const AdminPanel = () => {
             type="text"
             value={editForm.name || ''}
             onChange={(e) => handleInputChange('name', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Name"
           />
           <input
             type="email"
             value={editForm.email || ''}
             onChange={(e) => handleInputChange('email', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Email"
           />
           <input
             type="text"
             value={editForm.position || ''}
             onChange={(e) => handleInputChange('position', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Position"
           />
           <input
             type="text"
             value={editForm.department || ''}
             onChange={(e) => handleInputChange('department', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Department"
           />
           <input
             type="text"
             value={editForm.workgroup || ''}
             onChange={(e) => handleInputChange('workgroup', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Workgroup"
           />
           <input
             type="text"
             value={editForm.skills ? editForm.skills.join(', ') : ''}
             onChange={(e) => handleSkillsChange(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Skills (comma separated)"
           />
           <div className="flex items-center space-x-2">
@@ -260,15 +277,8 @@ const AdminPanel = () => {
         <div className="space-y-2">
           <h3 className="font-semibold text-lg">{employee.name}</h3>
           <p className="text-gray-600">{employee.email}</p>
-          <p className="text-sm text-gray-500">{employee.position}</p>
+          <p className="text-sm text-gray-500">{employee.position}</p>  
           <p className="text-sm text-gray-500">{employee.department} - {employee.workgroup}</p>
-          <div className="flex flex-wrap gap-1 mt-2">
-            {employee.skills.map((skill, index) => (
-              <span key={index} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                {skill}
-              </span>
-            ))}
-          </div>
           <p className="text-xs text-gray-400">Joined: {employee.joined_date}</p>
         </div>
       )}
@@ -276,7 +286,7 @@ const AdminPanel = () => {
   );
 
   const renderTagItem = (tag) => (
-    <div key={tag.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+    <div key={tag.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium text-gray-500">{tag.id}</span>
@@ -305,13 +315,13 @@ const AdminPanel = () => {
             type="text"
             value={editForm.label || ''}
             onChange={(e) => handleInputChange('label', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Tag label"
           />
         </div>
       ) : (
         <div className="mt-2">
-          <span className="bg-gray-100 text-gray-800 px-3 py-1 rounded-full text-sm">
+          <span className="bg-gray-200 text-gray-800 px-3 py-1 rounded-full text-sm ">
             {tag.label}
           </span>
         </div>
@@ -320,7 +330,7 @@ const AdminPanel = () => {
   );
 
   const renderWorkgroupItem = (workgroup) => (
-    <div key={workgroup.id} className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+    <div key={workgroup.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm">
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center space-x-2">
           <span className="text-sm font-medium text-gray-500">{workgroup.id}</span>
@@ -349,13 +359,13 @@ const AdminPanel = () => {
             type="text"
             value={editForm.name || ''}
             onChange={(e) => handleInputChange('name', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Workgroup name"
           />
           <textarea
             value={editForm.description || ''}
             onChange={(e) => handleInputChange('description', e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-md"
+            className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
             placeholder="Description"
             rows="3"
           />
@@ -369,11 +379,63 @@ const AdminPanel = () => {
     </div>
   );
 
+const renderModuleItem = (module) => (
+  <div key={module.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm">
+    <div className="flex justify-between items-center">
+      <div className="flex items-center space-x-2">
+        <span className="text-sm font-medium text-gray-500">{module.id}</span>
+      </div>
+      <div className="flex space-x-2">
+        {editingItem === module.id ? (
+          <>
+            <button onClick={handleSave} className="text-green-600 hover:text-green-800">
+              <Save size={16} />
+            </button>
+            <button onClick={handleCancel} className="text-red-600 hover:text-red-800">
+              <X size={16} />
+            </button>
+          </>
+        ) : (
+          <button onClick={() => handleEdit(module)} className="text-blue-600 hover:text-blue-800">
+            <Edit2 size={16} />
+          </button>
+        )}
+      </div>
+    </div>
+
+    {editingItem === module.id ? (
+      <div className="mt-3 space-y-2">
+        <input
+          type="text"
+          value={editForm.name || ''}
+          onChange={(e) => handleInputChange('name', e.target.value)}
+          className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
+          placeholder="Module name"
+        />
+        <textarea
+          value={editForm.description || ''}
+          onChange={(e) => handleInputChange('description', e.target.value)}
+          className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
+          placeholder="Module description"
+          rows="3"
+        />
+      </div>
+    ) : (
+      <div className="mt-2">
+        <h3 className="font-semibold text-lg">{module.name}</h3>
+        <p className="text-gray-600 text-sm">{module.description}</p>
+      </div>
+    )}
+  </div>
+);
+
+
   const getCurrentData = () => {
     switch (activeTab) {
       case 'employees': return employees;
       case 'tags': return tags;
       case 'workgroups': return workgroups;
+      case 'modules': return modules;
       default: return [];
     }
   };
@@ -394,18 +456,19 @@ const AdminPanel = () => {
         {activeTab === 'employees' && data.map(renderEmployeeItem)}
         {activeTab === 'tags' && data.map(renderTagItem)}
         {activeTab === 'workgroups' && data.map(renderWorkgroupItem)}
+        {activeTab === 'modules' && data.map(renderModuleItem)}
       </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg">
+        <div className>
           {/* Header */}
           <div className="px-6 py-4 border-b border-gray-200">
-            <h1 className="text-2xl font-bold text-gray-900">Admin Panel</h1>
-            <p className="text-gray-600 mt-1">Manage employees, tags, and workgroups</p>
+            <h1 className="text-2xl font-bold">Admin Panel</h1>
+            <p className="mt-1">Manage employees, tags, workgroups, and modules</p>
           </div>
 
           {/* Tabs */}
@@ -451,7 +514,7 @@ const AdminPanel = () => {
         {/* Create Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold">
@@ -469,67 +532,57 @@ const AdminPanel = () => {
                   {activeTab === 'employees' && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Name</label>
                         <input
                           type="text"
                           value={createForm.name || ''}
                           onChange={(e) => handleCreateInputChange('name', e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                           placeholder="Enter name"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Email</label>
                         <input
                           type="email"
                           value={createForm.email || ''}
                           onChange={(e) => handleCreateInputChange('email', e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                           placeholder="Enter email"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Position</label>
                         <input
                           type="text"
                           value={createForm.position || ''}
                           onChange={(e) => handleCreateInputChange('position', e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                           placeholder="Enter position"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Department</label>
                         <input
                           type="text"
                           value={createForm.department || ''}
                           onChange={(e) => handleCreateInputChange('department', e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                           placeholder="Enter department"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Workgroup</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Workgroup</label>
                         <select
                           value={createForm.workgroup || ''}
                           onChange={(e) => handleCreateInputChange('workgroup', e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                         >
                           <option value="">Select Workgroup</option>
                           {workgroups && workgroups.map(wg => (
                             <option key={wg.id} value={wg.name}>{wg.name}</option>
                           ))}
                         </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Skills</label>
-                        <input
-                          type="text"
-                          value={createForm.skills ? createForm.skills.join(', ') : ''}
-                          onChange={(e) => handleCreateSkillsChange(e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter skills (comma separated)"
-                        />
                       </div>
                       <div className="flex items-center space-x-2">
                         <input
@@ -538,19 +591,19 @@ const AdminPanel = () => {
                           onChange={(e) => handleCreateInputChange('active', e.target.checked)}
                           className="rounded"
                         />
-                        <label className="text-sm text-gray-700">Active</label>
+                        <label className="text-sm text-gray-700 dark:text-gray-200">Active</label>
                       </div>
                     </>
                   )}
 
                   {activeTab === 'tags' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Label</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Label</label>
                       <input
                         type="text"
                         value={createForm.label || ''}
                         onChange={(e) => handleCreateInputChange('label', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                         placeholder="Enter tag label"
                       />
                     </div>
@@ -559,26 +612,49 @@ const AdminPanel = () => {
                   {activeTab === 'workgroups' && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Name</label>
                         <input
                           type="text"
                           value={createForm.name || ''}
                           onChange={(e) => handleCreateInputChange('name', e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                           placeholder="Enter workgroup name"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Description</label>
                         <textarea
                           value={createForm.description || ''}
                           onChange={(e) => handleCreateInputChange('description', e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                           placeholder="Enter description"
                           rows="3"
                         />
                       </div>
                     </>
+                  )}
+
+                  {activeTab === 'modules' && (
+
+                    
+                    <div>
+                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={createForm.name || ''}
+                          onChange={(e) => handleCreateInputChange('name', e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                          placeholder="Enter module name"
+                        />
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Description</label>
+                      <textarea
+                        value={createForm.description || ''}
+                        onChange={(e) => handleCreateInputChange('description', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                        placeholder="Enter module description"
+                        rows="3"
+                      />
+                    </div>
                   )}
                 </div>
 
@@ -603,6 +679,7 @@ const AdminPanel = () => {
       </div>
     </div>
   );
-};
+}; 
+
 
 export default AdminPanel;

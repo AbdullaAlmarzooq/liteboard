@@ -2,7 +2,7 @@
   "employees": [
     {
       "id": "EMP-001",
-      "name": "Abdulla",
+      "name": "Abdulla Almarzooq",
       "email": "abdulla@company.com",
       "position": "Senior Digital Channels Specialist",
       "department": "Customer Service",
@@ -18,7 +18,7 @@
     },
     {
       "id": "EMP-002",
-      "name": "Ali",
+      "name": "Ahmed Ali Yousif",
       "email": "ali@company.com",
       "position": "IT Support Engineer",
       "department": "IT",
@@ -33,7 +33,7 @@
     },
     {
       "id": "EMP-003",
-      "name": "Mohammed",
+      "name": "Sayed Mohammed",
       "email": "mohammed@company.com",
       "position": "System Administrator",
       "department": "Infrastructure",
@@ -43,12 +43,12 @@
         "Virtualization",
         "Security"
       ],
-      "active": false,
+      "active": true,
       "joined_date": "2017-06-25"
     },
     {
       "id": "EMP-004",
-      "name": "Hussain",
+      "name": "Hussain alQassab",
       "email": "hussain@company.com",
       "position": "Customer Experience Analyst",
       "department": "Customer Service",
@@ -79,9 +79,9 @@
       "title": "Unable to login to self-service portal",
       "status": "In Progress",
       "priority": "High",
-      "workGroup": "Design",
-      "responsible": "Ali Hassan Ali",
-      "module": "Authentication",
+      "workGroup": "Customer Services Center",
+      "responsible": "Hussain alQassab",
+      "module": "User Management",
       "tags": [
         "login",
         "portal",
@@ -96,8 +96,8 @@
       "title": "Report generation taking too long already",
       "status": "In Progress",
       "priority": "Medium",
-      "workGroup": "Design",
-      "responsible": "Hussain",
+      "workGroup": "Customer Services Center",
+      "responsible": "Sayed Mohammed",
       "module": "User Management",
       "tags": [
         "performance",
@@ -112,24 +112,25 @@
       "title": "Request to add new user role",
       "status": "Closed",
       "priority": "Low",
-      "workGroup": "Ops",
-      "responsible": "Mohammed Saleh",
-      "module": "User Management",
+      "workGroup": "Admin",
+      "responsible": "Sayed Mohammed",
+      "module": "Authentication",
       "tags": [
         "role",
         "user"
       ],
       "startDate": "2025-06-01",
-      "dueDate": "2025-06-05"
+      "dueDate": "2025-06-05",
+      "description": ""
     },
     {
       "id": "TCK-1004",
       "title": "Email notifications not sent to users",
       "status": "Open",
       "priority": "High",
-      "workGroup": "IT",
-      "responsible": "Sara Ahmed",
-      "module": "Authentication",
+      "workGroup": "Digital Transformation",
+      "responsible": "Ahmed Ali Yousif",
+      "module": "Notification Service",
       "tags": [
         "email",
         "notifications",
@@ -145,9 +146,9 @@
       "description": "dark mode button is not working, currently it shows the website in dark mode all the time",
       "status": "Open",
       "priority": "Medium",
-      "workGroup": "Dev",
-      "responsible": "Abdulla",
-      "module": "Authentication",
+      "workGroup": "Digital Infrastructure",
+      "responsible": "Hadi Altawash",
+      "module": "User Management",
       "tags": [
         "ui/ux",
         "bug"
@@ -161,9 +162,9 @@
       "description": "remove the projects from the dashboard as the application have tickets only not a projects",
       "status": "Open",
       "priority": "Medium",
-      "workGroup": "IT",
-      "responsible": "Hussain",
-      "module": "Notification Service",
+      "workGroup": "Admin",
+      "responsible": "Abdulla Almarzooq",
+      "module": "Reporting Engine",
       "tags": [
         "ui/ux",
         "bug"
@@ -178,9 +179,9 @@
       "description": "The tickets page must have export button to export all data into .csv file",
       "status": "In Progress",
       "priority": "Critical",
-      "workGroup": "Dev",
-      "responsible": "Mohammed",
-      "module": "User Management",
+      "workGroup": "Digital Transformation",
+      "responsible": "Hussain alQassab",
+      "module": "Reporting Engine",
       "tags": [
         "feature",
         "enhancement"
@@ -188,6 +189,40 @@
       "startDate": "2025-06-23",
       "dueDate": "2025-06-23",
       "initiateDate": "2025-06-17 17:24:30"
+    },
+    {
+      "id": "TCK-1008",
+      "title": "add modules in new endpoint in database",
+      "description": "modules needs to be fetched from the database in both \"create ticket\" and can be managed in admin panel too.",
+      "status": "Open",
+      "priority": "Critical",
+      "workGroup": "Digital Channels",
+      "responsible": "Hadi Altawash",
+      "module": "Notification Service",
+      "tags": [
+        "feature",
+        "enhancement"
+      ],
+      "startDate": "2025-06-21",
+      "dueDate": "2025-07-07",
+      "initiateDate": "2025-06-20 15:36:58"
+    },
+    {
+      "id": "TCK-1009",
+      "title": "Dashboard enhancment",
+      "description": "Dashboard must have filters",
+      "status": "Open",
+      "priority": "Critical",
+      "workGroup": "Digital Infrastructure",
+      "responsible": "Hussain alQassab",
+      "module": "Dashboard",
+      "tags": [
+        "ui/ux",
+        "enhancement"
+      ],
+      "startDate": "2025-06-26",
+      "dueDate": "2025-07-12",
+      "initiateDate": "2025-06-20 16:44:46"
     }
   ],
   "tags": [
@@ -220,29 +255,71 @@
       "label": "performance"
     },
     {
-      "id": "edd0",
+      "id": "TAG-008",
       "label": "ui/ux"
     },
     {
       "id": "TAG-009",
-      "label": ""
+      "label": "IGA"
     }
   ],
   "workgroups": [
     {
       "id": "WG-001",
-      "name": "Customer Service",
-      "description": "Handles customer inquiries and support requests."
+      "name": "Customer Services Center",
+      "description": "Manage the Customer service centers."
     },
     {
       "id": "WG-002",
-      "name": "IT",
+      "name": "Digital Infrastructure",
       "description": "Responsible for IT infrastructure and support."
     },
     {
       "id": "WG-003",
       "name": "Admin",
       "description": "Manages user accounts and permissions."
+    },
+    {
+      "id": "WG-004",
+      "name": "Digital Channels",
+      "description": "Responsible for the Digital channels."
+    },
+    {
+      "id": "WG-005",
+      "name": "Digital Transformation",
+      "description": "Responsible of the digital transformation."
+    }
+  ],
+  "modules": [
+    {
+      "id": "MOD-001",
+      "name": "Authentication",
+      "description": "Handles user authentication and authorization."
+    },
+    {
+      "id": "MOD-002",
+      "name": "User Management",
+      "description": "Manages user profiles and roles."
+    },
+    {
+      "id": "MOD-003",
+      "name": "Notification Service",
+      "description": "Sends notifications to users."
+    },
+    {
+      "id": "MOD-004",
+      "name": "Reporting",
+      "description": "Generates reports based on user data."
+    },
+    {
+      "id": "MOD-005",
+      "name": "Dashboard",
+      "description": "Provides an overview of system status and metrics."
+    },
+    {
+      "id": "MOD-006",
+      "name": "UI/UX",
+      "description": "Handles user interface and user experience design."
     }
   ]
 }

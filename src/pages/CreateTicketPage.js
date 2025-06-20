@@ -24,8 +24,12 @@ const CreateTicketPage = () => {
   })
 
   const { data: availableTags, isPending: tagsLoading, error: tagsError } = useFetch('http://localhost:8000/tags')
+  const { data: employees, isPending: employeesLoading, error: employeesError } = useFetch('http://localhost:8000/employees')
+  const { data: workgroups, isPending: workgroupsLoading, error: workgroupsError } = useFetch('http://localhost:8000/workgroups')
+  const { data: modules, isPending: modulesLoading, error: modulesError } = useFetch('http://localhost:8000/modules')
 
-    const handleInputChange = (e) => {
+
+  const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({
       ...prev,
@@ -230,7 +234,13 @@ const CreateTicketPage = () => {
     setCustomTag("")
   }
 
-    if (tagsLoading) {
+  // Check if any data is still loading
+  const isLoading = tagsLoading || employeesLoading || workgroupsLoading || modulesLoading
+
+  // Check for any errors
+  const hasError = tagsError || employeesError || workgroupsError || modulesError
+
+  if (isLoading) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
@@ -245,22 +255,34 @@ const CreateTicketPage = () => {
     )
   }
 
-  if (tagsError) {
+  if (hasError) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
             Create New Ticket
           </h1>
-          <p className="text-red-600 dark:text-red-400">
-            Error loading tags: {tagsError.message}
-          </p>
+          <div className="space-y-2">
+            {tagsError && (
+              <p className="text-red-600 dark:text-red-400">
+                Error loading tags: {tagsError.message}
+              </p>
+            )}
+            {employeesError && (
+              <p className="text-red-600 dark:text-red-400">
+                Error loading employees: {employeesError.message}
+              </p>
+            )}
+            {workgroupsError && (
+              <p className="text-red-600 dark:text-red-400">
+                Error loading workgroups: {workgroupsError.message}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     )
   }
-
-
 
   const handleKeyPress = e => {
     if (e.key === "Enter") {
@@ -387,10 +409,15 @@ const CreateTicketPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select work group</option>
-                <option value="IT">IT</option>
-                <option value="Dev">Dev</option>
-                <option value="Design">Design</option>
-                <option value="Ops">Ops</option>
+                {workgroups && workgroups.length > 0 ? (
+                  workgroups.map(workgroup => (
+                    <option key={workgroup.id} value={workgroup.name}>
+                      {workgroup.name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No workgroups available</option>
+                )}
               </select>
             </div>
 
@@ -409,10 +436,15 @@ const CreateTicketPage = () => {
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               >
                 <option value="">Select person</option>
-                <option value="Abdulla">Abdulla</option>
-                <option value="Ali">Ali</option>
-                <option value="Mohammed">Mohammed</option>
-                <option value="Hussain">Hussain</option>
+                {employees && employees.length > 0 ? (
+                  employees.map(employee => (
+                    <option key={employee.id} value={employee.name}>
+                      {employee.name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>No employees available</option>
+                )}
               </select>
             </div>
           </div>
@@ -432,10 +464,15 @@ const CreateTicketPage = () => {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="">Select module</option>
-              <option value="auth">Auth</option>
-              <option value="ui">UI</option>
-              <option value="backend">Backend</option>
-              <option value="api">API</option>
+              {modules && modules.length > 0 ? (
+               modules.map(module => (
+                <option key={module.id} value={module.name}>
+                  {module.name}
+              </option>
+  ))
+) : (
+  <option disabled>No modules available</option>
+)}
             </select>
           </div>
 
@@ -551,10 +588,10 @@ const CreateTicketPage = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Button type="submit" className="flex-1">
-              Create Ticket
+            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              {isSubmitting ? "Creating..." : "Create Ticket"}
             </Button>
-            <Button type="button" variant="outline">
+            <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
             </div>
