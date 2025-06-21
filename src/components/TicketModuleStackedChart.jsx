@@ -42,7 +42,7 @@ const TicketModuleStackedChart = ({ tickets }) => {
   }, [tickets]); 
 
   return (
-    <div className="rounded-xl shadow p-6 w-full">
+    <div className="rounded-xl shadow-lg p-6 bg-gray-200 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
       <h2 className="text-xl font-bold mb-4">Open and In Progress Tickets by Module</h2>
       <ResponsiveContainer width="100%" height={350}>
         <BarChart data={data}>
