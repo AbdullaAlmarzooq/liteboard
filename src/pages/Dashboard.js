@@ -5,6 +5,8 @@ import OpenTicketsPieChart from "../components/OpenTicketsPieChart"; //
 import InProgressTicketsPieChart from "../components/InProgressTicketsPieChart"; //
 import TicketModuleStackedChart from "../components/TicketModuleStackedChart"; //
 import FilterBar from "../components/FilterBar";
+import TotalOpenTickets from '../components/TotalOpenTickets';
+import TotalPendingTickets from '../components/TotalPendingTickets';
 
 const Dashboard = () => {
   const [allTickets, setAllTickets] = useState([]);
@@ -81,6 +83,11 @@ const Dashboard = () => {
       {areFiltersVisible && (
         <FilterBar onFilterChange={handleFilterChange} allTickets={allTickets} />
       )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <TotalOpenTickets tickets={filteredTickets} />
+        <TotalPendingTickets tickets={filteredTickets} />
+      </div>
 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

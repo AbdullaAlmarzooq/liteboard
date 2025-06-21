@@ -223,6 +223,54 @@
       "startDate": "2025-06-26",
       "dueDate": "2025-07-12",
       "initiateDate": "2025-06-20 16:44:46"
+    },
+    {
+      "id": "TCK-1010",
+      "title": "User Authentication",
+      "description": "Authentication refers to the process of verifying the identity of a user or entity accessing a web application or system. It involves implementing the necessary mechanisms to ensure that only authorized users can access restricted areas or perform specific actions within the application.",
+      "status": "Open",
+      "priority": "Medium",
+      "workGroup": "Digital Channels",
+      "responsible": "Abdulla Almarzooq",
+      "module": "Authentication",
+      "tags": [
+        "enhancement"
+      ],
+      "startDate": "2025-06-23",
+      "dueDate": "2025-06-26",
+      "initiateDate": "2025-06-21 06:53:36"
+    },
+    {
+      "id": "TCK-1011",
+      "title": "light mode",
+      "description": "light mode needs enhancements",
+      "status": "Open",
+      "priority": "Medium",
+      "workGroup": "Digital Infrastructure",
+      "responsible": "Hussain alQassab",
+      "module": "UI/UX",
+      "tags": [
+        "enhancement"
+      ],
+      "startDate": "2025-06-24",
+      "dueDate": "2025-06-30",
+      "initiateDate": "2025-06-21 06:56:06"
+    },
+    {
+      "id": "TCK-1012",
+      "title": "Search bar",
+      "description": "add search bar in Tickets page",
+      "status": "In Progress",
+      "priority": "Medium",
+      "workGroup": "Customer Services Center",
+      "responsible": "Hadi Altawash",
+      "module": "UI/UX",
+      "tags": [
+        "ui/ux"
+      ],
+      "startDate": "2025-06-18",
+      "dueDate": "2025-06-26",
+      "initiateDate": "2025-06-21 07:42:11"
     }
   ],
   "tags": [
