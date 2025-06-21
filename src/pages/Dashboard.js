@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import TicketPriorityChart from "../components/TicketPriorityChart"; //
-import TicketStatusChart from "../components/TicketStatusChart"; //
-import OpenTicketsPieChart from "../components/OpenTicketsPieChart"; //
-import InProgressTicketsPieChart from "../components/InProgressTicketsPieChart"; //
-import TicketModuleStackedChart from "../components/TicketModuleStackedChart"; //
+import TicketPriorityChart from "../components/TicketPriorityChart";
+import TicketStatusChart from "../components/TicketStatusChart";
+import OpenTicketsPieChart from "../components/OpenTicketsPieChart";
+import InProgressTicketsPieChart from "../components/InProgressTicketsPieChart";
+import TicketModuleStackedChart from "../components/TicketModuleStackedChart";
+import TicketsCreatedLineChart from "../components/TicketsCreatedLineChart";
 import FilterBar from "../components/FilterBar";
 import TotalOpenTickets from '../components/TotalOpenTickets';
 import TotalPendingTickets from '../components/TotalPendingTickets';
@@ -100,6 +101,7 @@ const Dashboard = () => {
         <TicketPriorityChart tickets={filteredTickets} />
         <TicketStatusChart tickets={filteredTickets} />
       </div>
+      <TicketsCreatedLineChart tickets={filteredTickets} />
       <TicketModuleStackedChart tickets={filteredTickets} />
     </div>
   );

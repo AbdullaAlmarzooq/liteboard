@@ -1,7 +1,7 @@
 export const Card = ({ children, className = "", hover = false }) => {
   return (
     <div
-      className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm ${
+      className={`bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm ${
         hover ? "hover:shadow-md transition-shadow" : ""
       } ${className}`}
     >

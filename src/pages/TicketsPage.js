@@ -4,6 +4,8 @@ import Button from "../components/Button"
 import TicketFilter from "../components/TicketFilter"
 import useFetch from "../useFetch"
 import { useRef, useState } from 'react';
+import SearchBar from "../components/SearchBar";
+import TicketExporter from "../components/TicketExporter"
 
 
 const TicketsPage = ({ setCurrentPage }) => {
@@ -44,7 +46,6 @@ const [filteredTickets, setFilteredTickets] = useState(null);
   const displayTickets = filteredTickets !== null ? filteredTickets : (tickets || []);
 
   const handleEdit = (ticketId) => {
-    // Navigate to edit page with ticket ID
     setCurrentPage(`edit-ticket-${ticketId}`);
   };
 
@@ -61,7 +62,6 @@ const [filteredTickets, setFilteredTickets] = useState(null);
       });
 
       if (response.ok) {
-        // Refresh the page or update the tickets list
         window.location.reload();
       } else {
         alert('Failed to delete ticket');
@@ -75,7 +75,6 @@ const [filteredTickets, setFilteredTickets] = useState(null);
   };
 
   const handleView = (ticketId) => {
-    // Navigate to view ticket details page
     setCurrentPage(`view-ticket-${ticketId}`);
   };
 
@@ -109,16 +108,21 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
           <p className="text-gray-600 dark:text-gray-300">
           </p>
         </div>
+        <div className="flex gap-3">
         <Button onClick={() => setCurrentPage("create-ticket")}>
           <span className="mr-2">➕</span>
           Create Ticket
         </Button>
+        <TicketExporter ticketsToExport={displayTickets} />
+      </div>
       </div>
 
             <TicketFilter
         tickets={tickets}
         onFilteredTicketsChange={handleFilteredTicketsChange}
       />
+
+        <SearchBar allTickets={tickets || []} onTicketSelect={setCurrentPage} />
 
       {/* Desktop Table View */}
       <div className="hidden lg:block">
@@ -130,7 +134,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <tr className="border-b border-gray-300 dark:border-gray-700">
                     <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
                       ID
                     </th>
@@ -169,7 +173,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                     return (
                       <tr
                         key={ticket.id}
-                        className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                        className="border-b border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700/50"
                       >
                         <td className="p-3 font-mono text-sm text-gray-600 dark:text-gray-400">
                           {ticket.id}
