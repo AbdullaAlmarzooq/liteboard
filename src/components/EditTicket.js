@@ -1,17 +1,21 @@
-import { Card, CardContent, CardHeader, CardTitle } from "../components/Card"
-import Badge from "../components/Badge"
-import Button from "../components/Button"
-import useFetch from "../useFetch"
+// This is the refactored main component. It manages state and API calls, and renders the sub-components.
 import { useState, useEffect } from 'react';
+import useFetch from "../useFetch";
+import Button from "../components/Button";
+
+// Import the new sub-components
+import TicketDetailsForm from './TicketDetailsForm';
+import AssignmentAndTimeline from './AssignmentAndTimeline';
+import CommentSection from './CommentSection';
 
 const EditTicket = ({ ticketId, setCurrentPage }) => {
+  // Fetch ticket data and related resources
   const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/tickets/${ticketId}`);
   const { data: employees } = useFetch('http://localhost:8000/employees');
   const { data: tags } = useFetch('http://localhost:8000/tags');
   const { data: workgroups } = useFetch('http://localhost:8000/workgroups');
 
-  
-
+  // State for the main form data
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -22,13 +26,23 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
     module: '',
     tags: [],
     startDate: '',
-    dueDate: ''
+    dueDate: '',
   });
 
+  // State for comments and comment modal/editing logic
+  const [comments, setComments] = useState([]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [commentToDeleteId, setCommentToDeleteId] = useState(null);
+  
+  // State for form submission
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [isAddingComment, setIsAddingComment] = useState(false);
 
-  // Load ticket data into form when ticket is fetched
+  // Effect to populate form data and comments when ticket data is fetched
   useEffect(() => {
     if (ticket) {
       setFormData({
@@ -41,11 +55,13 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
         module: ticket.module || '',
         tags: ticket.tags || [],
         startDate: ticket.startDate || '',
-        dueDate: ticket.dueDate || ''
+        dueDate: ticket.dueDate || '',
       });
+      setComments(ticket.comments || []);
     }
   }, [ticket]);
 
+  // Handler for all input changes in the main form
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -54,6 +70,7 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
     }));
   };
 
+  // Handler for toggling tags
   const handleTagToggle = (tagLabel) => {
     setFormData(prev => ({
       ...prev,
@@ -63,10 +80,26 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  // Handler for submitting a new comment
+  const handleCommentSubmit = async () => {
+    if (!newCommentText.trim()) return;
+
+    setIsAddingComment(true);
     setSubmitError('');
+
+    const nextSequenceNumber = comments.length + 1;
+    const paddedSequence = String(nextSequenceNumber).padStart(3, '0');
+    const newCommentId = `COM-${paddedSequence}`;
+
+    const newComment = {
+      id: newCommentId,
+      text: newCommentText,
+      author: 'Current User',
+      timestamp: new Date().toISOString(),
+      type: "comment",
+    };
+
+    const updatedComments = [...comments, newComment];
 
     try {
       const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
@@ -75,14 +108,194 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...ticket, // Keep original data like id, initiateDate
-          ...formData // Override with form data
+          ...ticket,
+          ...formData,
+          comments: updatedComments,
         }),
       });
 
       if (response.ok) {
-        // Navigate back to tickets page or view page
-        setCurrentPage('tickets');
+        setComments(updatedComments);
+        setNewCommentText('');
+      } else {
+        setSubmitError('Failed to add comment.');
+      }
+    } catch (error) {
+      console.error('Error adding comment:', error);
+      setSubmitError('Error adding comment.');
+    } finally {
+      setIsAddingComment(false);
+    }
+  };
+
+  // Handler for opening the delete confirmation modal
+  const handleDeleteComment = (commentId) => {
+    setCommentToDeleteId(commentId);
+    setShowDeleteModal(true);
+  };
+  
+  // Handler for confirming and performing the delete operation
+  const confirmDeleteComment = async () => {
+    if (!commentToDeleteId) return;
+    
+    setSubmitError('');
+    const updatedComments = comments.filter(comment => comment.id !== commentToDeleteId);
+    
+    try {
+      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...ticket,
+          ...formData,
+          comments: updatedComments,
+        }),
+      });
+      
+      if (response.ok) {
+        setComments(updatedComments);
+      } else {
+        setSubmitError('Failed to delete comment.');
+      }
+    } catch (error) {
+      console.error('Error deleting comment:', error);
+      setSubmitError('Error deleting comment.');
+    } finally {
+      setShowDeleteModal(false);
+      setCommentToDeleteId(null);
+    }
+  };
+
+  // Handler for saving an edited comment
+  const handleSaveCommentEdit = async (commentId) => {
+    if (!editingCommentText.trim()) {
+      setSubmitError('Comment text cannot be empty.');
+      return;
+    }
+
+    setSubmitError('');
+    const updatedComments = comments.map(comment =>
+      comment.id === commentId ? { ...comment, text: editingCommentText } : comment
+    );
+
+    try {
+      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...ticket,
+          ...formData,
+          comments: updatedComments,
+        }),
+      });
+
+      if (response.ok) {
+        setComments(updatedComments);
+        setEditingCommentId(null);
+        setEditingCommentText('');
+      } else {
+        setSubmitError('Failed to update comment.');
+      }
+    } catch (error) {
+      console.error('Error updating comment:', error);
+      setSubmitError('Error updating comment.');
+    }
+  };
+
+  // Handler for canceling comment edit
+  const handleCancelCommentEdit = () => {
+    setEditingCommentId(null);
+    setEditingCommentText('');
+  };
+
+  // Function to add a generic activity entry
+  const addActivityEntry = async (ticketId, fieldName, oldValue, newValue) => {
+    // First, fetch the existing status history to get the next ID
+    try {
+      const historyResponse = await fetch('http://localhost:8000/status_history');
+      const historyData = await historyResponse.json();
+      
+      const nextSequenceNumber = historyData.length + 1;
+      const paddedSequence = String(nextSequenceNumber).padStart(3, '0');
+      const newHistoryId = `ACT-${paddedSequence}`;
+
+      const historyEntry = {
+        id: newHistoryId,
+        ticketId,
+        type: 'field_change', // New type for field changes
+        fieldName,
+        oldValue,
+        newValue,
+        timestamp: new Date().toISOString(),
+        changedBy: 'Current User', // Placeholder for the user who made the change
+      };
+
+      if (fieldName === 'status') {
+        historyEntry.type = 'status_change';
+      }
+      
+      await fetch('http://localhost:8000/status_history', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(historyEntry),
+      });
+    } catch (error) {
+      console.error('Error adding activity entry:', error);
+    }
+  };
+
+  // Main form submission handler
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitError('');
+
+    // Compare original ticket data with new form data and log changes
+    const fieldsToTrack = ['title', 'description', 'status', 'priority', 'workGroup', 'responsible', 'module', 'dueDate', 'startDate'];
+    for (const field of fieldsToTrack) {
+      if (ticket[field] !== formData[field]) {
+        const oldValue = ticket[field] || 'N/A';
+        const newValue = formData[field] || 'N/A';
+        await addActivityEntry(ticket.id, field, oldValue, newValue);
+      }
+    }
+
+    // Handle tag changes separately
+    const originalTags = ticket.tags || [];
+    const newTags = formData.tags || [];
+
+    const tagsAdded = newTags.filter(tag => !originalTags.includes(tag));
+    const tagsRemoved = originalTags.filter(tag => !newTags.includes(tag));
+
+    for (const tag of tagsAdded) {
+      await addActivityEntry(ticket.id, 'tags_added', '', tag);
+    }
+    
+    for (const tag of tagsRemoved) {
+      await addActivityEntry(ticket.id, 'tags_removed', tag, '');
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...ticket,
+          ...formData,
+          comments,
+        }),
+      });
+
+      if (response.ok) {
+        setCurrentPage(`view-ticket-${ticketId}`);
       } else {
         setSubmitError('Failed to update ticket');
       }
@@ -120,10 +333,10 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
 
   const statusOptions = ['Open', 'In Progress', 'Closed'];
   const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
-  const moduleOptions = ['Authentication', 'Reporting Engine', 'User Management', 'Notification Service'];
+  const moduleOptions = ['Authentication', 'Reporting Engine', 'User Management', 'Notification Service', 'Dashboard', 'UI/UX'];
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -144,206 +357,49 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
         </div>
       </div>
 
-      {/* Form */}
+      {/* Main Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Main Details */}
+          {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Basic Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Basic Information</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
+            <TicketDetailsForm
+              formData={formData}
+              handleInputChange={handleInputChange}
+              handleTagToggle={handleTagToggle}
+              tags={tags}
+              statusOptions={statusOptions}
+              priorityOptions={priorityOptions}
+            />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    placeholder="Describe the ticket details..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Status
-                    </label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    >
-                      {statusOptions.map(status => (
-                        <option key={status} value={status}>{status}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Priority
-                    </label>
-                    <select
-                      name="priority"
-                      value={formData.priority}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                    >
-                      {priorityOptions.map(priority => (
-                        <option key={priority} value={priority}>{priority}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Tags */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Tags</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {tags && tags.map(tag => (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => handleTagToggle(tag.label)}
-                      className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                        formData.tags.includes(tag.label)
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                      }`}
-                    >
-                      {tag.label}
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <CommentSection
+              comments={comments}
+              newCommentText={newCommentText}
+              setNewCommentText={setNewCommentText}
+              isAddingComment={isAddingComment}
+              handleCommentSubmit={handleCommentSubmit}
+              handleDeleteComment={handleDeleteComment}
+              handleSaveCommentEdit={handleSaveCommentEdit}
+              handleCancelCommentEdit={handleCancelCommentEdit}
+              editingCommentId={editingCommentId}
+              setEditingCommentId={setEditingCommentId}
+              editingCommentText={editingCommentText}
+              setEditingCommentText={setEditingCommentText}
+              showDeleteModal={showDeleteModal}
+              setShowDeleteModal={setShowDeleteModal}
+              commentToDeleteId={commentToDeleteId}
+              confirmDeleteComment={confirmDeleteComment}
+            />
           </div>
 
-          {/* Right Column - Assignment & Timeline */}
+          {/* Right Column */}
           <div className="space-y-6">
-            {/* Assignment */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Assignment</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-              <div>
-  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-    Work Group
-  </label>
-  <select
-    name="workGroup"
-    value={formData.workGroup}
-    onChange={handleInputChange}
-    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-  >
-    <option value="">Select Work Group</option>
-    {workgroups && workgroups.map(wg => (
-      <option key={wg.id} value={wg.name}>{wg.name}</option>
-    ))}
-  </select>
-</div>
-
-<div>
-  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-    Responsible Person
-  </label>
-  <select
-    name="responsible"
-    value={formData.responsible}
-    onChange={handleInputChange}
-    disabled={!employees}
-    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-  >
-    <option value="">
-      {employees ? "Select Person" : "Loading employees..."}
-    </option>
-    {employees && employees
-      .filter(emp => emp.active)
-      .map(emp => (
-        <option key={emp.id} value={emp.name}>{emp.name}</option>
-      ))}
-  </select>
-</div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Module
-                  </label>
-                  <select
-                    name="module"
-                    value={formData.module}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="">Select Module</option>
-                    {moduleOptions.map(module => (
-                      <option key={module} value={module}>{module}</option>
-                    ))}
-                  </select>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Timeline</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    name="startDate"
-                    value={formData.startDate}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    name="dueDate"
-                    value={formData.dueDate}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <AssignmentAndTimeline
+              formData={formData}
+              handleInputChange={handleInputChange}
+              workgroups={workgroups}
+              employees={employees}
+              moduleOptions={moduleOptions}
+            />
           </div>
         </div>
 

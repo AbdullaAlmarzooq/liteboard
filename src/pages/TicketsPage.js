@@ -121,10 +121,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
           </p>
         </div>
         <div className="flex gap-3">
-        <Button onClick={() => setCurrentPage("create-ticket")}>
-          <Plus className="w-4 h-4 mr-2" />
-          Create Ticket
-        </Button>
+
         <TicketExporter ticketsToExport={displayTickets} />
       </div>
       </div>

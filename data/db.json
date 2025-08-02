@@ -80,22 +80,37 @@
       "status": "In Progress",
       "priority": "High",
       "workGroup": "Customer Services Center",
-      "responsible": "Hussain alQassab",
-      "module": "User Management",
+      "responsible": "Abdulla Almarzooq",
+      "module": "Authentication",
       "tags": [
         "login",
         "portal",
-        "urgent"
+        "urgent",
+        "bug"
       ],
-      "startDate": "2025-06-10",
-      "dueDate": "2025-06-12",
-      "description": "",
-      "initiateDate": "2025-06-16 15:31:25"
+      "startDate": "2025-06-13",
+      "dueDate": "2025-06-25",
+      "description": "We need authentication and authorization sit up",
+      "initiateDate": "2025-06-16 15:31:25",
+      "comments": [
+        {
+          "id": "TCK-1001-001",
+          "text": "We need to have a meeting for this",
+          "author": "Current User",
+          "timestamp": "2025-08-02T15:48:23.475Z"
+        },
+        {
+          "id": "TCK-1001-002",
+          "text": "The meeting will be held on 10 august",
+          "author": "Current User",
+          "timestamp": "2025-08-02T16:20:28.662Z"
+        }
+      ]
     },
     {
       "id": "TCK-1002",
       "title": "Report generation taking too long already",
-      "status": "In Progress",
+      "status": "Closed",
       "priority": "Medium",
       "workGroup": "Customer Services Center",
       "responsible": "Sayed Mohammed",
@@ -107,7 +122,15 @@
       "startDate": "2025-06-12",
       "dueDate": "2025-06-18",
       "description": "The backend needs enhancments",
-      "initiateDate": "2025-06-15 10:31:25"
+      "initiateDate": "2025-06-15 10:31:25",
+      "comments": [
+        {
+          "id": "TCK-1002-001",
+          "text": "ready to test",
+          "author": "Current User",
+          "timestamp": "2025-08-02T15:55:08.786Z"
+        }
+      ]
     },
     {
       "id": "TCK-1003",
@@ -129,7 +152,7 @@
     {
       "id": "TCK-1004",
       "title": "Email notifications not sent to users",
-      "status": "Open",
+      "status": "In Progress",
       "priority": "High",
       "workGroup": "Digital Transformation",
       "responsible": "Ahmed Ali Yousif",
@@ -141,13 +164,14 @@
       ],
       "startDate": "2025-06-14",
       "dueDate": "2025-06-16",
-      "description": ""
+      "description": "This needs to be handled by Infra",
+      "comments": []
     },
     {
       "id": "TCK-1005",
       "title": "dark mode issue",
       "description": "dark mode button is not working, currently it shows the website in dark mode all the time",
-      "status": "Open",
+      "status": "In Progress",
       "priority": "Medium",
       "workGroup": "Digital Infrastructure",
       "responsible": "Hadi Altawash",
@@ -157,13 +181,14 @@
         "bug"
       ],
       "startDate": "2025-06-17",
-      "dueDate": "2025-06-28"
+      "dueDate": "2025-06-28",
+      "comments": []
     },
     {
       "id": "TCK-1006",
       "title": "dashboard - remove projects",
       "description": "remove the projects from the dashboard as the application have tickets only not a projects",
-      "status": "Open",
+      "status": "In Progress",
       "priority": "Medium",
       "workGroup": "Admin",
       "responsible": "Abdulla Almarzooq",
@@ -174,7 +199,8 @@
       ],
       "startDate": "2025-06-17",
       "dueDate": "2025-07-01",
-      "initiateDate": "2025-06-17 15:31:25"
+      "initiateDate": "2025-06-17 15:31:25",
+      "comments": []
     },
     {
       "id": "TCK-1007",
@@ -197,7 +223,7 @@
       "id": "TCK-1008",
       "title": "add modules in new endpoint in database",
       "description": "modules needs to be fetched from the database in both \"create ticket\" and can be managed in admin panel too.",
-      "status": "Open",
+      "status": "In Progress",
       "priority": "Critical",
       "workGroup": "Digital Channels",
       "responsible": "Hadi Altawash",
@@ -208,7 +234,8 @@
       ],
       "startDate": "2025-06-21",
       "dueDate": "2025-07-07",
-      "initiateDate": "2025-06-20 15:36:58"
+      "initiateDate": "2025-06-20 15:36:58",
+      "comments": []
     },
     {
       "id": "TCK-1009",
@@ -231,9 +258,9 @@
       "id": "TCK-1010",
       "title": "User Authentication",
       "description": "Authentication refers to the process of verifying the identity of a user or entity accessing a web application or system. It involves implementing the necessary mechanisms to ensure that only authorized users can access restricted areas or perform specific actions within the application.",
-      "status": "Open",
+      "status": "In Progress",
       "priority": "Medium",
-      "workGroup": "Digital Channels",
+      "workGroup": "Digital Infrastructure",
       "responsible": "Abdulla Almarzooq",
       "module": "Authentication",
       "tags": [
@@ -241,7 +268,8 @@
       ],
       "startDate": "2025-06-23",
       "dueDate": "2025-06-26",
-      "initiateDate": "2025-06-21 06:53:36"
+      "initiateDate": "2025-06-21 06:53:36",
+      "comments": []
     },
     {
       "id": "TCK-1011",
@@ -274,6 +302,22 @@
       "startDate": "2025-06-18",
       "dueDate": "2025-06-26",
       "initiateDate": "2025-06-21 07:42:11"
+    },
+    {
+      "id": "TCK-1013",
+      "title": "Workflow",
+      "description": "We need to find a way to show the make a customizable workflows. where in initiating the ticket you can choose generic or specialist pre-set workflow",
+      "status": "Open",
+      "priority": "Low",
+      "workGroup": "Digital Transformation",
+      "responsible": "Abdulla Almarzooq",
+      "module": "UI/UX",
+      "tags": [
+        "feature"
+      ],
+      "startDate": "2025-08-07",
+      "dueDate": "2025-08-29",
+      "initiateDate": "2025-08-02 15:34:09"
     }
   ],
   "tags": [
@@ -371,6 +415,108 @@
       "id": "MOD-006",
       "name": "UI/UX",
       "description": "Handles user interface and user experience design."
+    }
+  ],
+  "status_history": [
+    {
+      "id": "ACT-001",
+      "ticketId": "TCK-1001",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Open",
+      "newValue": "In Progress",
+      "timestamp": "2025-08-02T16:46:18.090Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-002",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "responsible",
+      "oldValue": "Hussain alQassab",
+      "newValue": "Abdulla Almarzooq",
+      "timestamp": "2025-08-02T16:46:18.106Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-003",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "module",
+      "oldValue": "User Management",
+      "newValue": "Authentication",
+      "timestamp": "2025-08-02T16:46:18.112Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-004",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "dueDate",
+      "oldValue": "2025-06-12",
+      "newValue": "2025-06-25",
+      "timestamp": "2025-08-02T16:46:18.119Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-005",
+      "ticketId": "TCK-1010",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Open",
+      "newValue": "In Progress",
+      "timestamp": "2025-08-02T16:49:50.958Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-006",
+      "ticketId": "TCK-1010",
+      "type": "field_change",
+      "fieldName": "workGroup",
+      "oldValue": "Digital Channels",
+      "newValue": "Digital Infrastructure",
+      "timestamp": "2025-08-02T16:49:50.966Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-007",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "priority",
+      "oldValue": "Medium",
+      "newValue": "High",
+      "timestamp": "2025-08-02T17:03:45.867Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-008",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "startDate",
+      "oldValue": "2025-06-10",
+      "newValue": "2025-06-13",
+      "timestamp": "2025-08-02T17:03:45.875Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-009",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "tags_added",
+      "oldValue": "",
+      "newValue": "enhancement",
+      "timestamp": "2025-08-02T17:03:45.881Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-010",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "tags_removed",
+      "oldValue": "enhancement",
+      "newValue": "",
+      "timestamp": "2025-08-02T17:04:02.750Z",
+      "changedBy": "Current User"
     }
   ]
 }
