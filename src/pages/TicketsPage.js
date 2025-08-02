@@ -6,12 +6,15 @@ import useFetch from "../useFetch"
 import { useRef, useState } from 'react';
 import SearchBar from "../components/SearchBar";
 import TicketExporter from "../components/TicketExporter"
+import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
 
 
 const TicketsPage = ({ setCurrentPage }) => {
 const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
 const [isDeleting, setIsDeleting] = useState(null);
 const [filteredTickets, setFilteredTickets] = useState(null);
+const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+const [ticketToDelete, setTicketToDelete] = useState(null);
 
 
 
@@ -49,19 +52,28 @@ const [filteredTickets, setFilteredTickets] = useState(null);
     setCurrentPage(`edit-ticket-${ticketId}`);
   };
 
-  const handleDelete = async (ticketId) => {
-    if (!window.confirm('Are you sure you want to delete this ticket?')) {
-      return;
-    }
+  const openDeleteModal = (ticket) => {
+    setTicketToDelete(ticket);
+    setDeleteModalOpen(true);
+  };
 
-    setIsDeleting(ticketId);
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setTicketToDelete(null);
+  };
+
+  const handleDelete = async () => {
+    if (!ticketToDelete) return;
+
+    setIsDeleting(ticketToDelete.id);
     
     try {
-      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+      const response = await fetch(`http://localhost:8000/tickets/${ticketToDelete.id}`, {
         method: 'DELETE',
       });
 
       if (response.ok) {
+        closeDeleteModal();
         window.location.reload();
       } else {
         alert('Failed to delete ticket');
@@ -110,7 +122,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
         </div>
         <div className="flex gap-3">
         <Button onClick={() => setCurrentPage("create-ticket")}>
-          <span className="mr-2">➕</span>
+          <Plus className="w-4 h-4 mr-2" />
           Create Ticket
         </Button>
         <TicketExporter ticketsToExport={displayTickets} />
@@ -225,22 +237,25 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleView(ticket.id)}
-                              className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                              className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-1"
                             >
-                              View
+                              <Eye className="w-3 h-3" />
+                              
                             </button>
                             <button
                               onClick={() => handleEdit(ticket.id)}
-                              className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                              className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center gap-1"
                             >
-                              Edit
+                              <Edit className="w-3 h-3" />
+                              
                             </button>
                             <button
-                              onClick={() => handleDelete(ticket.id)}
+                              onClick={() => openDeleteModal(ticket)}
                               disabled={isDeleting === ticket.id}
-                              className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                              className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 flex items-center gap-1"
                             >
-                              {isDeleting === ticket.id ? 'Deleting...' : 'Delete'}
+                              <Trash2 className="w-3 h-3" />
+                              {isDeleting === ticket.id ? 'Deleting...' : ''}
                             </button>
                           </div>
                         </td>
@@ -329,21 +344,24 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                 <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => handleView(ticket.id)}
-                    className="flex-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                    className="flex-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center gap-1"
                   >
+                    <Eye className="w-3 h-3" />
                     View
                   </button>
                   <button
                     onClick={() => handleEdit(ticket.id)}
-                    className="flex-1 px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                    className="flex-1 px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center justify-center gap-1"
                   >
+                    <Edit className="w-3 h-3" />
                     Edit
                   </button>
                   <button
-                    onClick={() => handleDelete(ticket.id)}
+                    onClick={() => openDeleteModal(ticket)}
                     disabled={isDeleting === ticket.id}
-                    className="flex-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                    className="flex-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-1"
                   >
+                    <Trash2 className="w-3 h-3" />
                     {isDeleting === ticket.id ? 'Deleting...' : 'Delete'}
                   </button>
                 </div>
@@ -362,6 +380,86 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full">
+                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Delete Ticket
+                </h3>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                Are you sure you want to delete this ticket? This action cannot be undone.
+              </p>
+              
+              {ticketToDelete && (
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-sm text-gray-500 dark:text-gray-400">
+                      {ticketToDelete.id}
+                    </span>
+                    <div className="flex gap-2">
+                      <Badge variant={getStatusVariant(ticketToDelete.status)} className="text-xs">
+                        {ticketToDelete.status}
+                      </Badge>
+                      <Badge variant={getPriorityVariant(ticketToDelete.priority)} className="text-xs">
+                        {ticketToDelete.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                  <h4 className="font-medium text-gray-900 dark:text-white">
+                    {ticketToDelete.title}
+                  </h4>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="outline"
+                onClick={closeDeleteModal}
+                className="flex-1"
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-md transition-colors flex items-center justify-center"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Ticket
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
