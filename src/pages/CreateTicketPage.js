@@ -4,12 +4,75 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/Card"
 import Button from "../components/Button"
 import Badge from "../components/Badge"
 import useFetch from "../useFetch"
+import { AlertCircle, CheckCircle, X } from "lucide-react"
 
+// Toast Component
+const Toast = ({ message, type, onClose, isVisible }) => {
+  if (!isVisible) return null
+
+  const getToastStyles = () => {
+    const baseStyles = "fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border backdrop-blur-sm transform transition-all duration-300 ease-in-out max-w-md"
+    
+    switch (type) {
+      case 'success':
+        return `${baseStyles} bg-green-50 border-green-200 text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-200`
+      case 'error':
+        return `${baseStyles} bg-red-50 border-red-200 text-red-800 dark:bg-red-900/20 dark:border-red-800 dark:text-red-200`
+      default:
+        return `${baseStyles} bg-blue-50 border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-200`
+    }
+  }
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle className="w-5 h-5 flex-shrink-0" />
+      case 'error':
+        return <AlertCircle className="w-5 h-5 flex-shrink-0" />
+      default:
+        return <AlertCircle className="w-5 h-5 flex-shrink-0" />
+    }
+  }
+
+  return (
+    <div className={getToastStyles()}>
+      {getIcon()}
+      <span className="flex-1 text-sm font-medium">{message}</span>
+      <button
+        onClick={onClose}
+        className="flex-shrink-0 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+// Custom hook for toast notifications
+const useToast = () => {
+  const [toast, setToast] = useState({ message: '', type: '', isVisible: false })
+
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type, isVisible: true })
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      hideToast()
+    }, 5000)
+  }
+
+  const hideToast = () => {
+    setToast(prev => ({ ...prev, isVisible: false }))
+  }
+
+  return { toast, showToast, hideToast }
+}
 
 const CreateTicketPage = () => {
   const [selectedTags, setSelectedTags] = useState([])
   const [customTag, setCustomTag] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { toast, showToast, hideToast } = useToast()
 
   const [formData, setFormData] = useState({
     title: "",
@@ -27,7 +90,6 @@ const CreateTicketPage = () => {
   const { data: employees, isPending: employeesLoading, error: employeesError } = useFetch('http://localhost:8000/employees')
   const { data: workgroups, isPending: workgroupsLoading, error: workgroupsError } = useFetch('http://localhost:8000/workgroups')
   const { data: modules, isPending: modulesLoading, error: modulesError } = useFetch('http://localhost:8000/modules')
-
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -67,10 +129,12 @@ const CreateTicketPage = () => {
           })
           
           if (!response.ok) {
-            console.error('Failed to add tag to database')
+            showToast('Failed to add tag to database', 'error')
+          } else {
+            showToast('Custom tag added successfully', 'success')
           }
         } catch (error) {
-          console.error('Error adding tag:', error)
+          showToast('Error adding tag: ' + error.message, 'error')
         }
       }
       
@@ -85,12 +149,13 @@ const CreateTicketPage = () => {
       })
       
       if (!response.ok) {
-        console.error('Failed to delete tag from database')
+        showToast('Failed to delete tag from database', 'error')
       } else {
+        showToast('Tag deleted successfully', 'success')
         window.location.reload()
       }
     } catch (error) {
-      console.error('Error deleting tag:', error)
+      showToast('Error deleting tag: ' + error.message, 'error')
     }
   }
 
@@ -134,26 +199,37 @@ const CreateTicketPage = () => {
     return dateString
   }
 
+  const validateForm = () => {
+    if (!formData.title.trim()) {
+      showToast('Please enter a ticket title', 'error')
+      return false
+    }
+
+    if (!formData.status) {
+      showToast('Please select a status', 'error')
+      return false
+    }
+
+    if (!formData.priority) {
+      showToast('Please select a priority level', 'error')
+      return false
+    }
+
+    if (!formData.description.trim()) {
+      showToast('Please provide a description', 'error')
+      return false
+    }
+
+    return true
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
 
     try {
-      // Validation
-      if (!formData.title.trim()) {
-        alert('Please enter a title')
-        setIsSubmitting(false)
-        return
-      }
-
-      if (!formData.status) {
-        alert('Please select a status')
-        setIsSubmitting(false)
-        return
-      }
-
-      if (!formData.priority) {
-        alert('Please select a priority')
+      // Enhanced validation with toast notifications
+      if (!validateForm()) {
         setIsSubmitting(false)
         return
       }
@@ -208,11 +284,11 @@ const CreateTicketPage = () => {
       })
       setSelectedTags([])
       
-      alert('Ticket created successfully!')
+      showToast('Ticket created successfully!', 'success')
       
     } catch (error) {
       console.error('Error creating ticket:', error)
-      alert(`Error creating ticket: ${error.message}`)
+      showToast(`Failed to create ticket: ${error.message}`, 'error')
     } finally {
       setIsSubmitting(false)
     }
@@ -232,6 +308,7 @@ const CreateTicketPage = () => {
     })
     setSelectedTags([])
     setCustomTag("")
+    showToast('Form cleared', 'info')
   }
 
   // Check if any data is still loading
@@ -293,6 +370,14 @@ const CreateTicketPage = () => {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* Toast Notification */}
+      <Toast 
+        message={toast.message} 
+        type={toast.type} 
+        onClose={hideToast}
+        isVisible={toast.isVisible}
+      />
+
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
           Create New Ticket
@@ -317,7 +402,7 @@ const CreateTicketPage = () => {
               htmlFor="title"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Title
+              Title <span className="text-red-500">*</span>
             </label>
             <input
               id="title"
@@ -335,7 +420,7 @@ const CreateTicketPage = () => {
               htmlFor="description"
               className="block text-sm font-medium text-gray-700 dark:text-gray-300"
             >
-              Description
+              Description <span className="text-red-500">*</span>
             </label>
             <textarea
               id="description"
@@ -354,7 +439,7 @@ const CreateTicketPage = () => {
                 htmlFor="status"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Status
+                Status <span className="text-red-500">*</span>
               </label>
               <select
                 id="status"
@@ -375,7 +460,7 @@ const CreateTicketPage = () => {
                 htmlFor="priority"
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Priority
+                Priority <span className="text-red-500">*</span>
               </label>
               <select
                 id="priority"

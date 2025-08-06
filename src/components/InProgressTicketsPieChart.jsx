@@ -40,7 +40,7 @@ const InProgressTicketsPieChart = ({ tickets }) => {
     <div className="flex justify-center items-center min-h-[400px]">
         <div className="rounded-xl shadow-lg p-6 bg-gray-200 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
             <h2 className="text-xl font-bold mb-4 text-center">In Progress Tickets by Work Group</h2>
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="200%" height={300}>
                 <PieChart>
                     <Pie
                         dataKey="value"

@@ -51,7 +51,7 @@ function App() {
     <ThemeProvider>
       <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
         <Navigation currentPage={currentPage} setCurrentPage={setCurrentPage} />
-        <main className="container mx-auto px-4 py-8 max-w-7xl">
+        <main className="container mx-auto px-4 py-8">
           {renderPage()}
         </main>
       </div>

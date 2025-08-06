@@ -241,7 +241,7 @@
       "id": "TCK-1009",
       "title": "Dashboard enhancment",
       "description": "Dashboard must have filters",
-      "status": "Open",
+      "status": "In Progress",
       "priority": "Critical",
       "workGroup": "Digital Infrastructure",
       "responsible": "Hussain alQassab",
@@ -252,7 +252,16 @@
       ],
       "startDate": "2025-06-26",
       "dueDate": "2025-07-12",
-      "initiateDate": "2025-06-20 16:44:46"
+      "initiateDate": "2025-06-20 16:44:46",
+      "comments": [
+        {
+          "id": "COM-001",
+          "text": "In Progress Tickets by Work Group needs to be reviewed\n",
+          "author": "Current User",
+          "timestamp": "2025-08-06T06:32:39.286Z",
+          "type": "comment"
+        }
+      ]
     },
     {
       "id": "TCK-1010",
@@ -318,6 +327,81 @@
       "startDate": "2025-08-07",
       "dueDate": "2025-08-29",
       "initiateDate": "2025-08-02 15:34:09"
+    },
+    {
+      "id": "TCK-1014",
+      "title": "Enhance validation for create new Ticket page",
+      "description": "it should be inside the page itself or toast message",
+      "status": "Open",
+      "priority": "Low",
+      "workGroup": "Digital Infrastructure",
+      "responsible": "Hussain alQassab",
+      "module": "UI/UX",
+      "tags": [
+        "feature",
+        "ui/ux",
+        "enhancement"
+      ],
+      "startDate": "2025-08-07",
+      "dueDate": "2025-08-24",
+      "initiateDate": "2025-08-06 05:11:34",
+      "comments": [
+        {
+          "id": "COM-001",
+          "text": "Create also a better user experience after successfully adding the ticket ",
+          "author": "Current User",
+          "timestamp": "2025-08-06T05:12:16.786Z",
+          "type": "comment"
+        }
+      ]
+    },
+    {
+      "id": "TCK-1015",
+      "title": "Create new Tickets page needs retesting",
+      "description": "we need to submit ticket and view local database",
+      "status": "Closed",
+      "priority": "Critical",
+      "workGroup": "Customer Services Center",
+      "responsible": "Abdulla Almarzooq",
+      "module": "Reporting",
+      "tags": [
+        "urgent"
+      ],
+      "startDate": "2025-08-06",
+      "dueDate": "2025-08-07",
+      "initiateDate": "2025-08-06 05:36:22",
+      "comments": [
+        {
+          "id": "COM-001",
+          "text": "UI/UX: test the part of creating it worked fine",
+          "author": "Current User",
+          "timestamp": "2025-08-06T05:40:18.431Z",
+          "type": "comment"
+        },
+        {
+          "id": "COM-002",
+          "text": "backend with local database also fine",
+          "author": "Current User",
+          "timestamp": "2025-08-06T05:41:08.868Z",
+          "type": "comment"
+        }
+      ]
+    },
+    {
+      "id": "TCK-1016",
+      "title": "Tickets page UI/UX fields",
+      "description": "when need to review the UI/UX of the status, priority and tags. Specially in the light mode",
+      "status": "Open",
+      "priority": "Medium",
+      "workGroup": "Digital Transformation",
+      "responsible": "Abdulla Almarzooq",
+      "module": "UI/UX",
+      "tags": [
+        "ui/ux"
+      ],
+      "startDate": "2025-08-06",
+      "dueDate": "2025-08-24",
+      "initiateDate": "2025-08-06 05:43:20"
     }
   ],
   "tags": [
@@ -516,6 +600,26 @@
       "oldValue": "enhancement",
       "newValue": "",
       "timestamp": "2025-08-02T17:04:02.750Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-011",
+      "ticketId": "TCK-1015",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "In Progress",
+      "newValue": "Closed",
+      "timestamp": "2025-08-06T05:41:13.839Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-012",
+      "ticketId": "TCK-1009",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Open",
+      "newValue": "In Progress",
+      "timestamp": "2025-08-06T06:23:20.060Z",
       "changedBy": "Current User"
     }
   ]

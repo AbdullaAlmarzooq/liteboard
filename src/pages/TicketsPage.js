@@ -234,14 +234,14 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                           <div className="flex gap-2">
                             <button
                               onClick={() => handleView(ticket.id)}
-                              className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center gap-1"
+                              className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Eye className="w-3 h-3" />
                               
                             </button>
                             <button
                               onClick={() => handleEdit(ticket.id)}
-                              className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center gap-1"
+                              className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Edit className="w-3 h-3" />
                               
@@ -249,7 +249,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                             <button
                               onClick={() => openDeleteModal(ticket)}
                               disabled={isDeleting === ticket.id}
-                              className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 flex items-center gap-1"
+                              className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 hover:text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-800/30 dark:hover:text-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors duration-200"
                             >
                               <Trash2 className="w-3 h-3" />
                               {isDeleting === ticket.id ? 'Deleting...' : ''}

@@ -68,43 +68,44 @@ const Dashboard = () => {
     setAreFiltersVisible(prev => !prev);
   };
 
-  return (
-    <div className="p-8 space-y-8">
-      <div className="flex justify-end mb-4">
-        <button
-          onClick={toggleFilterVisibility}
-          className="px-6 py-2 rounded-md bg-blue-600 text-white font-semibold shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75
-                     dark:bg-blue-700 dark:hover:bg-blue-800 dark:focus:ring-blue-600 transition-colors duration-200"
-        >
-          {areFiltersVisible ? "Hide Filters" : "Show Filters"}
-        </button>
-      </div>
+return (
+  <div className="p-8 space-y-8">
+    <div className="flex justify-end mb-4">
+      <button
+        onClick={toggleFilterVisibility}
+        className="px-6 py-2 rounded-md bg-blue-600 text-white font-semibold shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75
+                   dark:bg-blue-700 dark:hover:bg-blue-800 dark:focus:ring-blue-600 transition-colors duration-200"
+      >
+        {areFiltersVisible ? "Hide Filters" : "Show Filters"}
+      </button>
+    </div>
 
 
-      {areFiltersVisible && (
-        <FilterBar onFilterChange={handleFilterChange} allTickets={allTickets} />
-      )}
+    {areFiltersVisible && (
+      <FilterBar onFilterChange={handleFilterChange} allTickets={allTickets} />
+    )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <TotalOpenTickets tickets={filteredTickets} />
-        <TotalPendingTickets tickets={filteredTickets} />
-      </div>
+    {/* Section 1: All four summary components in one line */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <TotalOpenTickets tickets={filteredTickets} />
+      <TotalPendingTickets tickets={filteredTickets} />
+      <OpenTicketsPieChart tickets={filteredTickets} />
+      <InProgressTicketsPieChart tickets={filteredTickets} />
+    </div>
 
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <OpenTicketsPieChart tickets={filteredTickets} />
-        <InProgressTicketsPieChart tickets={filteredTickets} />
-      </div>
-
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <TicketPriorityChart tickets={filteredTickets} />
-        <TicketStatusChart tickets={filteredTickets} />
-      </div>
-      <TicketsCreatedLineChart tickets={filteredTickets} />
+    {/* Section 2: Three charts in one line */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <TicketPriorityChart tickets={filteredTickets} />
+      <TicketStatusChart tickets={filteredTickets} />
       <TicketModuleStackedChart tickets={filteredTickets} />
     </div>
-  );
+
+    {/* Section 3: One chart in one line */}
+    <div className="grid grid-cols-1 gap-6">
+      <TicketsCreatedLineChart tickets={filteredTickets} />
+    </div>
+  </div>
+);
 };
 
 export default Dashboard;
