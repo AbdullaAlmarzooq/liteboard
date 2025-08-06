@@ -3,19 +3,52 @@ import Badge from "../components/Badge"
 import Button from "../components/Button"
 import TicketFilter from "../components/TicketFilter"
 import useFetch from "../useFetch"
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import SearchBar from "../components/SearchBar";
 import TicketExporter from "../components/TicketExporter"
+import Pagination from "../components/Pagination" // Import the new component
 import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
 
 
 const TicketsPage = ({ setCurrentPage }) => {
-const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
-const [isDeleting, setIsDeleting] = useState(null);
-const [filteredTickets, setFilteredTickets] = useState(null);
-const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-const [ticketToDelete, setTicketToDelete] = useState(null);
+  const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
+  const [isDeleting, setIsDeleting] = useState(null);
+  const [filteredTickets, setFilteredTickets] = useState(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState(null);
+  const [currentPage, setCurrentPage_] = useState(1); // Renamed to avoid conflict
+  const [itemsPerPage, setItemsPerPage] = useState(10); // State for items per page
 
+  // Sort tickets by extracting numeric part from ID in descending order (newest first)
+  const sortedTickets = useMemo(() => {
+    if (!tickets) return [];
+    return [...tickets].sort((a, b) => {
+      const aNum = parseInt(a.id.split('-')[1]);
+      const bNum = parseInt(b.id.split('-')[1]);
+      return bNum - aNum;
+    });
+  }, [tickets]);
+
+  // Combined tickets to display, filtered first, then sorted
+  const ticketsToDisplay = filteredTickets !== null ? filteredTickets : sortedTickets;
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentTickets = ticketsToDisplay.slice(indexOfFirstItem, indexOfLastItem);
+
+  // Reset to first page when filters or page size change
+  useEffect(() => {
+    setCurrentPage_(1);
+  }, [ticketsToDisplay, itemsPerPage]);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage_(pageNumber);
+  };
+
+  const handleItemsPerPageChange = (size) => {
+    setItemsPerPage(size);
+  };
 
 
   const getStatusVariant = status => {
@@ -45,8 +78,6 @@ const [ticketToDelete, setTicketToDelete] = useState(null);
         return "outline"
     }
   }
-
-  const displayTickets = filteredTickets !== null ? filteredTickets : (tickets || []);
 
   const handleEdit = (ticketId) => {
     setCurrentPage(`edit-ticket-${ticketId}`);
@@ -122,12 +153,12 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
         </div>
         <div className="flex gap-3">
 
-        <TicketExporter ticketsToExport={displayTickets} />
+        <TicketExporter ticketsToExport={ticketsToDisplay} />
       </div>
       </div>
 
             <TicketFilter
-        tickets={tickets}
+        tickets={sortedTickets}
         onFilteredTicketsChange={handleFilteredTicketsChange}
       />
 
@@ -177,7 +208,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {displayTickets.map(ticket => {
+                  {currentTickets.map(ticket => { // Use currentTickets for the paged data
                     const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
                     return (
                       <tr
@@ -268,7 +299,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
 
       {/* Mobile Card View */}
       <div className="lg:hidden space-y-4">
-        {displayTickets.map(ticket => {
+        {currentTickets.map(ticket => { // Use currentTickets for the paged data
           const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
           return (
             <Card key={ticket.id}>
@@ -341,14 +372,14 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                 <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => handleView(ticket.id)}
-                    className="flex-1 px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center gap-1"
+                    className="flex-1 px-2 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 disabled:opacity-50 flex items-center justify-center gap-1"
                   >
                     <Eye className="w-3 h-3" />
                     View
                   </button>
                   <button
                     onClick={() => handleEdit(ticket.id)}
-                    className="flex-1 px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600 flex items-center justify-center gap-1"
+                    className="flex-1 px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 disabled:opacity-50 flex items-center justify-center gap-1"
                   >
                     <Edit className="w-3 h-3" />
                     Edit
@@ -356,8 +387,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                   <button
                     onClick={() => openDeleteModal(ticket)}
                     disabled={isDeleting === ticket.id}
-                    className="flex-1 px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-1"
-                  >
+                    className="flex-1 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 hover:text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-800/30 dark:hover:text-red-200 disabled:opacity-50 flex items-center justify-center gap-1"                  >
                     <Trash2 className="w-3 h-3" />
                     {isDeleting === ticket.id ? 'Deleting...' : 'Delete'}
                   </button>
@@ -369,7 +399,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
       </div>
 
       {/* No tickets message */}
-      {displayTickets.length === 0 && tickets && tickets.length > 0 && (
+      {ticketsToDisplay.length === 0 && tickets && tickets.length > 0 && (
         <Card>
           <CardContent className="text-center py-8">
             <p className="text-gray-500 dark:text-gray-400">
@@ -378,6 +408,15 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
           </CardContent>
         </Card>
       )}
+
+      {/* Add the Pagination component here */}
+      <Pagination
+        totalItems={ticketsToDisplay.length}
+        itemsPerPage={itemsPerPage}
+        currentPage={currentPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+      />
 
       {/* Delete Confirmation Modal */}
       {deleteModalOpen && (

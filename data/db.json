@@ -165,7 +165,8 @@
       "startDate": "2025-06-14",
       "dueDate": "2025-06-16",
       "description": "This needs to be handled by Infra",
-      "comments": []
+      "comments": [],
+      "initiateDate": "2025-06-14 15:32:25"
     },
     {
       "id": "TCK-1005",
@@ -182,7 +183,8 @@
       ],
       "startDate": "2025-06-17",
       "dueDate": "2025-06-28",
-      "comments": []
+      "comments": [],
+      "initiateDate": "2025-06-14 15:34:15"
     },
     {
       "id": "TCK-1006",
