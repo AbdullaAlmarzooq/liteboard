@@ -20,8 +20,8 @@
       "id": "EMP-002",
       "name": "Ahmed Ali Yousif",
       "email": "ali@company.com",
-      "position": "IT Support Engineer",
-      "department": "IT",
+      "position": "Senior Digital Channels Specialist",
+      "department": "Customer Service - Digital Channels",
       "workgroup": "Technical Support",
       "skills": [
         "Networks",
@@ -78,6 +78,7 @@
       "id": "TCK-1001",
       "title": "Unable to login to self-service portal",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "High",
       "workGroup": "Customer Services Center",
       "responsible": "Abdulla Almarzooq",
@@ -111,6 +112,7 @@
       "id": "TCK-1002",
       "title": "Report generation taking too long already",
       "status": "Closed",
+      "workflowId": "WF-001",
       "priority": "Medium",
       "workGroup": "Customer Services Center",
       "responsible": "Sayed Mohammed",
@@ -136,6 +138,7 @@
       "id": "TCK-1003",
       "title": "Request to add new user role",
       "status": "Closed",
+      "workflowId": "WF-001",
       "priority": "Low",
       "workGroup": "Admin",
       "responsible": "Sayed Mohammed",
@@ -153,6 +156,7 @@
       "id": "TCK-1004",
       "title": "Email notifications not sent to users",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "High",
       "workGroup": "Digital Transformation",
       "responsible": "Ahmed Ali Yousif",
@@ -173,6 +177,7 @@
       "title": "dark mode issue",
       "description": "dark mode button is not working, currently it shows the website in dark mode all the time",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "Medium",
       "workGroup": "Digital Infrastructure",
       "responsible": "Hadi Altawash",
@@ -191,6 +196,7 @@
       "title": "dashboard - remove projects",
       "description": "remove the projects from the dashboard as the application have tickets only not a projects",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "Medium",
       "workGroup": "Admin",
       "responsible": "Abdulla Almarzooq",
@@ -209,6 +215,7 @@
       "title": "Tickets page export",
       "description": "The tickets page must have export button to export all data into .csv file",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "Critical",
       "workGroup": "Digital Transformation",
       "responsible": "Hussain alQassab",
@@ -226,6 +233,7 @@
       "title": "add modules in new endpoint in database",
       "description": "modules needs to be fetched from the database in both \"create ticket\" and can be managed in admin panel too.",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "Critical",
       "workGroup": "Digital Channels",
       "responsible": "Hadi Altawash",
@@ -244,6 +252,7 @@
       "title": "Dashboard enhancment",
       "description": "Dashboard must have filters",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "Critical",
       "workGroup": "Digital Infrastructure",
       "responsible": "Hussain alQassab",
@@ -270,6 +279,7 @@
       "title": "User Authentication",
       "description": "Authentication refers to the process of verifying the identity of a user or entity accessing a web application or system. It involves implementing the necessary mechanisms to ensure that only authorized users can access restricted areas or perform specific actions within the application.",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "Medium",
       "workGroup": "Digital Infrastructure",
       "responsible": "Abdulla Almarzooq",
@@ -287,6 +297,7 @@
       "title": "light mode",
       "description": "light mode needs enhancements",
       "status": "Open",
+      "workflowId": "WF-001",
       "priority": "Medium",
       "workGroup": "Digital Infrastructure",
       "responsible": "Hussain alQassab",
@@ -303,6 +314,7 @@
       "title": "Search bar",
       "description": "add search bar in Tickets page",
       "status": "In Progress",
+      "workflowId": "WF-001",
       "priority": "Medium",
       "workGroup": "Customer Services Center",
       "responsible": "Hadi Altawash",
@@ -319,6 +331,7 @@
       "title": "Workflow",
       "description": "We need to find a way to show the make a customizable workflows. where in initiating the ticket you can choose generic or specialist pre-set workflow",
       "status": "Open",
+      "workflowId": "WF-001",
       "priority": "Low",
       "workGroup": "Digital Transformation",
       "responsible": "Abdulla Almarzooq",
@@ -335,6 +348,7 @@
       "title": "Enhance validation for create new Ticket page",
       "description": "it should be inside the page itself or toast message",
       "status": "Open",
+      "workflowId": "WF-001",
       "priority": "Low",
       "workGroup": "Digital Infrastructure",
       "responsible": "Hussain alQassab",
@@ -362,6 +376,7 @@
       "title": "Create new Tickets page needs retesting",
       "description": "we need to submit ticket and view local database",
       "status": "Closed",
+      "workflowId": "WF-001",
       "priority": "Critical",
       "workGroup": "Customer Services Center",
       "responsible": "Abdulla Almarzooq",
@@ -394,7 +409,8 @@
       "title": "Tickets page UI/UX fields",
       "description": "when need to review the UI/UX of the status, priority and tags. Specially in the light mode",
       "status": "Open",
-      "priority": "Medium",
+      "workflowId": "WF-001",
+      "priority": "High",
       "workGroup": "Digital Transformation",
       "responsible": "Abdulla Almarzooq",
       "module": "UI/UX",
@@ -403,7 +419,80 @@
       ],
       "startDate": "2025-08-06",
       "dueDate": "2025-08-24",
-      "initiateDate": "2025-08-06 05:43:20"
+      "initiateDate": "2025-08-06 05:43:20",
+      "comments": []
+    },
+    {
+      "id": "TCK-1017",
+      "title": "EditTicket new workflow",
+      "description": "We need plan how to deal with old tickets and new tickets",
+      "status": "In Progress",
+      "workflowId": "WF-001",
+      "priority": "Medium",
+      "workGroup": "Customer Services Center",
+      "responsible": "Abdulla Almarzooq",
+      "module": "UI/UX",
+      "tags": [
+        "enhancement"
+      ],
+      "startDate": "2025-08-08",
+      "dueDate": "2025-08-27",
+      "initiateDate": "2025-08-08 14:44:41",
+      "comments": [
+        {
+          "id": "COM-001",
+          "text": "first test: Add new ticket, edit it and add comment and see it's posted to the local database or no",
+          "author": "Current User",
+          "timestamp": "2025-08-08T14:54:16.383Z",
+          "type": "comment"
+        }
+      ]
+    },
+    {
+      "id": "TCK-1018",
+      "title": "First specialist workflow (iga)",
+      "description": "to test all of it",
+      "status": "Pending confirmation",
+      "workflowId": "WF-002",
+      "priority": "High",
+      "workGroup": "Digital Channels",
+      "responsible": "Abdulla Almarzooq",
+      "module": "Authentication",
+      "tags": [
+        "ui/ux",
+        "IGA",
+        "enhancement"
+      ],
+      "startDate": "2025-08-08",
+      "dueDate": "2025-09-06",
+      "initiateDate": "2025-08-08 15:06:05",
+      "comments": []
+    },
+    {
+      "id": "TCK-1019",
+      "title": "new IGA workflow ticket",
+      "description": "for testing only",
+      "status": "To be review",
+      "workflowId": "WF-002",
+      "priority": "High",
+      "workGroup": "Digital Infrastructure",
+      "responsible": "Abdulla Almarzooq",
+      "module": "Authentication",
+      "tags": [
+        "IGA"
+      ],
+      "startDate": "2025-08-19",
+      "dueDate": "2025-09-05",
+      "initiateDate": "2025-08-08 15:28:39",
+      "comments": [
+        {
+          "id": "COM-001",
+          "text": "to be reviewed",
+          "author": "Current User",
+          "timestamp": "2025-08-08T15:34:25.082Z",
+          "type": "comment"
+        }
+      ]
     }
   ],
   "tags": [
@@ -623,6 +712,145 @@
       "newValue": "In Progress",
       "timestamp": "2025-08-06T06:23:20.060Z",
       "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-013",
+      "ticketId": "TCK-1016",
+      "type": "field_change",
+      "fieldName": "priority",
+      "oldValue": "Medium",
+      "newValue": "High",
+      "timestamp": "2025-08-08T09:46:56.039Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-014",
+      "ticketId": "TCK-1017",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Open",
+      "newValue": "In Progress",
+      "timestamp": "2025-08-08T14:53:22.523Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-015",
+      "ticketId": "TCK-1018",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Open",
+      "newValue": "Pending confirmation",
+      "timestamp": "2025-08-08T15:26:57.446Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-016",
+      "ticketId": "TCK-1018",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Open",
+      "newValue": "Pending confirmation",
+      "timestamp": "2025-08-08T15:27:00.762Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-017",
+      "ticketId": "TCK-1019",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Open",
+      "newValue": "Pending confirmation",
+      "timestamp": "2025-08-08T15:28:48.582Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-018",
+      "ticketId": "TCK-1019",
+      "type": "field_change",
+      "fieldName": "workGroup",
+      "oldValue": "Customer Services Center",
+      "newValue": "Digital Channels",
+      "timestamp": "2025-08-08T15:28:48.590Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-019",
+      "ticketId": "TCK-1019",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Pending confirmation",
+      "newValue": "To be review",
+      "timestamp": "2025-08-08T15:34:26.056Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-020",
+      "ticketId": "TCK-1019",
+      "type": "field_change",
+      "fieldName": "workGroup",
+      "oldValue": "Digital Channels",
+      "newValue": "Digital Infrastructure",
+      "timestamp": "2025-08-08T15:34:26.064Z",
+      "changedBy": "Current User"
+    }
+  ],
+  "workflows": [
+    {
+      "id": "WF-001",
+      "name": "Generic ",
+      "steps": [
+        {
+          "stepName": "Open",
+          "workgroupCode": "WG-001",
+          "order": 1
+        },
+        {
+          "stepName": "In Progress",
+          "workgroupCode": "WG-005",
+          "order": 2
+        },
+        {
+          "stepName": "Closed",
+          "workgroupCode": "WG-001",
+          "order": 3
+        }
+      ]
+    },
+    {
+      "id": "WF-002",
+      "name": "eGov",
+      "steps": [
+        {
+          "stepName": "Open",
+          "workgroupCode": "WG-004",
+          "order": 1
+        },
+        {
+          "stepName": "Pending confirmation",
+          "workgroupCode": "WG-004",
+          "order": 2
+        },
+        {
+          "stepName": "To be review",
+          "workgroupCode": "WG-002",
+          "order": 3
+        },
+        {
+          "stepName": "IGA",
+          "workgroupCode": "WG-002",
+          "order": 4
+        },
+        {
+          "stepName": "Ready to test",
+          "workgroupCode": "WG-001",
+          "order": 5
+        },
+        {
+          "stepName": "Close",
+          "workgroupCode": "WG-001",
+          "order": 6
+        }
+      ]
     }
   ]
 }

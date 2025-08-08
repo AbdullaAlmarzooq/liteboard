@@ -14,12 +14,14 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
   const { data: employees } = useFetch('http://localhost:8000/employees');
   const { data: tags } = useFetch('http://localhost:8000/tags');
   const { data: workgroups } = useFetch('http://localhost:8000/workgroups');
+  const { data: workflows, isPending: workflowsPending } = useFetch('http://localhost:8000/workflows');
 
   // State for the main form data
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    status: 'Open',
+    workflowId: '', // New state field
+    status: '',
     priority: 'Medium',
     workGroup: '',
     responsible: '',
@@ -36,11 +38,15 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
   const [editingCommentText, setEditingCommentText] = useState('');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [commentToDeleteId, setCommentToDeleteId] = useState(null);
-  
+
   // State for form submission
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [isAddingComment, setIsAddingComment] = useState(false);
+  
+  // State for dynamically generated status options
+  const [statusOptions, setStatusOptions] = useState([]);
+
 
   // Effect to populate form data and comments when ticket data is fetched
   useEffect(() => {
@@ -48,7 +54,8 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
       setFormData({
         title: ticket.title || '',
         description: ticket.description || '',
-        status: ticket.status || 'Open',
+        workflowId: ticket.workflowId || '', // Set new workflowId state
+        status: ticket.status || '',
         priority: ticket.priority || 'Medium',
         workGroup: ticket.workGroup || '',
         responsible: ticket.responsible || '',
@@ -60,6 +67,46 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
       setComments(ticket.comments || []);
     }
   }, [ticket]);
+
+  // Effect to determine available statuses based on the selected workflow
+  useEffect(() => {
+    if (formData.workflowId && workflows) {
+      const selectedWorkflow = workflows.find(wf => wf.id === formData.workflowId);
+      if (selectedWorkflow) {
+        const currentStepIndex = selectedWorkflow.steps.findIndex(step => step.stepName === formData.status);
+        const newStatusOptions = [];
+        if (currentStepIndex > 0) {
+          newStatusOptions.push(selectedWorkflow.steps[currentStepIndex - 1].stepName);
+        }
+        newStatusOptions.push(selectedWorkflow.steps[currentStepIndex].stepName);
+        if (currentStepIndex < selectedWorkflow.steps.length - 1) {
+          newStatusOptions.push(selectedWorkflow.steps[currentStepIndex + 1].stepName);
+        }
+        setStatusOptions(newStatusOptions);
+      }
+    }
+  }, [formData.workflowId, formData.status, workflows]);
+
+  // Effect to automatically update workgroup based on status
+  useEffect(() => {
+    if (formData.workflowId && formData.status && workflows) {
+      const selectedWorkflow = workflows.find(wf => wf.id === formData.workflowId);
+      if (selectedWorkflow) {
+        const currentStep = selectedWorkflow.steps.find(step => step.stepName === formData.status);
+        if (currentStep && currentStep.workgroupCode) {
+          // Find the full workgroup name from the workgroups list
+          const workgroup = workgroups.find(wg => wg.id === currentStep.workgroupCode);
+          if (workgroup) {
+            setFormData(prev => ({
+              ...prev,
+              workGroup: workgroup.name
+            }));
+          }
+        }
+      }
+    }
+  }, [formData.workflowId, formData.status, workflows, workgroups]);
+
 
   // Handler for all input changes in the main form
   const handleInputChange = (e) => {
@@ -307,7 +354,7 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
     }
   };
 
-  if (isPending) {
+  if (isPending || workflowsPending) {
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="text-gray-500">Loading ticket...</div>
@@ -330,8 +377,7 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
       </div>
     );
   }
-
-  const statusOptions = ['Open', 'In Progress', 'Closed'];
+  
   const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
   const moduleOptions = ['Authentication', 'Reporting Engine', 'User Management', 'Notification Service', 'Dashboard', 'UI/UX'];
 

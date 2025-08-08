@@ -1,106 +1,134 @@
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
+import Badge from "../components/Badge";
 
 const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employees, moduleOptions }) => {
   return (
-    <>
-      {/* Assignment */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Assignment</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    <Card className="h-fit">
+      <CardHeader>
+        <CardTitle>Assignment</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label
+              htmlFor="workgroup"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Work Group
             </label>
             <select
+              id="workgroup"
               name="workGroup"
               value={formData.workGroup}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              disabled // This is the key change
             >
-              <option value="">Select Work Group</option>
-              {workgroups && workgroups.map(wg => (
-                <option key={wg.id} value={wg.name}>{wg.name}</option>
-              ))}
+              <option value="">Select work group</option>
+              {workgroups && workgroups.length > 0 ? (
+                workgroups.map(workgroup => (
+                  <option key={workgroup.id} value={workgroup.name}>
+                    {workgroup.name}
+                  </option>
+                ))
+              ) : (
+                <option disabled>No workgroups available</option>
+              )}
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Responsible Person
+          <div className="space-y-2">
+            <label
+              htmlFor="responsible"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Person Responsible
             </label>
             <select
+              id="responsible"
               name="responsible"
               value={formData.responsible}
               onChange={handleInputChange}
-              disabled={!employees}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
-              <option value="">
-                {employees ? "Select Person" : "Loading employees..."}
-              </option>
-              {employees && employees
-                .filter(emp => emp.active)
-                .map(emp => (
-                  <option key={emp.id} value={emp.name}>{emp.name}</option>
-                ))}
+              <option value="">Select person</option>
+              {employees && employees.length > 0 ? (
+                employees.map(employee => (
+                  <option key={employee.id} value={employee.name}>
+                    {employee.name}
+                  </option>
+                ))
+              ) : (
+                <option disabled>No employees available</option>
+              )}
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <div className="space-y-2">
+            <label
+              htmlFor="module"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Module
             </label>
             <select
+              id="module"
               name="module"
               value={formData.module}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
-              <option value="">Select Module</option>
+              <option value="">Select module</option>
               {moduleOptions.map(module => (
-                <option key={module} value={module}>{module}</option>
+                <option key={module} value={module}>
+                  {module}
+                </option>
               ))}
             </select>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Timeline */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Timeline</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        {/* Timeline Section */}
+        <div className="space-y-4">
+          <CardHeader>
+            <CardTitle>Timeline</CardTitle>
+          </CardHeader>
+          <div className="space-y-2">
+            <label
+              htmlFor="startDate"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Start Date
             </label>
             <input
-              type="date"
+              id="startDate"
               name="startDate"
+              type="date"
               value={formData.startDate}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <div className="space-y-2">
+            <label
+              htmlFor="dueDate"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
               Due Date
             </label>
             <input
-              type="date"
+              id="dueDate"
               name="dueDate"
+              type="date"
               value={formData.dueDate}
               onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
           </div>
-        </CardContent>
-      </Card>
-    </>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 

@@ -77,6 +77,7 @@ const CreateTicketPage = () => {
   const [formData, setFormData] = useState({
     title: "",
     description: "",
+    workflowId: "",
     status: "",
     priority: "",
     workGroup: "",
@@ -90,6 +91,7 @@ const CreateTicketPage = () => {
   const { data: employees, isPending: employeesLoading, error: employeesError } = useFetch('http://localhost:8000/employees')
   const { data: workgroups, isPending: workgroupsLoading, error: workgroupsError } = useFetch('http://localhost:8000/workgroups')
   const { data: modules, isPending: modulesLoading, error: modulesError } = useFetch('http://localhost:8000/modules')
+  const { data: workflows, isPending: workflowsLoading, error: workflowsError } = useFetch('http://localhost:8000/workflows') // Fetch workflows
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -98,6 +100,30 @@ const CreateTicketPage = () => {
       [name]: value
     }))
   }
+
+  const handleWorkflowChange = (e) => {
+    const workflowId = e.target.value;
+    const selectedWorkflow = workflows?.find(wf => wf.id === workflowId);
+    
+    let initialStatus = '';
+    let workgroupName = '';
+
+    if (selectedWorkflow && selectedWorkflow.steps.length > 0) {
+      const firstStep = selectedWorkflow.steps[0];
+      initialStatus = firstStep.stepName;
+      
+      // Find the workgroup name from the fetched workgroups
+      const assignedWorkgroup = workgroups?.find(wg => wg.id === firstStep.workgroupCode);
+      workgroupName = assignedWorkgroup ? assignedWorkgroup.name : '';
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      workflowId,
+      status: initialStatus,
+      workGroup: workgroupName, // Set the workgroup dynamically
+    }));
+  };
 
   const addTag = tag => {
     if (tag && !selectedTags.includes(tag)) {
@@ -205,9 +231,9 @@ const CreateTicketPage = () => {
       return false
     }
 
-    if (!formData.status) {
-      showToast('Please select a status', 'error')
-      return false
+    if (!formData.workflowId) {
+        showToast('Please select a workflow', 'error')
+        return false
     }
 
     if (!formData.priority) {
@@ -245,6 +271,7 @@ const CreateTicketPage = () => {
         title: formData.title.trim(),
         description: formData.description.trim(),
         status: formData.status,
+        workflowId: formData.workflowId, // Add workflowId to the ticket data
         priority: formData.priority,
         workGroup: formData.workGroup,
         responsible: formData.responsible,
@@ -274,6 +301,7 @@ const CreateTicketPage = () => {
       setFormData({
         title: "",
         description: "",
+        workflowId: "",
         status: "",
         priority: "",
         workGroup: "",
@@ -298,6 +326,7 @@ const CreateTicketPage = () => {
     setFormData({
       title: "",
       description: "",
+      workflowId: "",
       status: "",
       priority: "",
       workGroup: "",
@@ -312,10 +341,10 @@ const CreateTicketPage = () => {
   }
 
   // Check if any data is still loading
-  const isLoading = tagsLoading || employeesLoading || workgroupsLoading || modulesLoading
+  const isLoading = tagsLoading || employeesLoading || workgroupsLoading || modulesLoading || workflowsLoading
 
   // Check for any errors
-  const hasError = tagsError || employeesError || workgroupsError || modulesError
+  const hasError = tagsError || employeesError || workgroupsError || modulesError || workflowsError
 
   if (isLoading) {
     return (
@@ -353,6 +382,11 @@ const CreateTicketPage = () => {
             {workgroupsError && (
               <p className="text-red-600 dark:text-red-400">
                 Error loading workgroups: {workgroupsError.message}
+              </p>
+            )}
+            {workflowsError && (
+              <p className="text-red-600 dark:text-red-400">
+                Error loading workflows: {workflowsError.message}
               </p>
             )}
           </div>
@@ -397,290 +431,305 @@ const CreateTicketPage = () => {
         <CardContent className="space-y-6">
           <form onSubmit={handleSubmit}>
             <div className="space-y-6">
-          <div className="space-y-2">
-            <label
-              htmlFor="title"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="title"
-              name="title"
-              type="text"
-              value={formData.title}
-              onChange={handleInputChange}
-              placeholder="Enter ticket title"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Description <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              rows={4}
-              value={formData.description}
-              onChange={handleInputChange}
-              placeholder="Describe the ticket in detail"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="status"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Status <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              >
-                <option value="">Select status</option>
-                <option value="Open">Open</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Closed">Closed</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="priority"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Priority <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="priority"
-                name="priority"
-                value={formData.priority}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              >
-                <option value="">Select priority</option>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-                <option value="Critical">Critical</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="workgroup"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Work Group Assigned
-              </label>
-              <select
-                id="workgroup"
-                name="workGroup"
-                value={formData.workGroup}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              >
-                <option value="">Select work group</option>
-                {workgroups && workgroups.length > 0 ? (
-                  workgroups.map(workgroup => (
-                    <option key={workgroup.id} value={workgroup.name}>
-                      {workgroup.name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No workgroups available</option>
-                )}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="responsible"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Person Responsible
-              </label>
-              <select
-                id="responsible"
-                name="responsible"
-                value={formData.responsible}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              >
-                <option value="">Select person</option>
-                {employees && employees.length > 0 ? (
-                  employees.map(employee => (
-                    <option key={employee.id} value={employee.name}>
-                      {employee.name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>No employees available</option>
-                )}
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label
-              htmlFor="module"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Module
-            </label>
-            <select
-              id="module"
-              name="module"
-              value={formData.module}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            >
-              <option value="">Select module</option>
-              {modules && modules.length > 0 ? (
-               modules.map(module => (
-                <option key={module.id} value={module.name}>
-                  {module.name}
-              </option>
-  ))
-) : (
-  <option disabled>No modules available</option>
-)}
-            </select>
-          </div>
-
-          <div className="space-y-4">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Tags
-            </label>
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-2">
-                {availableTags && availableTags.length > 0 ? (
-                  availableTags.map(tag => (
-                    <Button
-                      key={tag.id}
-                      type="button"
-                      variant={selectedTags.includes(tag.label) ? "primary" : "outline"}
-                      size="sm"
-                      onClick={() =>
-                        selectedTags.includes(tag.label) ? removeTag(tag.label) : addTag(tag.label)
-                      }
-                    >
-                      {tag.label}
-                    </Button>
-                  ))
-                ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No tags available</p>
-                )}
+              <div className="space-y-2">
+                <label
+                  htmlFor="title"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Title <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="title"
+                  name="title"
+                  type="text"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  placeholder="Enter ticket title"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
               </div>
 
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Add custom tag"
-                  value={customTag}
-                  onChange={e => setCustomTag(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              <div className="space-y-2">
+                <label
+                  htmlFor="description"
+                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="description"
+                  name="description"
+                  rows={4}
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  placeholder="Describe the ticket in detail"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 />
-                <Button type="button" variant="outline" onClick={addCustomTag}>
-                  Add
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="workflow"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Workflow <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="workflow"
+                    name="workflowId"
+                    value={formData.workflowId}
+                    onChange={handleWorkflowChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Select workflow</option>
+                    {workflows && workflows.length > 0 ? (
+                      workflows.map(workflow => (
+                        <option key={workflow.id} value={workflow.id}>
+                          {workflow.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>No workflows available</option>
+                    )}
+                  </select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label
+                    htmlFor="status"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Initial Status
+                  </label>
+                  <input
+                    id="status"
+                    name="status"
+                    type="text"
+                    value={formData.status}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="priority"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Priority <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="priority"
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Select priority</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="workgroup"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Work Group Assigned
+                  </label>
+                  <input
+                    id="workgroup"
+                    name="workGroup"
+                    type="text"
+                    value={formData.workGroup}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="responsible"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Person Responsible
+                  </label>
+                  <select
+                    id="responsible"
+                    name="responsible"
+                    value={formData.responsible}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Select person</option>
+                    {employees && employees.length > 0 ? (
+                      employees.map(employee => (
+                        <option key={employee.id} value={employee.name}>
+                          {employee.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>No employees available</option>
+                    )}
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="module"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Module
+                  </label>
+                  <select
+                    id="module"
+                    name="module"
+                    value={formData.module}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Select module</option>
+                    {modules && modules.length > 0 ? (
+                      modules.map(module => (
+                        <option key={module.id} value={module.name}>
+                          {module.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>No modules available</option>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Tags
+                </label>
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {availableTags && availableTags.length > 0 ? (
+                      availableTags.map(tag => (
+                        <Button
+                          key={tag.id}
+                          type="button"
+                          variant={selectedTags.includes(tag.label) ? "primary" : "outline"}
+                          size="sm"
+                          onClick={() =>
+                            selectedTags.includes(tag.label) ? removeTag(tag.label) : addTag(tag.label)
+                          }
+                        >
+                          {tag.label}
+                        </Button>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No tags available</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add custom tag"
+                      value={customTag}
+                      onChange={e => setCustomTag(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                    <Button type="button" variant="outline" onClick={addCustomTag}>
+                      Add
+                    </Button>
+                  </div>
+
+                  {selectedTags.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Selected Tags:
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedTags.map(tag => (
+                          <div key={tag} className="flex items-center">
+                            <Badge
+                              variant="secondary"
+                              className="flex items-center gap-1"
+                            >
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => removeTag(tag)}
+                                className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                              >
+                                ✕
+                              </button>
+                            </Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label
+                    htmlFor="startdate"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Start Date
+                  </label>
+                  <input
+                    id="startdate"
+                    name="startDate"
+                    type="date"
+                    value={formData.startDate}
+                    onChange={handleInputChange}
+                    placeholder="DD/MM/YYYY HH:MM:SS"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Format: DD/MM/YYYY HH:MM:SS (Bahrain time)
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label
+                    htmlFor="duedate"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Due Date
+                  </label>
+                  <input
+                    id="dueDate"
+                    name="dueDate"
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Format: DD/MM/YYYY
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                  {isSubmitting ? "Creating..." : "Create Ticket"}
+                </Button>
+                <Button type="button" variant="outline" onClick={handleCancel}>
+                  Cancel
                 </Button>
               </div>
-
-              {selectedTags.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Selected Tags:
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTags.map(tag => (
-                      <div key={tag} className="flex items-center">
-                        <Badge
-                          variant="secondary"
-                          className="flex items-center gap-1"
-                        >
-                          {tag}
-                          <button
-                            type="button"
-                            onClick={() => removeTag(tag)}
-                            className="ml-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                          >
-                            ✕
-                          </button>
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label
-                htmlFor="startdate"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Start Date
-              </label>
-              <input
-                id="startdate"
-                name="startDate"
-                type="date"
-                value={formData.startDate}
-                onChange={handleInputChange}
-                placeholder="DD/MM/YYYY HH:MM:SS"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Format: DD/MM/YYYY HH:MM:SS (Bahrain time)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <label
-                htmlFor="duedate"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-              >
-                Due Date
-              </label>
-              <input
-                id="dueDate"
-                name="dueDate"
-                type="date"
-                value={formData.dueDate}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Format: DD/MM/YYYY
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Button type="submit" className="flex-1" disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Ticket"}
-            </Button>
-            <Button type="button" variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-            </div>
-          </div>
           </form>
         </CardContent>
       </Card>
