@@ -851,6 +851,42 @@
           "order": 6
         }
       ]
+    },
+    {
+      "id": "WF-003",
+      "name": "Mobile Application",
+      "steps": [
+        {
+          "stepName": "Pending confirmation",
+          "workgroupCode": "WG-005",
+          "order": 1
+        },
+        {
+          "stepName": "To be review",
+          "workgroupCode": "WG-002",
+          "order": 2
+        },
+        {
+          "stepName": "RT",
+          "workgroupCode": "WG-002",
+          "order": 3
+        },
+        {
+          "stepName": "Ready to test",
+          "workgroupCode": "WG-004",
+          "order": 4
+        },
+        {
+          "stepName": "Ready to deploy",
+          "workgroupCode": "WG-002",
+          "order": 5
+        },
+        {
+          "stepName": "Close",
+          "workgroupCode": "WG-004",
+          "order": 6
+        }
+      ]
     }
   ]
 }
