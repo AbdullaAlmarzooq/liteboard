@@ -92,10 +92,7 @@ const AdminPanel = () => {
       newItem = {
         name: '',
         email: '',
-        position: '',
-        department: '',
         workgroup: '',
-        skills: [],
         active: true,
         joined_date: new Date().toISOString().split('T')[0]
       };
@@ -262,6 +259,7 @@ const AdminPanel = () => {
         return (
           <EmployeesTab
             employees={employees}
+            workgroups={workgroups}
             editingItem={editingItem}
             editForm={editForm}
             handleEdit={handleEdit}

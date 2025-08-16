@@ -76,9 +76,97 @@ const WorkflowDiagram = ({ steps, currentStepName }) => {
   );
 };
 
+// Cancel Ticket Modal Component
+const CancelTicketModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
+  const [comment, setComment] = useState('')
+  const [error, setError] = useState('')
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!comment.trim()) {
+      setError('Comment is required to cancel the ticket')
+      return
+    }
+    onConfirm(comment.trim())
+  }
+
+  const handleClose = () => {
+    setComment('')
+    setError('')
+    onClose()
+  }
+
+  useEffect(() => {
+    if (comment.trim()) {
+      setError('')
+    }
+  }, [comment])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            Cancel Ticket
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Are you sure you want to cancel this ticket? This action cannot be undone.
+          </p>
+          
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label htmlFor="cancelComment" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Cancellation Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="cancelComment"
+                rows={4}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+                  error ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Please provide a reason for cancelling this ticket..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                disabled={isLoading}
+              />
+              {error && (
+                <p className="mt-1 text-sm text-red-600">{error}</p>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isLoading}
+              >
+                Keep Ticket
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={isLoading || !comment.trim()}
+              >
+                {isLoading ? 'Cancelling...' : 'Cancel Ticket'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const ViewTicket = ({ ticketId, setCurrentPage }) => {
   const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/tickets/${ticketId}`)
   const { data: statusHistory, isPending: isHistoryPending, error: historyError } = useFetch(`http://localhost:8000/status_history?ticketId=${ticketId}`)
+  
+  // Cancel ticket modal state
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
   
   // Fetch workflow if ticket has workflowId
   const [workflow, setWorkflow] = useState(null)
@@ -91,8 +179,55 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
     }
   }, [ticket])
 
+  // Handle cancel ticket
+  const handleCancelTicket = async (comment) => {
+    setIsCancelling(true)
+    try {
+      // Generate a unique comment ID
+      const commentId = `${ticketId}-${String(Date.now()).slice(-3)}`
+      
+      // Create the cancellation comment
+      const cancellationComment = {
+        id: commentId,
+        text: `Ticket cancelled. Reason: ${comment}`,
+        author: "Current User", // Replace with actual user context
+        timestamp: new Date().toISOString()
+      }
+
+      // Update the ticket with cancelled status and add the comment
+      const updatedTicket = {
+        ...ticket,
+        status: "Cancelled",
+        comments: [...(ticket.comments || []), cancellationComment]
+      }
+
+      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedTicket),
+      })
+
+      if (response.ok) {
+        // Close modal and refresh the page data
+        setShowCancelModal(false)
+        window.location.reload() // Simple refresh, or implement proper state update
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to cancel ticket: ${errorData.message || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error cancelling ticket:', error)
+      alert('Failed to cancel ticket. Please try again.')
+    } finally {
+      setIsCancelling(false)
+    }
+  }
+
   const getStatusVariant = status => {
     switch (status) {
+      case "Cancelled": return "destructive"
       case "Closed": return "default"
       case "In Progress": return "secondary"
       case "Open": return "outline"
@@ -144,6 +279,9 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
     }
   }, [ticket, statusHistory])
 
+  // Check if ticket can be cancelled (not already closed or cancelled)
+  const canCancelTicket = ticket && !['Closed', 'Cancelled'].includes(ticket.status)
+
   if (isPending || isHistoryPending) {
     return <div className="flex items-center justify-center min-h-64 text-gray-500">Loading ticket details...</div>
   }
@@ -159,7 +297,20 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={() => setCurrentPage("tickets")}>← Back to Tickets</Button>
         <h1 className="text-3xl font-bold">Ticket Details</h1>
-        <Button variant="secondary" onClick={() => setCurrentPage(`edit-ticket-${ticketId}`)}>Edit Ticket</Button>
+        <div className="flex space-x-2">
+          <Button variant="secondary" onClick={() => setCurrentPage(`edit-ticket-${ticketId}`)}>
+            Edit Ticket
+          </Button>
+          {canCancelTicket && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setShowCancelModal(true)}
+              disabled={isCancelling}
+            >
+              Cancel Ticket
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
@@ -182,18 +333,18 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
 
           {/* Workflow diagram (only if workflow found) */}
           {workflow && (
-  <Card>
-    <CardHeader>
-      <CardTitle className="text-xl">Workflow: {workflow.name}</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <WorkflowDiagram
-        steps={workflow.steps}
-        currentStepName={ticket.status} // highlight based on current ticket status
-      />
-    </CardContent>
-  </Card>
-)}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-xl">Workflow: {workflow.name}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <WorkflowDiagram
+                  steps={workflow.steps}
+                  currentStepName={ticket.status} // highlight based on current ticket status
+                />
+              </CardContent>
+            </Card>
+          )}
 
           {/* Activity log */}
           <Card>
@@ -263,6 +414,14 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
           </Card>
         </div>
       </div>
+
+      {/* Cancel Ticket Modal */}
+      <CancelTicketModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleCancelTicket}
+        isLoading={isCancelling}
+      />
     </div>
   )
 }

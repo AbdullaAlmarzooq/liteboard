@@ -22,7 +22,7 @@
       "email": "ali@company.com",
       "position": "Senior Digital Channels Specialist",
       "department": "Customer Service - Digital Channels",
-      "workgroup": "Technical Support",
+      "workgroup": "Digital Channels",
       "skills": [
         "Networks",
         "Troubleshooting",
@@ -37,7 +37,7 @@
       "email": "mohammed@company.com",
       "position": "System Administrator",
       "department": "Infrastructure",
-      "workgroup": "Admin",
+      "workgroup": "Digital Transformation",
       "skills": [
         "Linux",
         "Virtualization",
@@ -52,7 +52,7 @@
       "email": "hussain@company.com",
       "position": "Customer Experience Analyst",
       "department": "Customer Service",
-      "workgroup": "Feedback & Complaints",
+      "workgroup": "Digital Infrastructure",
       "skills": [
         "Data Analysis",
         "CRM",
@@ -313,10 +313,10 @@
       "id": "TCK-1012",
       "title": "Search bar",
       "description": "add search bar in Tickets page",
-      "status": "In Progress",
+      "status": "Cancelled",
       "workflowId": "WF-001",
       "priority": "Medium",
-      "workGroup": "Customer Services Center",
+      "workGroup": "Digital Transformation",
       "responsible": "Hadi Altawash",
       "module": "UI/UX",
       "tags": [
@@ -324,7 +324,8 @@
       ],
       "startDate": "2025-06-18",
       "dueDate": "2025-06-26",
-      "initiateDate": "2025-06-21 07:42:11"
+      "initiateDate": "2025-06-21 07:42:11",
+      "comments": []
     },
     {
       "id": "TCK-1013",
@@ -452,10 +453,10 @@
       "id": "TCK-1018",
       "title": "First specialist workflow (iga)",
       "description": "to test all of it",
-      "status": "Pending confirmation",
+      "status": "To be review",
       "workflowId": "WF-002",
       "priority": "High",
-      "workGroup": "Digital Channels",
+      "workGroup": "Digital Infrastructure",
       "responsible": "Abdulla Almarzooq",
       "module": "Authentication",
       "tags": [
@@ -466,13 +467,21 @@
       "startDate": "2025-08-08",
       "dueDate": "2025-09-06",
       "initiateDate": "2025-08-08 15:06:05",
-      "comments": []
+      "comments": [
+        {
+          "id": "COM-001",
+          "text": "Needs developers input now",
+          "author": "Current User",
+          "timestamp": "2025-08-16T06:23:05.774Z",
+          "type": "comment"
+        }
+      ]
     },
     {
       "id": "TCK-1019",
       "title": "new IGA workflow ticket",
       "description": "for testing only",
-      "status": "To be review",
+      "status": "Cancelled",
       "workflowId": "WF-002",
       "priority": "High",
       "workGroup": "Digital Infrastructure",
@@ -491,6 +500,12 @@
           "author": "Current User",
           "timestamp": "2025-08-08T15:34:25.082Z",
           "type": "comment"
+        },
+        {
+          "id": "TCK-1019-328",
+          "text": "Ticket cancelled. Reason: for a test reason only",
+          "author": "Current User",
+          "timestamp": "2025-08-16T05:38:11.328Z"
         }
       ]
     }
@@ -558,6 +573,11 @@
       "id": "WG-005",
       "name": "Digital Transformation",
       "description": "Responsible of the digital transformation."
+    },
+    {
+      "id": "WG-006",
+      "name": "Collection and Billing",
+      "description": "Responsible for all the collection and billing"
     }
   ],
   "modules": [
@@ -791,6 +811,46 @@
       "oldValue": "Digital Channels",
       "newValue": "Digital Infrastructure",
       "timestamp": "2025-08-08T15:34:26.064Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-021",
+      "ticketId": "TCK-1018",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Pending confirmation",
+      "newValue": "To be review",
+      "timestamp": "2025-08-16T06:23:08.271Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-022",
+      "ticketId": "TCK-1018",
+      "type": "field_change",
+      "fieldName": "workGroup",
+      "oldValue": "Digital Channels",
+      "newValue": "Digital Infrastructure",
+      "timestamp": "2025-08-16T06:23:08.280Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-023",
+      "ticketId": "TCK-1012",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "In Progress",
+      "newValue": "Cancelled",
+      "timestamp": "2025-08-16T06:24:04.170Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-024",
+      "ticketId": "TCK-1012",
+      "type": "field_change",
+      "fieldName": "workGroup",
+      "oldValue": "Customer Services Center",
+      "newValue": "Digital Transformation",
+      "timestamp": "2025-08-16T06:24:04.181Z",
       "changedBy": "Current User"
     }
   ],

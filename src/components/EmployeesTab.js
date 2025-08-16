@@ -1,10 +1,15 @@
 import React from 'react';
 import { Edit2, Save, X } from 'lucide-react';
 
-const EmployeesTab = ({ employees, editingItem, editForm, handleEdit, handleSave, handleCancel, handleInputChange, handleSkillsChange }) => {
+const EmployeesTab = ({ employees, workgroups, editingItem, editForm, handleEdit, handleSave, handleCancel, handleInputChange, handleSkillsChange }) => {
   if (employees.length === 0) {
     return <div className="text-center py-8 text-gray-500">No employees found</div>;
   }
+
+  const getWorkgroupName = (workgroupCode) => {
+    const workgroup = workgroups.find(wg => wg.id === workgroupCode);
+    return workgroup ? workgroup.name : workgroupCode;
+  };
 
   return (
     <div className="grid gap-4">
@@ -49,34 +54,18 @@ const EmployeesTab = ({ employees, editingItem, editForm, handleEdit, handleSave
                 className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
                 placeholder="Email"
               />
-              <input
-                type="text"
-                value={editForm.position || ''}
-                onChange={(e) => handleInputChange('position', e.target.value)}
-                className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
-                placeholder="Position"
-              />
-              <input
-                type="text"
-                value={editForm.department || ''}
-                onChange={(e) => handleInputChange('department', e.target.value)}
-                className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
-                placeholder="Department"
-              />
-              <input
-                type="text"
+              <select
                 value={editForm.workgroup || ''}
                 onChange={(e) => handleInputChange('workgroup', e.target.value)}
                 className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
-                placeholder="Workgroup"
-              />
-              <input
-                type="text"
-                value={editForm.skills ? editForm.skills.join(', ') : ''}
-                onChange={(e) => handleSkillsChange(e.target.value)}
-                className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
-                placeholder="Skills (comma separated)"
-              />
+              >
+                <option value="" disabled>Select Workgroup</option>
+                {workgroups.map(wg => (
+                  <option key={wg.id} value={wg.name}>
+                    {wg.name}
+                  </option>
+                ))}
+              </select>
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -91,8 +80,7 @@ const EmployeesTab = ({ employees, editingItem, editForm, handleEdit, handleSave
             <div className="space-y-2">
               <h3 className="font-semibold text-lg">{employee.name}</h3>
               <p className="text-gray-600">{employee.email}</p>
-              <p className="text-sm text-gray-500">{employee.position}</p>
-              <p className="text-sm text-gray-500">{employee.department} - {employee.workgroup}</p>
+              <p className="text-sm text-gray-500">Workgroup: {employee.workgroup}</p>
               <p className="text-xs text-gray-400">Joined: {employee.joined_date}</p>
             </div>
           )}

@@ -75,13 +75,27 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
       if (selectedWorkflow) {
         const currentStepIndex = selectedWorkflow.steps.findIndex(step => step.stepName === formData.status);
         const newStatusOptions = [];
+        
+        // Add the current status
+        if (currentStepIndex !== -1) {
+            newStatusOptions.push(selectedWorkflow.steps[currentStepIndex].stepName);
+        }
+
+        // Add the previous status if it exists
         if (currentStepIndex > 0) {
           newStatusOptions.push(selectedWorkflow.steps[currentStepIndex - 1].stepName);
         }
-        newStatusOptions.push(selectedWorkflow.steps[currentStepIndex].stepName);
-        if (currentStepIndex < selectedWorkflow.steps.length - 1) {
+        
+        // Add the next status if it exists
+        if (currentStepIndex !== -1 && currentStepIndex < selectedWorkflow.steps.length - 1) {
           newStatusOptions.push(selectedWorkflow.steps[currentStepIndex + 1].stepName);
         }
+        
+        // Ensure "Cancelled" is always an option
+        if (!newStatusOptions.includes('Cancelled')) {
+            newStatusOptions.push('Cancelled');
+        }
+
         setStatusOptions(newStatusOptions);
       }
     }

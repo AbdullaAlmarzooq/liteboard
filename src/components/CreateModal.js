@@ -50,26 +50,6 @@ const CreateModal = ({ activeTab, createForm, handleCreateInputChange, handleCre
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Position</label>
-                  <input
-                    type="text"
-                    value={createForm.position || ''}
-                    onChange={(e) => handleCreateInputChange('position', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
-                    placeholder="Enter position"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Department</label>
-                  <input
-                    type="text"
-                    value={createForm.department || ''}
-                    onChange={(e) => handleCreateInputChange('department', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
-                    placeholder="Enter department"
-                  />
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Workgroup</label>
                   <select
                     value={createForm.workgroup || ''}
