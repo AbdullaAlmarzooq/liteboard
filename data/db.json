@@ -453,7 +453,7 @@
       "id": "TCK-1018",
       "title": "First specialist workflow (iga)",
       "description": "to test all of it",
-      "status": "To be review",
+      "status": "Cancelled",
       "workflowId": "WF-002",
       "priority": "High",
       "workGroup": "Digital Infrastructure",
@@ -474,6 +474,12 @@
           "author": "Current User",
           "timestamp": "2025-08-16T06:23:05.774Z",
           "type": "comment"
+        },
+        {
+          "id": "TCK-1018-412",
+          "text": "Ticket cancelled. Reason: Email from head to cancel the ticket",
+          "author": "Current User",
+          "timestamp": "2025-08-16T17:08:49.412Z"
         }
       ]
     },
@@ -508,6 +514,23 @@
           "timestamp": "2025-08-16T05:38:11.328Z"
         }
       ]
+    },
+    {
+      "id": "TCK-1020",
+      "title": "Dashboard In progress tickets",
+      "description": "Total in progress tickets component needs re-deisgn where anything not open or cancelled or close must be open.",
+      "status": "Pending confirmation",
+      "workflowId": "WF-003",
+      "priority": "Medium",
+      "workGroup": "Digital Transformation",
+      "responsible": "Hussain alQassab",
+      "module": "Dashboard",
+      "tags": [
+        "bug"
+      ],
+      "startDate": "2025-08-20",
+      "dueDate": "2025-09-17",
+      "initiateDate": "2025-08-16 17:30:00"
     }
   ],
   "tags": [

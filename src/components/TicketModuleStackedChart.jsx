@@ -10,40 +10,36 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const TicketModuleStackedChart = ({ tickets }) => { 
+const TicketModuleStackedChart = ({ tickets }) => {
   const [data, setData] = useState([]);
 
   useEffect(() => {
     if (tickets.length > 0) {
-      const counts = {}; 
+      const counts = {};
 
-      tickets.forEach(ticket => { 
-        const module = ticket.module?.trim() || "Unknown"; 
-        const status = ticket.status?.trim(); 
+      tickets.forEach((ticket) => {
+        const module = ticket.module?.trim() || "Unknown";
+        const status = ticket.status?.trim();
 
-        if (status === "Open" || status === "In Progress") { 
-          if (!counts[module]) { 
-            counts[module] = { module, Open: 0, InProgress: 0 }; 
+        // ✅ Count all tickets that are NOT Closed or Cancelled
+        if (status !== "Closed" && status !== "Cancelled") {
+          if (!counts[module]) {
+            counts[module] = { module, Pending: 0 };
           }
-          if (status === "Open") { 
-            counts[module].Open++; 
-          }
-          if (status === "In Progress") { 
-            counts[module].InProgress++; 
-          }
+          counts[module].Pending++;
         }
       });
 
-      const chartData = Object.values(counts); 
-      setData(chartData); 
+      const chartData = Object.values(counts);
+      setData(chartData);
     } else {
-        setData([]);
+      setData([]);
     }
-  }, [tickets]); 
+  }, [tickets]);
 
   return (
     <div className="rounded-xl shadow-lg p-6 bg-gray-200 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
-      <h2 className="text-xl font-bold mb-4">Open and In Progress Tickets by Module</h2>
+      <h2 className="text-xl font-bold mb-4">Pending Tickets by Module</h2>
       <ResponsiveContainer width="100%" height={350}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
@@ -51,8 +47,7 @@ const TicketModuleStackedChart = ({ tickets }) => {
           <YAxis allowDecimals={false} />
           <Tooltip />
           <Legend />
-          <Bar dataKey="Open" stackId="a" fill="#9cc1e0" />
-          <Bar dataKey="InProgress" stackId="a" fill="#457caa" />
+          <Bar dataKey="Pending" stackId="a" fill="#6a9cc6" />
         </BarChart>
       </ResponsiveContainer>
     </div>

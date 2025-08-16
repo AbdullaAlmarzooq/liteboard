@@ -86,11 +86,10 @@ return (
     )}
 
     {/* Section 1: All four summary components in one line */}
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <TotalOpenTickets tickets={filteredTickets} />
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
       <TotalPendingTickets tickets={filteredTickets} />
       <OpenTicketsPieChart tickets={filteredTickets} />
-      <InProgressTicketsPieChart tickets={filteredTickets} />
+  
     </div>
 
     {/* Section 2: Three charts in one line */}

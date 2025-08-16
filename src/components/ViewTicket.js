@@ -4,6 +4,7 @@ import Button from "./Button"
 import useFetch from "../useFetch"
 import { useState, useEffect } from 'react'
 import ReactFlow, { Background } from 'reactflow'
+import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3 } from "lucide-react";
 import 'reactflow/dist/style.css'
 
 const WorkflowDiagram = ({ steps, currentStepName }) => {
@@ -347,55 +348,120 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
           )}
 
           {/* Activity log */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl">Activity Log</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {timeline.length > 0 ? (
-                <ul className="space-y-4">
-                  {timeline.map((item, index) => (
-                    <li key={index} className="flex items-start space-x-4">
-                      <div className={`h-2 w-2 rounded-full mt-2 ${item.type === 'comment' ? 'bg-green-500' : 'bg-blue-500'}`} />
-                      <div className="flex-1">
-                        {item.type === 'comment' ? (
-                          <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-semibold">{item.author} commented:</p>
-                              <p className="text-xs text-gray-500">{formatTimestamp(item.timestamp)}</p>
-                            </div>
-                            <p className="mt-2">{item.text}</p>
-                          </div>
-                        ) : item.type === 'status_change' ? (
-                          <div>
-                            <p className="text-sm">Status changed from <b>{item.oldValue || 'N/A'}</b> to <b>{item.newValue || 'N/A'}</b></p>
-                            <p className="text-xs text-gray-500">by {item.changedBy} on {formatTimestamp(item.timestamp)}</p>
-                          </div>
-                        ) : item.fieldName === 'tags_added' ? (
-                          <div>
-                            <p className="text-sm">Added tag: <b>{item.newValue}</b></p>
-                            <p className="text-xs text-gray-500">by {item.changedBy} on {formatTimestamp(item.timestamp)}</p>
-                          </div>
-                        ) : item.fieldName === 'tags_removed' ? (
-                          <div>
-                            <p className="text-sm">Removed tag: <b>{item.oldValue}</b></p>
-                            <p className="text-xs text-gray-500">by {item.changedBy} on {formatTimestamp(item.timestamp)}</p>
-                          </div>
-                        ) : (
-                          <div>
-                            <p className="text-sm">Changed {formatFieldName(item.fieldName)} from <b>{item.oldValue || 'N/A'}</b> to <b>{item.newValue || 'N/A'}</b></p>
-                            <p className="text-xs text-gray-500">by {item.changedBy} on {formatTimestamp(item.timestamp)}</p>
-                          </div>
-                        )}
+{/* Activity log */}
+{/* Activity log */}
+<Card>
+  <CardHeader>
+    <CardTitle className="text-xl">Activity Log</CardTitle>
+  </CardHeader>
+  <CardContent>
+    {timeline.length > 0 ? (
+      <div className="relative pl-10 sm:pl-12">
+        {/* Vertical line */}
+        <div className="absolute left-5 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700"></div>
+
+        <ul className="space-y-6">
+          {timeline.map((item, index) => {
+            let Icon, colorClasses;
+            if (item.type === "comment") {
+              Icon = MessageSquare;
+              colorClasses = "bg-green-600 dark:bg-green-500";
+            } else if (item.type === "status_change") {
+              Icon = RefreshCw;
+              colorClasses = "bg-blue-600 dark:bg-blue-500";
+            } else if (item.fieldName === "tags_added") {
+              Icon = Tag;
+              colorClasses = "bg-purple-600 dark:bg-purple-500";
+            } else if (item.fieldName === "tags_removed") {
+              Icon = MinusCircle; // was TagOff (not in lucide-react)
+              colorClasses = "bg-red-600 dark:bg-red-500";
+            } else {
+              Icon = Edit3;
+              colorClasses = "bg-orange-600 dark:bg-orange-500";
+            }
+
+            return (
+              <li key={index} className="relative">
+                {/* Timeline node (perfectly centered) */}
+                <span
+                  className={`absolute left-0 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full text-white shadow ring-4 ring-white dark:ring-gray-900 ${colorClasses}`}
+                >
+                  <Icon className="h-5 w-5" aria-hidden="true" />
+                  <span className="sr-only">Timeline item</span>
+                </span>
+
+                {/* Card */}
+                <div className="ml-14">
+                  <div className="rounded-xl shadow-sm bg-white dark:bg-gray-800 p-4">
+                    {item.type === "comment" ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            {item.author} commented
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {formatTimestamp(item.timestamp)}
+                          </p>
+                        </div>
+                        <p className="mt-2 text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                          {item.text}
+                        </p>
+                      </>
+                    ) : item.type === "status_change" ? (
+                      <div>
+                        <p className="text-sm text-gray-900 dark:text-gray-100">
+                          Status changed from <b>{item.oldValue || "N/A"}</b> to{" "}
+                          <b>{item.newValue || "N/A"}</b>
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          by {item.changedBy} on {formatTimestamp(item.timestamp)}
+                        </p>
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="text-center text-gray-500">No activity found for this ticket.</div>
-              )}
-            </CardContent>
-          </Card>
+                    ) : item.fieldName === "tags_added" ? (
+                      <div>
+                        <p className="text-sm text-gray-900 dark:text-gray-100">
+                          Added tag: <b>{item.newValue}</b>
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          by {item.changedBy} on {formatTimestamp(item.timestamp)}
+                        </p>
+                      </div>
+                    ) : item.fieldName === "tags_removed" ? (
+                      <div>
+                        <p className="text-sm text-gray-900 dark:text-gray-100">
+                          Removed tag: <b>{item.oldValue}</b>
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          by {item.changedBy} on {formatTimestamp(item.timestamp)}
+                        </p>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm text-gray-900 dark:text-gray-100">
+                          Changed {formatFieldName(item.fieldName)} from{" "}
+                          <b>{item.oldValue || "N/A"}</b> to <b>{item.newValue || "N/A"}</b>
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          by {item.changedBy} on {formatTimestamp(item.timestamp)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ) : (
+      <div className="text-center text-gray-500 dark:text-gray-400">
+        No activity found for this ticket.
+      </div>
+    )}
+  </CardContent>
+</Card>
+
+
         </div>
 
         {/* Right side details */}
