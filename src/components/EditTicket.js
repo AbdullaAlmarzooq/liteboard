@@ -7,6 +7,7 @@ import Button from "../components/Button";
 import TicketDetailsForm from './TicketDetailsForm';
 import AssignmentAndTimeline from './AssignmentAndTimeline';
 import CommentSection from './CommentSection';
+import AttachmentUploader from './AttachmentUploader'; // Import the new component
 
 const EditTicket = ({ ticketId, setCurrentPage }) => {
   // Fetch ticket data and related resources
@@ -20,7 +21,7 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    workflowId: '', // New state field
+    workflowId: '',
     status: '',
     priority: 'Medium',
     workGroup: '',
@@ -39,6 +40,11 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [commentToDeleteId, setCommentToDeleteId] = useState(null);
 
+  // State for saved attachments (from the database)
+  const [savedAttachments, setSavedAttachments] = useState([]);
+  // State for new attachments (from the uploader)
+  const [newAttachments, setNewAttachments] = useState([]);
+
   // State for form submission
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -48,13 +54,13 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
   const [statusOptions, setStatusOptions] = useState([]);
 
 
-  // Effect to populate form data and comments when ticket data is fetched
+  // Effect to populate form data, comments, and attachments when ticket data is fetched
   useEffect(() => {
     if (ticket) {
       setFormData({
         title: ticket.title || '',
         description: ticket.description || '',
-        workflowId: ticket.workflowId || '', // Set new workflowId state
+        workflowId: ticket.workflowId || '',
         status: ticket.status || '',
         priority: ticket.priority || 'Medium',
         workGroup: ticket.workGroup || '',
@@ -65,6 +71,8 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
         dueDate: ticket.dueDate || '',
       });
       setComments(ticket.comments || []);
+      // Populate saved attachments state from fetched data
+      setSavedAttachments(ticket.attachments || []);
     }
   }, [ticket]);
 
@@ -139,6 +147,17 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
         ? prev.tags.filter(t => t !== tagLabel)
         : [...prev.tags, tagLabel]
     }));
+  };
+
+  // Handler for updating the newAttachments state
+  const handleNewAttachmentsChange = (attachmentsFromUploader) => {
+    setNewAttachments(attachmentsFromUploader);
+  };
+  
+  // Handler for removing an attachment from the saved list
+  const handleRemoveSavedAttachment = (fileToRemove) => {
+    const updatedAttachments = savedAttachments.filter(file => file !== fileToRemove);
+    setSavedAttachments(updatedAttachments);
   };
 
   // Handler for submitting a new comment
@@ -317,6 +336,9 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
     setIsSubmitting(true);
     setSubmitError('');
 
+    // Merge saved and new attachments for the final update
+    const finalAttachments = [...savedAttachments, ...newAttachments];
+
     // Compare original ticket data with new form data and log changes
     const fieldsToTrack = ['title', 'description', 'status', 'priority', 'workGroup', 'responsible', 'module', 'dueDate', 'startDate'];
     for (const field of fieldsToTrack) {
@@ -342,6 +364,18 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
       await addActivityEntry(ticket.id, 'tags_removed', tag, '');
     }
 
+    // Handle attachment changes by comparing original and final lists
+    const originalAttachments = ticket.attachments || [];
+    const attachmentsAdded = finalAttachments.filter(a => !originalAttachments.find(oa => oa.name === a.name));
+    const attachmentsRemoved = originalAttachments.filter(oa => !finalAttachments.find(a => a.name === oa.name));
+
+    for (const a of attachmentsAdded) {
+        await addActivityEntry(ticket.id, 'attachment_added', '', a.name);
+    }
+    for (const a of attachmentsRemoved) {
+        await addActivityEntry(ticket.id, 'attachment_removed', a.name, '');
+    }
+
     try {
       const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
         method: 'PUT',
@@ -352,11 +386,14 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
           ...ticket,
           ...formData,
           comments,
+          attachments: finalAttachments, // Send the merged list
         }),
       });
 
       if (response.ok) {
-        setCurrentPage(`view-ticket-${ticketId}`);
+        // Clear the new attachments list after successful submission
+        setNewAttachments([]);
+        setCurrentPage(`view-ticket-${ticket.id}`);
       } else {
         setSubmitError('Failed to update ticket');
       }
@@ -431,6 +468,9 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
               priorityOptions={priorityOptions}
             />
 
+            {/* Use the AttachmentUploader for adding NEW files */}
+            <AttachmentUploader onAttachmentsChange={handleNewAttachmentsChange} />
+
             <CommentSection
               comments={comments}
               newCommentText={newCommentText}
@@ -460,6 +500,47 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
               employees={employees}
               moduleOptions={moduleOptions}
             />
+
+            {/* SECTION: Display and download SAVED attachments */}
+            {savedAttachments.length > 0 && (
+              <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow space-y-3">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Attachments</h4>
+                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {savedAttachments.map((file, index) => {
+                    const isImage = file.type.startsWith('image/');
+                    return (
+                      <li key={index} className="flex items-center justify-between py-2">
+                        <div className="flex items-center gap-3">
+                          {isImage && (
+                            <img src={file.data} alt="Attachment preview" className="w-10 h-10 object-cover rounded-md" />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{file.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{(file.size / 1024).toFixed(2)} KB</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={file.data}
+                            download={file.name}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            Download
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSavedAttachment(file)}
+                            className="text-red-600 hover:text-red-800 text-sm font-medium"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
 

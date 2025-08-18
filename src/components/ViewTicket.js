@@ -348,120 +348,116 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
           )}
 
           {/* Activity log */}
-{/* Activity log */}
-{/* Activity log */}
-<Card>
-  <CardHeader>
-    <CardTitle className="text-xl">Activity Log</CardTitle>
-  </CardHeader>
-  <CardContent>
-    {timeline.length > 0 ? (
-      <div className="relative pl-10 sm:pl-12">
-        {/* Vertical line */}
-        <div className="absolute left-5 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700"></div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Activity Log</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {timeline.length > 0 ? (
+                <div className="relative pl-10 sm:pl-12">
+                  {/* Vertical line */}
+                  <div className="absolute left-5 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700"></div>
 
-        <ul className="space-y-6">
-          {timeline.map((item, index) => {
-            let Icon, colorClasses;
-            if (item.type === "comment") {
-              Icon = MessageSquare;
-              colorClasses = "bg-green-600 dark:bg-green-500";
-            } else if (item.type === "status_change") {
-              Icon = RefreshCw;
-              colorClasses = "bg-blue-600 dark:bg-blue-500";
-            } else if (item.fieldName === "tags_added") {
-              Icon = Tag;
-              colorClasses = "bg-purple-600 dark:bg-purple-500";
-            } else if (item.fieldName === "tags_removed") {
-              Icon = MinusCircle; // was TagOff (not in lucide-react)
-              colorClasses = "bg-red-600 dark:bg-red-500";
-            } else {
-              Icon = Edit3;
-              colorClasses = "bg-orange-600 dark:bg-orange-500";
-            }
+                  <ul className="space-y-6">
+                    {timeline.map((item, index) => {
+                      let Icon, colorClasses;
+                      if (item.type === "comment") {
+                        Icon = MessageSquare;
+                        colorClasses = "bg-green-600 dark:bg-green-500";
+                      } else if (item.type === "status_change") {
+                        Icon = RefreshCw;
+                        colorClasses = "bg-blue-600 dark:bg-blue-500";
+                      } else if (item.fieldName === "tags_added") {
+                        Icon = Tag;
+                        colorClasses = "bg-purple-600 dark:bg-purple-500";
+                      } else if (item.fieldName === "tags_removed") {
+                        Icon = MinusCircle; 
+                        colorClasses = "bg-red-600 dark:bg-red-500";
+                      } else {
+                        Icon = Edit3;
+                        colorClasses = "bg-orange-600 dark:bg-orange-500";
+                      }
 
-            return (
-              <li key={index} className="relative">
-                {/* Timeline node (perfectly centered) */}
-                <span
-                  className={`absolute left-0 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full text-white shadow ring-4 ring-white dark:ring-gray-900 ${colorClasses}`}
-                >
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                  <span className="sr-only">Timeline item</span>
-                </span>
+                      return (
+                        <li key={index} className="relative">
+                          {/* Timeline node (perfectly centered) */}
+                          <span
+                            className={`absolute left-0 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full text-white shadow ring-4 ring-white dark:ring-gray-900 ${colorClasses}`}
+                          >
+                            <Icon className="h-5 w-5" aria-hidden="true" />
+                            <span className="sr-only">Timeline item</span>
+                          </span>
 
-                {/* Card */}
-                <div className="ml-14">
-                  <div className="rounded-xl shadow-sm bg-white dark:bg-gray-800 p-4">
-                    {item.type === "comment" ? (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {item.author} commented
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {formatTimestamp(item.timestamp)}
-                          </p>
-                        </div>
-                        <p className="mt-2 text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
-                          {item.text}
-                        </p>
-                      </>
-                    ) : item.type === "status_change" ? (
-                      <div>
-                        <p className="text-sm text-gray-900 dark:text-gray-100">
-                          Status changed from <b>{item.oldValue || "N/A"}</b> to{" "}
-                          <b>{item.newValue || "N/A"}</b>
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          by {item.changedBy} on {formatTimestamp(item.timestamp)}
-                        </p>
-                      </div>
-                    ) : item.fieldName === "tags_added" ? (
-                      <div>
-                        <p className="text-sm text-gray-900 dark:text-gray-100">
-                          Added tag: <b>{item.newValue}</b>
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          by {item.changedBy} on {formatTimestamp(item.timestamp)}
-                        </p>
-                      </div>
-                    ) : item.fieldName === "tags_removed" ? (
-                      <div>
-                        <p className="text-sm text-gray-900 dark:text-gray-100">
-                          Removed tag: <b>{item.oldValue}</b>
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          by {item.changedBy} on {formatTimestamp(item.timestamp)}
-                        </p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-sm text-gray-900 dark:text-gray-100">
-                          Changed {formatFieldName(item.fieldName)} from{" "}
-                          <b>{item.oldValue || "N/A"}</b> to <b>{item.newValue || "N/A"}</b>
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          by {item.changedBy} on {formatTimestamp(item.timestamp)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                          {/* Card */}
+                          <div className="ml-14">
+                            <div className="rounded-xl shadow-sm bg-white dark:bg-gray-800 p-4">
+                              {item.type === "comment" ? (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                      {item.author} commented
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {formatTimestamp(item.timestamp)}
+                                    </p>
+                                  </div>
+                                  <p className="mt-2 text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                                    {item.text}
+                                  </p>
+                                </>
+                              ) : item.type === "status_change" ? (
+                                <div>
+                                  <p className="text-sm text-gray-900 dark:text-gray-100">
+                                    Status changed from <b>{item.oldValue || "N/A"}</b> to{" "}
+                                    <b>{item.newValue || "N/A"}</b>
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    by {item.changedBy} on {formatTimestamp(item.timestamp)}
+                                  </p>
+                                </div>
+                              ) : item.fieldName === "tags_added" ? (
+                                <div>
+                                  <p className="text-sm text-gray-900 dark:text-gray-100">
+                                    Added tag: <b>{item.newValue}</b>
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    by {item.changedBy} on {formatTimestamp(item.timestamp)}
+                                  </p>
+                                </div>
+                              ) : item.fieldName === "tags_removed" ? (
+                                <div>
+                                  <p className="text-sm text-gray-900 dark:text-gray-100">
+                                    Removed tag: <b>{item.oldValue}</b>
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    by {item.changedBy} on {formatTimestamp(item.timestamp)}
+                                  </p>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-sm text-gray-900 dark:text-gray-100">
+                                    Changed {formatFieldName(item.fieldName)} from{" "}
+                                    <b>{item.oldValue || "N/A"}</b> to <b>{item.newValue || "N/A"}</b>
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    by {item.changedBy} on {formatTimestamp(item.timestamp)}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-    ) : (
-      <div className="text-center text-gray-500 dark:text-gray-400">
-        No activity found for this ticket.
-      </div>
-    )}
-  </CardContent>
-</Card>
-
-
+              ) : (
+                <div className="text-center text-gray-500 dark:text-gray-400">
+                  No activity found for this ticket.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right side details */}
@@ -478,6 +474,42 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
               <div><label className="text-sm font-medium">Due Date</label><div>{ticket.dueDate || 'N/A'}</div></div>
             </CardContent>
           </Card>
+
+          {/* NEW SECTION: Display and download attachments */}
+          {ticket.attachments && ticket.attachments.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-xl">Attachments</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {ticket.attachments.map((file, index) => {
+                    const isImage = file.type.startsWith('image/');
+                    return (
+                      <li key={index} className="flex items-center justify-between py-2">
+                        <div className="flex items-center gap-3">
+                          {isImage && (
+                            <img src={file.data} alt="Attachment preview" className="w-10 h-10 object-cover rounded-md" />
+                          )}
+                          <div>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{file.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{(file.size / 1024).toFixed(2)} KB</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={file.data}
+                            download={file.name}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            Download
+                          </a>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 
