@@ -1,13 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import TicketPriorityChart from "../components/TicketPriorityChart";
-import TicketStatusChart from "../components/TicketStatusChart";
-import OpenTicketsPieChart from "../components/OpenTicketsPieChart";
-import InProgressTicketsPieChart from "../components/InProgressTicketsPieChart";
-import TicketModuleStackedChart from "../components/TicketModuleStackedChart";
-import TicketsCreatedLineChart from "../components/TicketsCreatedLineChart";
-import FilterBar from "../components/FilterBar";
-import TotalOpenTickets from '../components/TotalOpenTickets';
-import TotalPendingTickets from '../components/TotalPendingTickets';
+import TicketPriorityChart from "../components/Dashboard/TicketPriorityChart";
+import TicketStatusChart from "../components/Dashboard/TicketStatusChart";
+import OpenTicketsPieChart from "../components/Dashboard/OpenTicketsPieChart";
+import TicketModuleStackedChart from "../components/Dashboard/TicketModuleStackedChart";
+import TicketsCreatedLineChart from "../components/Dashboard/TicketsCreatedLineChart";
+import FilterBar from "../components/Dashboard/FilterBar";
+import TotalPendingTickets from '../components/Dashboard/TotalPendingTickets';
 
 const Dashboard = () => {
   const [allTickets, setAllTickets] = useState([]);

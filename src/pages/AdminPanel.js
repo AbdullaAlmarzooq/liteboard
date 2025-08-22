@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Users, Tag, Briefcase, AppWindow, GitCommit } from 'lucide-react';
-import EmployeesTab from '../components/EmployeesTab';
-import TagsTab from '../components/TagsTab';
-import WorkgroupsTab from '../components/WorkgroupsTab';
-import ModulesTab from '../components/ModulesTab';
-import WorkflowsTab from '../components/WorkflowsTab';
-import CreateModal from '../components/CreateModal';
-import CreateWorkflowModal from '../components/CreateWorkflowModal';
+import EmployeesTab from '../components/AdminPanel/EmployeesTab';
+import TagsTab from '../components/AdminPanel/TagsTab';
+import WorkgroupsTab from '../components/AdminPanel/WorkgroupsTab';
+import ModulesTab from '../components/AdminPanel/ModulesTab';
+import WorkflowsTab from '../components/AdminPanel/WorkflowsTab';
+import CreateModal from '../components/AdminPanel/CreateModal';
+import CreateWorkflowModal from '../components/AdminPanel/CreateWorkflowModal';
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('employees');

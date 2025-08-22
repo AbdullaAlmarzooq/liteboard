@@ -71,6 +71,14 @@
       "skills": [],
       "active": true,
       "joined_date": "2025-06-20"
+    },
+    {
+      "id": "EMP-006",
+      "name": "Hussain Darwish",
+      "email": "hussain@company.com",
+      "workgroup": "Digital Transformation",
+      "active": true,
+      "joined_date": "2025-08-22"
     }
   ],
   "tickets": [
@@ -524,7 +532,7 @@
       "priority": "Medium",
       "workGroup": "Digital Transformation",
       "responsible": "Hussain alQassab",
-      "module": "Dashboard",
+      "module": "",
       "tags": [
         "bug"
       ],
@@ -564,6 +572,23 @@
       "startDate": "2025-08-07",
       "dueDate": "2025-09-02",
       "initiateDate": "2025-08-18 17:49:41"
+    },
+    {
+      "id": "TCK-1022",
+      "title": "React route",
+      "description": "installed and we need to test every page",
+      "status": "Open",
+      "workflowId": "WF-002",
+      "priority": "High",
+      "workGroup": "Digital Channels",
+      "responsible": "Abdulla Almarzooq",
+      "module": "UI/UX",
+      "tags": [
+        "feature"
+      ],
+      "startDate": "2025-08-12",
+      "dueDate": "2025-09-17",
+      "initiateDate": "2025-08-22 15:31:44"
     }
   ],
   "tags": [
@@ -997,6 +1022,16 @@
       "oldValue": "In this day and age, understanding data is the key to making the best decisions for any business. However, the amount of information that’s available at any time can be overwhelming for the most data-savvy person.\n\nSo what’s the key to making data-driven decisions? Finding the most important data and formatting it in a way that’s easy to understand. This can change, depending on who will view the data. If you’re an industry expert, you may find complex data easier to understand. If you’re presenting data to less well-versed stakeholders at your company, you may need to simplify it before sharing it with others.\n\nOne of the easiest ways to make data easy to understand for technical and non-technical audiences is to create a dashboard that easily displays all of your data visualizations in one place.\n\nIn this article, we will run through:\n\nDashboard definition\nHow dashboards work\nUses\nImportance\nHow to create a dashboard\nTypes of dashboards\nBest practices\nBenefits",
       "newValue": "In this day and age, understanding data is the key to making the best decisions for any business. However, the amount of information that’s available at any time can be overwhelming for the most data-savvy person.\n\nSo what’s the key to making data-driven decisions? Finding the most important data and formatting it in a way that’s easy to understand. This can change, depending on who will view the data. If you’re an industry expert, you may find complex data easier to understand. If you’re presenting data to less well-versed stakeholders at your company, you may need to simplify it before sharing it with others.\n\nOne of the easiest ways to make data easy to understand for technical and non-technical audiences is to create a dashboard that easily displays all of your data visualizations in one place.\n\nIn this article, we will run through:\n\nDashboard definition\n\nHow dashboards work\n\nUses\n\nImportance\n\nHow to create a dashboard\n\nTypes of dashboards\n\nBest practices\n\nBenefits",
       "timestamp": "2025-08-18T17:52:25.844Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-034",
+      "ticketId": "TCK-1020",
+      "type": "field_change",
+      "fieldName": "module",
+      "oldValue": "Dashboard",
+      "newValue": "N/A",
+      "timestamp": "2025-08-18T17:55:07.299Z",
       "changedBy": "Current User"
     }
   ],

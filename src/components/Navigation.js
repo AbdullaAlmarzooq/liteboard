@@ -1,51 +1,54 @@
 "use client"
+import { Link, useLocation } from "react-router-dom"
 import { useTheme } from "../contexts/ThemeContext"
 
-const Navigation = ({ currentPage, setCurrentPage }) => {
+const Navigation = () => {
   const { theme, toggleTheme } = useTheme()
+  const location = useLocation()
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "tickets", label: "Tickets", icon: "🎫" },
-    { id: "create-ticket", label: "Create Ticket", icon: "➕" },
-    { id: "admin", label: "Admin Panel", icon: "🛠️" }
+    { path: "/dashboard", label: "Dashboard", icon: "📊" },
+    { path: "/tickets", label: "Tickets", icon: "🎫" },
+    { path: "/create-ticket", label: "Create Ticket", icon: "➕" },
+    { path: "/admin", label: "Admin Panel", icon: "🛠️" }
   ]
 
   return (
     <nav className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 sticky top-0 z-50">
       <div className="container mx-auto px-4 max-w-screen-2xl">
         <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <button
-              onClick={() => setCurrentPage("dashboard")}
-              className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
-            >
-              <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                <span className="text-white font-bold text-sm">LB</span>
-              </div>
-              <span className="font-bold text-xl text-gray-900 dark:text-white">
-                LiteBoard
-              </span>
-            </button>
-
-            <div className="hidden md:flex items-center space-x-6">
-              {navItems.map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setCurrentPage(item.id)}
-                  className={`flex items-center space-x-2 text-sm font-medium transition-colors px-3 py-2 rounded-md ${
-                    currentPage === item.id
-                      ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
-                      : "text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-                  }`}
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.label}</span>
-                </button>
-              ))}
+          {/* Logo */}
+          <Link
+            to="/dashboard"
+            className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+          >
+            <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+              <span className="text-white font-bold text-sm">LB</span>
             </div>
+            <span className="font-bold text-xl text-gray-900 dark:text-white">
+              LiteBoard
+            </span>
+          </Link>
+
+          {/* Desktop Nav */}
+          <div className="hidden md:flex items-center space-x-6">
+            {navItems.map(item => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`flex items-center space-x-2 text-sm font-medium transition-colors px-3 py-2 rounded-md ${
+                  location.pathname === item.path
+                    ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
+                    : "text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+                }`}
+              >
+                <span>{item.icon}</span>
+                <span>{item.label}</span>
+              </Link>
+            ))}
           </div>
 
+          {/* Theme toggle */}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -83,22 +86,22 @@ const Navigation = ({ currentPage, setCurrentPage }) => {
           </button>
         </div>
 
-        {/* Mobile Navigation */}
+        {/* Mobile Nav */}
         <div className="md:hidden pb-4">
           <div className="flex items-center space-x-2 overflow-x-auto">
             {navItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setCurrentPage(item.id)}
+              <Link
+                key={item.path}
+                to={item.path}
                 className={`flex items-center space-x-1 text-xs font-medium transition-colors px-3 py-2 rounded-md whitespace-nowrap ${
-                  currentPage === item.id
+                  location.pathname === item.path
                     ? "text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20"
                     : "text-gray-600 dark:text-gray-300"
                 }`}
               >
                 <span>{item.icon}</span>
                 <span>{item.label}</span>
-              </button>
+              </Link>
             ))}
           </div>
         </div>

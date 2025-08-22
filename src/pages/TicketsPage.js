@@ -1,12 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../components/Card"
 import Badge from "../components/Badge"
 import Button from "../components/Button"
-import TicketFilter from "../components/TicketFilter"
+import TicketFilter from "../components/TicketsPage/TicketFilter"
 import useFetch from "../useFetch"
 import { useRef, useState, useEffect, useMemo } from 'react';
-import SearchBar from "../components/SearchBar";
-import TicketExporter from "../components/TicketExporter"
-import Pagination from "../components/Pagination" // Import the new component
+import SearchBar from "../components/TicketsPage/SearchBar";
+import TicketExporter from "../components/TicketsPage/TicketExporter"
+import Pagination from "../components/TicketsPage/Pagination" // Import the new component
 import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
 
 

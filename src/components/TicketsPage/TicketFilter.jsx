@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
-import Badge from "../components/Badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../Card";
+import Badge from "../Badge";
 
 const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
