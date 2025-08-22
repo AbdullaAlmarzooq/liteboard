@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import useFetch from "../useFetch";
 import Button from "../components/Button";
+import { useParams, useNavigate } from 'react-router-dom'
 
 // Import the new sub-components
 import TicketDetailsForm from './TicketDetailsForm';
@@ -9,8 +10,9 @@ import AssignmentAndTimeline from './AssignmentAndTimeline';
 import CommentSection from './CommentSection';
 import AttachmentUploader from './AttachmentUploader'; // Import the new component
 
-const EditTicket = ({ ticketId, setCurrentPage }) => {
-  // Fetch ticket data and related resources
+const EditTicket = () => {
+  const { ticketId } = useParams()
+  const navigate = useNavigate()
   const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/tickets/${ticketId}`);
   const { data: employees } = useFetch('http://localhost:8000/employees');
   const { data: tags } = useFetch('http://localhost:8000/tags');
@@ -393,7 +395,7 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
       if (response.ok) {
         // Clear the new attachments list after successful submission
         setNewAttachments([]);
-        setCurrentPage(`view-ticket-${ticket.id}`);
+        navigate(`/view-ticket/${ticket.id}`);
       } else {
         setSubmitError('Failed to update ticket');
       }
@@ -439,7 +441,7 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
         <div>
           <div className="flex items-center gap-3 mb-2">
             <button
-              onClick={() => setCurrentPage("tickets")}
+              onClick={() => navigate("/tickets")}
               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
             >
               ← Back to Tickets
@@ -563,7 +565,7 @@ const EditTicket = ({ ticketId, setCurrentPage }) => {
           <Button
             type="button"
             variant="outline"
-            onClick={() => setCurrentPage(`view-ticket-${ticket.id}`)}
+            onClick={() => navigate(`/view-ticket/${ticket.id}`)}
           >
             Cancel
           </Button>

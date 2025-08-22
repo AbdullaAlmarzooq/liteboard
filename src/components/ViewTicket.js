@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./Card"
 import Badge from "./Badge"
 import Button from "./Button"
 import useFetch from "../useFetch"
+import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import ReactFlow, { Background } from 'reactflow'
 import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3 } from "lucide-react";
@@ -161,7 +162,9 @@ const CancelTicketModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
   )
 }
 
-const ViewTicket = ({ ticketId, setCurrentPage }) => {
+const ViewTicket = () => {
+  const { ticketId } = useParams()
+  const navigate = useNavigate()
   const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/tickets/${ticketId}`)
   const { data: statusHistory, isPending: isHistoryPending, error: historyError } = useFetch(`http://localhost:8000/status_history?ticketId=${ticketId}`)
   
@@ -296,10 +299,10 @@ const ViewTicket = ({ ticketId, setCurrentPage }) => {
   return (
     <div className="flex flex-col h-full space-y-6 dark:bg-gray-900 dark:text-white p-6">
       <div className="flex items-center justify-between">
-        <Button variant="outline" size="sm" onClick={() => setCurrentPage("tickets")}>← Back to Tickets</Button>
+        <Button variant="outline" size="sm" onClick={() => navigate("/tickets")}>← Back to Tickets</Button>
         <h1 className="text-3xl font-bold">Ticket Details</h1>
         <div className="flex space-x-2">
-          <Button variant="secondary" onClick={() => setCurrentPage(`edit-ticket-${ticketId}`)}>
+          <Button variant="secondary" onClick={() => navigate(`/edit-ticket/${ticketId}`)}>
             Edit Ticket
           </Button>
           {canCancelTicket && (

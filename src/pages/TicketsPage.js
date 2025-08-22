@@ -4,13 +4,15 @@ import Button from "../components/Button"
 import TicketFilter from "../components/TicketsPage/TicketFilter"
 import useFetch from "../useFetch"
 import { useRef, useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom'
 import SearchBar from "../components/TicketsPage/SearchBar";
 import TicketExporter from "../components/TicketsPage/TicketExporter"
 import Pagination from "../components/TicketsPage/Pagination" // Import the new component
 import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
 
 
-const TicketsPage = ({ setCurrentPage }) => {
+const TicketsPage = () => {
+  const navigate = useNavigate()
   const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
   const [isDeleting, setIsDeleting] = useState(null);
   const [filteredTickets, setFilteredTickets] = useState(null);
@@ -80,7 +82,7 @@ const TicketsPage = ({ setCurrentPage }) => {
   }
 
   const handleEdit = (ticketId) => {
-    setCurrentPage(`edit-ticket-${ticketId}`);
+    navigate(`/edit-ticket/${ticketId}`);
   };
 
   const openDeleteModal = (ticket) => {
@@ -118,7 +120,7 @@ const TicketsPage = ({ setCurrentPage }) => {
   };
 
   const handleView = (ticketId) => {
-    setCurrentPage(`view-ticket-${ticketId}`);
+    navigate(`/view-ticket/${ticketId}`);
   };
 
 const handleFilteredTicketsChange = (newFilteredTickets) => {
@@ -162,7 +164,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
         onFilteredTicketsChange={handleFilteredTicketsChange}
       />
 
-        <SearchBar allTickets={tickets || []} onTicketSelect={setCurrentPage} />
+        <SearchBar allTickets={tickets || []} />
 
       {/* Desktop Table View */}
       <div className="hidden lg:block">
@@ -264,14 +266,14 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                         <td className="p-3">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => handleView(ticket.id)}
+                              onClick={() => navigate(`/view-ticket/${ticket.id}`)}
                               className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Eye className="w-3 h-3" />
                               
                             </button>
                             <button
-                              onClick={() => handleEdit(ticket.id)}
+                              onClick={() => navigate(`/edit-ticket/${ticket.id}`)}
                               className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Edit className="w-3 h-3" />

@@ -572,23 +572,6 @@
       "startDate": "2025-08-07",
       "dueDate": "2025-09-02",
       "initiateDate": "2025-08-18 17:49:41"
-    },
-    {
-      "id": "TCK-1022",
-      "title": "React route",
-      "description": "installed and we need to test every page",
-      "status": "Open",
-      "workflowId": "WF-002",
-      "priority": "High",
-      "workGroup": "Digital Channels",
-      "responsible": "Abdulla Almarzooq",
-      "module": "UI/UX",
-      "tags": [
-        "feature"
-      ],
-      "startDate": "2025-08-12",
-      "dueDate": "2025-09-17",
-      "initiateDate": "2025-08-22 15:31:44"
     }
   ],
   "tags": [
@@ -1032,6 +1015,16 @@
       "oldValue": "Dashboard",
       "newValue": "N/A",
       "timestamp": "2025-08-18T17:55:07.299Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-035",
+      "ticketId": null,
+      "type": "field_change",
+      "fieldName": "attachment_added",
+      "oldValue": "",
+      "newValue": "wallpaperflare.com_wallpaper (2).jpg",
+      "timestamp": "2025-08-22T16:26:43.431Z",
       "changedBy": "Current User"
     }
   ],
