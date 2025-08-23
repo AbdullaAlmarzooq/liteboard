@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../Card";
 import Badge from "../Badge";
+import { SlidersHorizontal } from 'lucide-react';
+
 
 const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -237,8 +239,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
           onClick={() => setIsFilterOpen(!isFilterOpen)}
           className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <span>🔍</span>
-          Filter
+          <span><SlidersHorizontal/></span>
           {hasActiveFilters && (
             <Badge variant="destructive" className="text-xs min-w-5 h-5 p-0 flex items-center justify-center">
               {getActiveFilterCount()}
@@ -258,7 +259,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
 
       {/* Filter Panel */}
       {isFilterOpen && (
-        <Card className="mb-6">
+        <Card className="bg-white mb-6">
           <CardHeader>
             <CardTitle className="text-lg">Filter Tickets</CardTitle>
           </CardHeader>

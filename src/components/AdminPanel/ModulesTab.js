@@ -9,7 +9,7 @@ const ModulesTab = ({ modules, editingItem, editForm, handleEdit, handleSave, ha
   return (
     <div className="grid gap-4">
       {modules.map(module => (
-        <div key={module.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm">
+        <div key={module.id} className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-500">{module.id}</span>

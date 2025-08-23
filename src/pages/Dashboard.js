@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 import TicketPriorityChart from "../components/Dashboard/TicketPriorityChart";
 import TicketStatusChart from "../components/Dashboard/TicketStatusChart";
 import OpenTicketsPieChart from "../components/Dashboard/OpenTicketsPieChart";
@@ -71,10 +72,9 @@ return (
     <div className="flex justify-end mb-4">
       <button
         onClick={toggleFilterVisibility}
-        className="px-6 py-2 rounded-md bg-blue-600 text-white font-semibold shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75
-                   dark:bg-blue-700 dark:hover:bg-blue-800 dark:focus:ring-blue-600 transition-colors duration-200"
+        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        {areFiltersVisible ? "Hide Filters" : "Show Filters"}
+        {areFiltersVisible ? <SlidersHorizontal /> : <SlidersHorizontal /> }
       </button>
     </div>
 

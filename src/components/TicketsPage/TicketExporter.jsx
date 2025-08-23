@@ -1,3 +1,4 @@
+import { Download } from 'lucide-react';
 
 /**
  * @param {object[]} ticketsToExport
@@ -83,10 +84,12 @@ const TicketExporter = ({ ticketsToExport }) => {
   return (
     <button
       onClick={handleExport}
-      className="px-6 py-3 bg-green-100 text-green-700 font-semibold rounded-md hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:bg-green-800 dark:text-green-100 dark:hover:bg-green-700 dark:focus:ring-green-400 dark:focus:ring-offset-gray-900 transition-all duration-200"
+      className="flex items-center justify-center px-6 py-3 bg-green-100 text-green-700 font-semibold rounded-md hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 dark:bg-green-800 dark:text-green-100 dark:hover:bg-green-700 dark:focus:ring-green-400 dark:focus:ring-offset-gray-900 transition-all duration-200"
       disabled={!ticketsToExport || ticketsToExport.length === 0}
     >
-      <span className="mr-2">⬇️</span>
+      <span className="mr-2">
+        <Download />
+      </span>
       Export to CSV
     </button>
   );

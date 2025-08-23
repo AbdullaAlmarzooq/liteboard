@@ -21,7 +21,7 @@ const CommentSection = ({
   confirmDeleteComment,
 }) => {
   return (
-    <Card>
+    <Card className="bg-white">
       <CardHeader>
         <CardTitle>Comments ({comments.length})</CardTitle>
       </CardHeader>

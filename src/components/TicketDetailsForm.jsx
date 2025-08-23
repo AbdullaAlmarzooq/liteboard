@@ -4,7 +4,7 @@ const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags,
   return (
     <>
       {/* Basic Information */}
-      <Card>
+      <Card className="bg-white">
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
         </CardHeader>
@@ -74,7 +74,7 @@ const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags,
       </Card>
 
       {/* Tags */}
-      <Card>
+      <Card className="bg-white">
         <CardHeader>
           <CardTitle>Tags</CardTitle>
         </CardHeader>

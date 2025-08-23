@@ -40,7 +40,7 @@ const Pagination = ({
   };
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       {/* Page Size Selector */}
       <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
         <span>Items per page:</span>

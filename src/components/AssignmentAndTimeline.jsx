@@ -4,7 +4,7 @@ import Badge from "../components/Badge";
 
 const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employees, moduleOptions }) => {
   return (
-    <Card className="h-fit">
+    <Card className="bg-white h-fit">
       <CardHeader>
         <CardTitle>Assignment</CardTitle>
       </CardHeader>

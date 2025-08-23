@@ -1,16 +1,18 @@
 "use client"
 import { Link, useLocation } from "react-router-dom"
 import { useTheme } from "../contexts/ThemeContext"
+import { LayoutDashboard, FilePlus, ClipboardList, Settings } from 'lucide-react';
+
 
 const Navigation = () => {
   const { theme, toggleTheme } = useTheme()
   const location = useLocation()
 
   const navItems = [
-    { path: "/dashboard", label: "Dashboard", icon: "📊" },
-    { path: "/tickets", label: "Tickets", icon: "🎫" },
-    { path: "/create-ticket", label: "Create Ticket", icon: "➕" },
-    { path: "/admin", label: "Admin Panel", icon: "🛠️" }
+    { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
+    { path: "/tickets", label: "Tickets", icon: <ClipboardList className="w-5 h-5" /> },
+    { path: "/create-ticket", label: "Create Ticket", icon: <FilePlus className="w-5 h-5" /> },
+    { path: "/admin", label: "Admin Panel", icon: <Settings className="w-5 h-5" /> }
   ]
 
   return (

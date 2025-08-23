@@ -13,7 +13,7 @@ function App() {
   return (
     <ThemeProvider>
       <Router>
-        <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
           <Navigation />
           <main className="container mx-auto px-4 py-8">
             <Routes>

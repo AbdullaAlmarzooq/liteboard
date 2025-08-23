@@ -320,7 +320,7 @@ const ViewTicket = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
         <div className="md:col-span-2 space-y-6">
           {/* Ticket info */}
-          <Card>
+          <Card className="bg-white">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-2xl">{ticket.title}</CardTitle>
               <Badge variant={getStatusVariant(ticket.status)}>{ticket.status}</Badge>
@@ -337,7 +337,7 @@ const ViewTicket = () => {
 
           {/* Workflow diagram (only if workflow found) */}
           {workflow && (
-            <Card>
+            <Card className="bg-white">
               <CardHeader>
                 <CardTitle className="text-xl">Workflow: {workflow.name}</CardTitle>
               </CardHeader>
@@ -351,7 +351,7 @@ const ViewTicket = () => {
           )}
 
           {/* Activity log */}
-          <Card>
+          <Card className = "bg-white"> 
             <CardHeader>
               <CardTitle className="text-xl">Activity Log</CardTitle>
             </CardHeader>
@@ -465,7 +465,7 @@ const ViewTicket = () => {
 
         {/* Right side details */}
         <div className="space-y-6">
-          <Card>
+          <Card className = "bg-white">
             <CardHeader><CardTitle className="text-xl">Ticket Information</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div><label className="text-sm font-medium">Priority</label>
@@ -480,7 +480,7 @@ const ViewTicket = () => {
 
           {/* NEW SECTION: Display and download attachments */}
           {ticket.attachments && ticket.attachments.length > 0 && (
-            <Card>
+            <Card className="bg-white">
               <CardHeader><CardTitle className="text-xl">Attachments</CardTitle></CardHeader>
               <CardContent>
                 <ul className="divide-y divide-gray-200 dark:divide-gray-700">

@@ -122,7 +122,7 @@ const FilterBar = ({ onFilterChange, allTickets }) => {
   };
 
   return (
-    <div className="rounded-xl shadow-lg p-6 mb-8 flex flex-col md:flex-row gap-4 justify-start items-start bg-gray-200 dark:bg-gray-800 transition-colors duration-200">
+    <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-col md:flex-row gap-4 justify-start items-start bg-gray-200 dark:bg-gray-800 transition-colors duration-200">
       <div className="flex flex-wrap gap-3">
         <FilterDropdownButton
           category="workGroup"

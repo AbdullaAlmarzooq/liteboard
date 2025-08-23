@@ -421,7 +421,7 @@ const CreateTicketPage = () => {
         </p>
       </div>
 
-      <Card>
+      <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
         <CardHeader>
           <CardTitle>Ticket Details</CardTitle>
           <p className="text-gray-600 dark:text-gray-300 text-sm">
@@ -541,7 +541,7 @@ const CreateTicketPage = () => {
                     htmlFor="workgroup"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    Work Group Assigned
+                    WorkGroup Assigned
                   </label>
                   <input
                     id="workgroup"

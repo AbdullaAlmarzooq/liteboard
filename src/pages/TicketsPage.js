@@ -58,7 +58,7 @@ const TicketsPage = () => {
       case "Closed":
         return "default"
       case "In Progress":
-        return "secondary"
+        return "outline"
       case "Open":
         return "outline"
       default:
@@ -144,7 +144,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6">  
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
@@ -168,8 +168,8 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
 
       {/* Desktop Table View */}
       <div className="hidden lg:block">
-        <Card>
-          <CardHeader>
+      <Card className="bg-white dark:bg-gray-800 shadow-sm">
+      <CardHeader>
             <CardTitle></CardTitle>
           </CardHeader>
           <CardContent>
@@ -190,7 +190,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                       Priority
                     </th>
                     <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
-                      Work Group
+                      WorkGroup
                     </th>
                     <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
                       Responsible
@@ -215,7 +215,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                     return (
                       <tr
                         key={ticket.id}
-                        className="border-b border-gray-300 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700/50"
+                        className="border-b border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700/50"
                       >
                         <td className="p-3 font-mono text-sm text-gray-600 dark:text-gray-400">
                           {ticket.id}
@@ -325,7 +325,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">
-                      Work Group:
+                      WorkGroup:
                     </span>
                     <div className="font-medium text-gray-900 dark:text-white">
                       {ticket.workGroup}

@@ -62,7 +62,7 @@ const WorkflowsTab = ({ workflows, workgroups, onEdit, onDelete, onCreateClick }
       {workflows.map(workflow => (
         <div
           key={workflow.id}
-          className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm"
+          className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm"
         >
           <div className="flex justify-between items-start mb-3">
             <div className="flex flex-col">

@@ -9,7 +9,7 @@ const TagsTab = ({ tags, editingItem, editForm, handleEdit, handleSave, handleCa
   return (
     <div className="grid gap-4">
       {tags.map(tag => (
-        <div key={tag.id} className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm">
+        <div key={tag.id} className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
               <span className="text-sm font-medium text-gray-500">{tag.id}</span>
