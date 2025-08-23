@@ -5,7 +5,7 @@ import useFetch from "../useFetch"
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import ReactFlow, { Background } from 'reactflow'
-import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3 } from "lucide-react";
+import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3, Edit, X } from "lucide-react";
 import 'reactflow/dist/style.css'
 
 const WorkflowDiagram = ({ steps, currentStepName }) => {
@@ -302,16 +302,17 @@ const ViewTicket = () => {
         <Button variant="outline" size="sm" onClick={() => navigate("/tickets")}>← Back to Tickets</Button>
         <h1 className="text-3xl font-bold">Ticket Details</h1>
         <div className="flex space-x-2">
-          <Button variant="secondary" onClick={() => navigate(`/edit-ticket/${ticketId}`)}>
-            Edit Ticket
+          <Button className = "bg-gray-400 hover:bg-gray-600 text-white dark:bg-gray-600 dark:hover:bg-gray-500"
+           onClick={() => navigate(`/edit-ticket/${ticketId}`)}>
+            <Edit />
           </Button>
           {canCancelTicket && (
             <Button 
-              variant="destructive" 
+              className = "bg-red-400 hover:bg-red-600 text-white dark:bg-red-600 dark:hover:bg-red-500"
               onClick={() => setShowCancelModal(true)}
               disabled={isCancelling}
             >
-              Cancel Ticket
+              <X />
             </Button>
           )}
         </div>

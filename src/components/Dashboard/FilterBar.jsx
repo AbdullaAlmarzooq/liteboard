@@ -126,7 +126,7 @@ const FilterBar = ({ onFilterChange, allTickets }) => {
       <div className="flex flex-wrap gap-3">
         <FilterDropdownButton
           category="workGroup"
-          title="Work Group"
+          title="WorkGroup"
           options={allWorkGroups}
           selectedValues={selectedWorkGroups}
           onChange={handleWorkGroupChange}

@@ -1,14 +1,13 @@
-// This is the refactored main component. It manages state and API calls, and renders the sub-components.
 import { useState, useEffect } from 'react';
 import useFetch from "../useFetch";
 import Button from "../components/Button";
 import { useParams, useNavigate } from 'react-router-dom'
-
-// Import the new sub-components
 import TicketDetailsForm from './TicketDetailsForm';
 import AssignmentAndTimeline from './AssignmentAndTimeline';
 import CommentSection from './CommentSection';
-import AttachmentUploader from './AttachmentUploader'; // Import the new component
+import AttachmentUploader from './AttachmentUploader';
+
+
 
 const EditTicket = () => {
   const { ticketId } = useParams()

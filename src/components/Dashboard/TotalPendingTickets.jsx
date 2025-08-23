@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 const TotalPendingTickets = ({ tickets }) => {
   const totalPending = useMemo(() => {
     return tickets.filter(ticket => 
-      ticket.status !== 'Close' &&
+      ticket.status !== 'Closed' &&
       ticket.status !== 'Cancelled'
     ).length;
   }, [tickets]);
