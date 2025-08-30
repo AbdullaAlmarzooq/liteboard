@@ -36,18 +36,17 @@ const TicketStatusChart = ({ tickets }) => {
   }, [tickets]); 
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 bg-gray-200 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
+    <div className="bg-white rounded-xl shadow-sm p-6 bg-gray-200 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
       <h2 className="text-xl font-bold mb-4">Tickets by Status</h2>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis 
             dataKey="status" 
-            angle={-45} 
-            textAnchor="end" 
+            angle={0} 
             interval={0} 
             height={70} 
-            tick={{ fontSize: 12, fill: '#6B7280' }}
+            tick={{ fontSize: 13, fill: '#6B7280' }}
           />
           <YAxis allowDecimals={false} />
           <Tooltip />

@@ -38,7 +38,7 @@ const PendingTicketsPieChart = ({ tickets }) => {
 
   return (
     <div className="w-full h-full flex flex-col justify-center items-center">
-      <div className="bg-white rounded-xl shadow-lg p-6 bg-gray-200 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
+      <div className="bg-white rounded-xl shadow-sm p-6 bg-gray-200 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
         <h2 className="text-xl font-bold mb-4 text-center">
           Active Tickets by WorkGroup
         </h2>

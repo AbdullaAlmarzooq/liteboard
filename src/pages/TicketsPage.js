@@ -304,7 +304,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
         {currentTickets.map(ticket => { // Use currentTickets for the paged data
           const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
           return (
-            <Card key={ticket.id}>
+            <Card className = "bg-white" key={ticket.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-sm text-gray-500 dark:text-gray-400">

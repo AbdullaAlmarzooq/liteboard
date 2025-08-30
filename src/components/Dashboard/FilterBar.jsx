@@ -84,7 +84,7 @@ const FilterBar = ({ onFilterChange, allTickets }) => {
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
+          <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm z-50 max-h-60 overflow-y-auto">
             <div className="p-2">
               {options.length > 0 ? (
                 options.map(option => (
@@ -122,7 +122,7 @@ const FilterBar = ({ onFilterChange, allTickets }) => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-col md:flex-row gap-4 justify-start items-start bg-gray-200 dark:bg-gray-800 transition-colors duration-200">
+    <div className="bg-white rounded-xl shadow-sm p-6 mb-8 flex flex-col md:flex-row gap-4 justify-start items-start bg-gray-200 dark:bg-gray-800 transition-colors duration-200">
       <div className="flex flex-wrap gap-3">
         <FilterDropdownButton
           category="workGroup"

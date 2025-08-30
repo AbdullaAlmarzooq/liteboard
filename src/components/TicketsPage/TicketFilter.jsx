@@ -279,7 +279,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
               
               <FilterDropdownButton
                 category="workGroup"
-                title="Work Group"
+                title="WorkGroup"
                 options={filterOptions.workGroup}
               />
               
