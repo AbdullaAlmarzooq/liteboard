@@ -92,7 +92,7 @@ const AdminPanel = () => {
       newItem = {
         name: '',
         email: '',
-        workgroup: '',
+        workgroupCode: '',
         active: true,
         joined_date: new Date().toISOString().split('T')[0]
       };

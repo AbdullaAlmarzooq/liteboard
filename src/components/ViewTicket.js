@@ -6,7 +6,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import ReactFlow, { Background } from 'reactflow'
 import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3, Edit, X } from "lucide-react";
+import { useMemo } from 'react'
 import 'reactflow/dist/style.css'
+
 
 const WorkflowDiagram = ({ steps, currentStepName }) => {
   if (!steps || steps.length === 0) return null;
@@ -167,7 +169,18 @@ const ViewTicket = () => {
   const navigate = useNavigate()
   const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/tickets/${ticketId}`)
   const { data: statusHistory, isPending: isHistoryPending, error: historyError } = useFetch(`http://localhost:8000/status_history?ticketId=${ticketId}`)
-  
+  const { data: workgroups } = useFetch('http://localhost:8000/workgroups'); // <-- move here
+
+  const workgroupMap = useMemo(() => {
+    if (!workgroups) return {};
+    const map = {};
+    workgroups.forEach(wg => {
+      map[wg.id] = wg.name;
+    });
+    return map;
+  }, [workgroups]);
+
+
   // Cancel ticket modal state
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -471,7 +484,7 @@ const ViewTicket = () => {
             <CardContent className="space-y-4">
               <div><label className="text-sm font-medium">Priority</label>
                 <Badge variant={getPriorityVariant(ticket.priority)}>{ticket.priority}</Badge></div>
-              <div><label className="text-sm font-medium">Workgroup</label><div>{ticket.workGroup}</div></div>
+              <div><label className="text-sm font-medium">Workgroup</label><div>{workgroupMap[ticket.workgroupId] || '—'}</div></div>
               <div><label className="text-sm font-medium">Responsible</label><div>{ticket.responsible}</div></div>
               <div><label className="text-sm font-medium">Module</label><div>{ticket.module}</div></div>
               <div><label className="text-sm font-medium">Start Date</label><div>{ticket.startDate || 'N/A'}</div></div>

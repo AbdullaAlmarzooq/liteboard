@@ -1,63 +1,63 @@
 import React, { useEffect, useState, useRef } from 'react';
 
-const FilterBar = ({ onFilterChange, allTickets }) => {
+const FilterBar = ({ onFilterChange, allTickets, workgroupMap }) => {
   const [selectedWorkGroups, setSelectedWorkGroups] = useState([]);
   const [selectedModules, setSelectedModules] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
-  const [openDropdown, setOpenDropdown] = useState(null); // State to manage which dropdown is open
+  const [openDropdown, setOpenDropdown] = useState(null);
 
-  const dropdownRefs = useRef({}); // Ref for each dropdown to detect clicks outside
+  const dropdownRefs = useRef({});
 
-  const allWorkGroups = [...new Set(allTickets.map(ticket => ticket.workGroup?.trim()).filter(Boolean))].sort();
-  const allModules = [...new Set(allTickets.map(ticket => ticket.module?.trim()).filter(Boolean))].sort();
-  const allStatuses = [...new Set(allTickets.map(ticket => ticket.status?.trim()).filter(Boolean))].sort();
+  // Build options
+  const allWorkGroups = Object.entries(workgroupMap).map(([id, name]) => ({ id, name }));
+  const allModules = [...new Set(allTickets.map(t => t.module?.trim()).filter(Boolean))].sort();
+  const allStatuses = [...new Set(allTickets.map(t => t.status?.trim()).filter(Boolean))].sort();
 
-  // Effect to call onFilterChange when selections change
+  // Notify parent on selection change
   useEffect(() => {
     onFilterChange({ selectedWorkGroups, selectedModules, selectedStatuses });
   }, [selectedWorkGroups, selectedModules, selectedStatuses, onFilterChange]);
 
-  // Effect to close dropdown when clicking outside
+  // Close dropdowns on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
+    const handleClickOutside = (e) => {
       if (openDropdown && dropdownRefs.current[openDropdown] &&
-          !dropdownRefs.current[openDropdown].contains(event.target)) {
+          !dropdownRefs.current[openDropdown].contains(e.target)) {
         setOpenDropdown(null);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openDropdown]);
 
+  // Handlers
   const handleWorkGroupChange = (e) => {
     const { value, checked } = e.target;
     setSelectedWorkGroups(prev =>
-      checked ? [...prev, value] : prev.filter(group => group !== value)
+      checked ? [...prev, value] : prev.filter(id => id !== value)
     );
   };
-
   const handleModuleChange = (e) => {
     const { value, checked } = e.target;
     setSelectedModules(prev =>
-      checked ? [...prev, value] : prev.filter(module => module !== value)
+      checked ? [...prev, value] : prev.filter(m => m !== value)
     );
   };
-
   const handleStatusChange = (e) => {
     const { value, checked } = e.target;
     setSelectedStatuses(prev =>
-      checked ? [...prev, value] : prev.filter(status => status !== value)
+      checked ? [...prev, value] : prev.filter(s => s !== value)
     );
   };
-
-  const toggleDropdown = (category) => {
-    setOpenDropdown(openDropdown === category ? null : category);
+  const toggleDropdown = (category) => setOpenDropdown(openDropdown === category ? null : category);
+  const clearAllFilters = () => {
+    setSelectedWorkGroups([]);
+    setSelectedModules([]);
+    setSelectedStatuses([]);
+    setOpenDropdown(null);
   };
 
-  // Reusable component for each filter dropdown
+  // Reusable dropdown
   const FilterDropdownButton = ({ category, title, options, selectedValues, onChange }) => {
     const isOpen = openDropdown === category;
     const hasSelection = selectedValues.length > 0;
@@ -73,14 +73,8 @@ const FilterBar = ({ onFilterChange, allTickets }) => {
           }`}
         >
           <span>{title}</span>
-          {hasSelection && (
-            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-500 text-white">
-              {selectedValues.length}
-            </span>
-          )}
-          <span className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-            ▼
-          </span>
+          {hasSelection && <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-500 text-white">{selectedValues.length}</span>}
+          <span className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>▼</span>
         </button>
 
         {isOpen && (
@@ -89,17 +83,17 @@ const FilterBar = ({ onFilterChange, allTickets }) => {
               {options.length > 0 ? (
                 options.map(option => (
                   <label
-                    key={option}
+                    key={option.id ?? option} // Workgroups have id, modules/status are strings
                     className="flex items-center space-x-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      value={option}
-                      checked={selectedValues.includes(option)}
+                      value={option.id ?? option} // Workgroups use id, modules/status use string
+                      checked={selectedValues.includes(option.id ?? option)}
                       onChange={onChange}
                       className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{option}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{option.name ?? option}</span>
                   </label>
                 ))
               ) : (
@@ -114,15 +108,8 @@ const FilterBar = ({ onFilterChange, allTickets }) => {
 
   const hasActiveFilters = selectedWorkGroups.length > 0 || selectedModules.length > 0 || selectedStatuses.length > 0;
 
-  const clearAllFilters = () => {
-    setSelectedWorkGroups([]);
-    setSelectedModules([]);
-    setSelectedStatuses([]);
-    setOpenDropdown(null); // Close any open dropdowns
-  };
-
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6 mb-8 flex flex-col md:flex-row gap-4 justify-start items-start bg-gray-200 dark:bg-gray-800 transition-colors duration-200">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 flex flex-col md:flex-row gap-4 justify-start items-start transition-colors duration-200">
       <div className="flex flex-wrap gap-3">
         <FilterDropdownButton
           category="workGroup"

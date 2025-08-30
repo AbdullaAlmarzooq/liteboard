@@ -48,6 +48,7 @@ const Toast = ({ message, type, onClose, isVisible }) => {
   )
 }
 
+
 // Custom hook for toast notifications
 const useToast = () => {
   const [toast, setToast] = useState({ message: '', type: '', isVisible: false })
@@ -101,29 +102,39 @@ const CreateTicketPage = () => {
     }))
   }
 
+  const getWorkgroupName = (workgroupCode) => {
+    if (!workgroups || workgroups.length === 0) return '';
+    const wg = workgroups.find(w => w.id === workgroupCode);
+    return wg ? wg.name : '';
+  }
+
+  if (!workgroups || workgroups.length === 0) {
+    console.warn("Workgroups not loaded yet");
+    return;
+  }
+
   const handleWorkflowChange = (e) => {
     const workflowId = e.target.value;
     const selectedWorkflow = workflows?.find(wf => wf.id === workflowId);
-    
-    let initialStatus = '';
-    let workgroupName = '';
-
-    if (selectedWorkflow && selectedWorkflow.steps.length > 0) {
-      const firstStep = selectedWorkflow.steps[0];
-      initialStatus = firstStep.stepName;
-      
-      // Find the workgroup name from the fetched workgroups
-      const assignedWorkgroup = workgroups?.find(wg => wg.id === firstStep.workgroupCode);
-      workgroupName = assignedWorkgroup ? assignedWorkgroup.name : '';
+  
+    if (!selectedWorkflow || !workgroups) {
+      setFormData(prev => ({ ...prev, workflowId, status: '', workGroup: '' }));
+      return;
     }
-    
+  
+    const firstStep = selectedWorkflow.steps[0];
+    const initialStatus = firstStep.stepName;
+    const assignedWorkgroupName = getWorkgroupName(firstStep.workgroupCode);
+  
     setFormData(prev => ({
       ...prev,
       workflowId,
       status: initialStatus,
-      workGroup: workgroupName, // Set the workgroup dynamically
+      workGroup: assignedWorkgroupName,
     }));
   };
+
+
 
   const addTag = tag => {
     if (tag && !selectedTags.includes(tag)) {
@@ -476,23 +487,24 @@ const CreateTicketPage = () => {
                     Workflow <span className="text-red-500">*</span>
                   </label>
                   <select
-                    id="workflow"
-                    name="workflowId"
-                    value={formData.workflowId}
-                    onChange={handleWorkflowChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  >
-                    <option value="">Select workflow</option>
-                    {workflows && workflows.length > 0 ? (
-                      workflows.map(workflow => (
-                        <option key={workflow.id} value={workflow.id}>
-                          {workflow.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>No workflows available</option>
-                    )}
-                  </select>
+  id="workflow"
+  name="workflowId"
+  value={formData.workflowId}
+  onChange={handleWorkflowChange}
+  disabled={!workflows || workflows.length === 0 || !workgroups || workgroups.length === 0}
+  className="w-full px-3 py-2 border ..."
+>
+  <option value="">Select workflow</option>
+  {workflows && workflows.length > 0 ? (
+    workflows.map(workflow => (
+      <option key={workflow.id} value={workflow.id}>
+        {workflow.name}
+      </option>
+    ))
+  ) : (
+    <option disabled>No workflows available</option>
+  )}
+</select>
                 </div>
                 
                 <div className="space-y-2">
@@ -537,21 +549,23 @@ const CreateTicketPage = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label
-                    htmlFor="workgroup"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    WorkGroup Assigned
-                  </label>
-                  <input
-                    id="workgroup"
-                    name="workGroup"
-                    type="text"
-                    value={formData.workGroup}
-                    readOnly
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
+  <label
+    htmlFor="workgroup"
+    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+  >
+    WorkGroup Assigned
+  </label>
+  <input
+    id="workgroup"
+    name="workGroup"
+    type="text"
+    value={getWorkgroupName()} // show name, not code
+    readOnly
+    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+  />
+</div>
+
+
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
