@@ -93,14 +93,14 @@ const Dashboard = () => {
         <FilterBar
           onFilterChange={handleFilterChange}
           allTickets={allTickets}
-          workgroupMap={workgroupMap} // pass workgroup map
+          workgroupMap={workgroupMap}
         />
       )}
 
       {/* Section 1: Summary */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
         <TotalPendingTickets tickets={filteredTickets} />
-        <OpenTicketsPieChart tickets={filteredTickets} />
+        <OpenTicketsPieChart tickets={filteredTickets} workgroupMap={workgroupMap} />
       </div>
 
       {/* Section 2: Charts */}

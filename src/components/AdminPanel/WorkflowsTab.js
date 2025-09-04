@@ -2,24 +2,28 @@ import React from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import ReactFlow, { Background } from 'reactflow';
 import 'reactflow/dist/style.css';
+import { getCategoryByCode } from '../../constants/statuses';
 
 const WorkflowDiagram = ({ steps }) => {
   if (!steps || steps.length === 0) return null;
 
-  const nodes = steps.map((step, i) => ({
-    id: `step-${i}`,
-    position: { x: i * 200, y: 50 },
-    data: { label: step.stepName },
-    style: {
-      border: '1px solid #777',
-      borderRadius: '8px',
-      padding: '10px',
-      background: '#fff',
-      fontSize: '12px',
-    },
-    sourcePosition: 'right',
-    targetPosition: 'left', 
-  }));
+  const nodes = steps.map((step, i) => {
+    const statusCategory = getCategoryByCode(step.categoryCode) || { name: 'Unknown' };
+    return {
+      id: `step-${i}`,
+      position: { x: i * 200, y: 50 },
+      data: { label: step.stepName }, // Use the custom stepName here
+      style: {
+        border: '1px solid #777',
+        borderRadius: '8px',
+        padding: '10px',
+        background: '#fff',
+        fontSize: '12px',
+      },
+      sourcePosition: 'right',
+      targetPosition: 'left',
+    };
+  });
 
   const edges = steps.slice(0, -1).map((_, i) => ({
     id: `edge-${i}`,
@@ -62,7 +66,7 @@ const WorkflowsTab = ({ workflows, workgroups, onEdit, onDelete, onCreateClick }
       {workflows.map(workflow => (
         <div
           key={workflow.id}
-          className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm"
+          className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 p-4 shadow-sm"
         >
           <div className="flex justify-between items-start mb-3">
             <div className="flex flex-col">
@@ -81,18 +85,22 @@ const WorkflowsTab = ({ workflows, workgroups, onEdit, onDelete, onCreateClick }
 
           <p className="text-sm text-gray-600">Steps: {workflow.steps.length}</p>
 
-          {/* Flowchart */}
           <WorkflowDiagram steps={workflow.steps} />
 
-          {/* Text-based fallback list */}
           <div className="mt-4">
             <h4 className="text-sm font-semibold">Steps:</h4>
             <ul className="list-disc pl-5 text-sm text-gray-600">
               {workflow.steps.map((step, index) => {
                 const workgroup = workgroups.find(wg => wg.id === step.workgroupCode);
+                const category = getCategoryByCode(step.categoryCode);
+                
                 return (
                   <li key={index}>
-                    <span className="font-medium">{step.stepName}</span> - Assigned to:{' '}
+                    <span className="font-medium inline-flex items-center space-x-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${category?.color || 'bg-gray-400'}`}></span>
+                        <span>{step.stepName}</span> - ({category?.name})
+                    </span>
+                     - Assigned to:{' '}
                     {workgroup ? workgroup.name : 'Unknown'}
                   </li>
                 );

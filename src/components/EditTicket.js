@@ -64,7 +64,7 @@ const EditTicket = () => {
         workflowId: ticket.workflowId || '',
         status: ticket.status || '',
         priority: ticket.priority || 'Medium',
-        workGroup: ticket.workGroup || '',
+        workGroup: ticket.workgroupId || ticket.workGroup || '',
         responsible: ticket.responsible || '',
         module: ticket.module || '',
         tags: ticket.tags || [],
@@ -122,13 +122,36 @@ const EditTicket = () => {
           if (workgroup) {
             setFormData(prev => ({
               ...prev,
-              workGroup: workgroup.name
+              workGroup: currentStep.workgroupCode
             }));
           }
         }
       }
     }
   }, [formData.workflowId, formData.status, workflows, workgroups]);
+
+// Effect to automatically update responsible options based on status/workgroup
+useEffect(() => {
+  if (formData.workflowId && formData.status && workflows && employees) {
+    const selectedWorkflow = workflows.find(wf => wf.id === formData.workflowId);
+    if (selectedWorkflow) {
+      const currentStep = selectedWorkflow.steps.find(step => step.stepName === formData.status);
+      if (currentStep && currentStep.workgroupCode) {
+        // Filter employees in this workgroup
+        const eligibleEmployees = employees.filter(emp => emp.workgroupCode === currentStep.workgroupCode);
+
+        // If current responsible is not in the list, reset it
+        if (!eligibleEmployees.find(emp => emp.name === formData.responsible)) {
+          setFormData(prev => ({
+            ...prev,
+            responsible: '' // force user to pick again
+          }));
+        }
+      }
+    }
+  }
+}, [formData.workflowId, formData.status, workflows, employees]);
+
 
 
   // Handler for all input changes in the main form

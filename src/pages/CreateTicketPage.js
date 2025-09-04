@@ -48,7 +48,6 @@ const Toast = ({ message, type, onClose, isVisible }) => {
   )
 }
 
-
 // Custom hook for toast notifications
 const useToast = () => {
   const [toast, setToast] = useState({ message: '', type: '', isVisible: false })
@@ -82,6 +81,7 @@ const CreateTicketPage = () => {
     status: "",
     priority: "",
     workGroup: "",
+    workGroupCode: "", // Add this to track the workgroup code
     responsible: "",
     module: "",
     startDate: "",
@@ -92,7 +92,7 @@ const CreateTicketPage = () => {
   const { data: employees, isPending: employeesLoading, error: employeesError } = useFetch('http://localhost:8000/employees')
   const { data: workgroups, isPending: workgroupsLoading, error: workgroupsError } = useFetch('http://localhost:8000/workgroups')
   const { data: modules, isPending: modulesLoading, error: modulesError } = useFetch('http://localhost:8000/modules')
-  const { data: workflows, isPending: workflowsLoading, error: workflowsError } = useFetch('http://localhost:8000/workflows') // Fetch workflows
+  const { data: workflows, isPending: workflowsLoading, error: workflowsError } = useFetch('http://localhost:8000/workflows')
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -108,9 +108,10 @@ const CreateTicketPage = () => {
     return wg ? wg.name : '';
   }
 
-  if (!workgroups || workgroups.length === 0) {
-    console.warn("Workgroups not loaded yet");
-    return;
+  // Get employees filtered by workgroup code
+  const getEmployeesByWorkgroup = (workgroupCode) => {
+    if (!employees || !workgroupCode) return [];
+    return employees.filter(emp => emp.workgroupCode === workgroupCode);
   }
 
   const handleWorkflowChange = (e) => {
@@ -118,23 +119,31 @@ const CreateTicketPage = () => {
     const selectedWorkflow = workflows?.find(wf => wf.id === workflowId);
   
     if (!selectedWorkflow || !workgroups) {
-      setFormData(prev => ({ ...prev, workflowId, status: '', workGroup: '' }));
+      setFormData(prev => ({ 
+        ...prev, 
+        workflowId, 
+        status: '', 
+        workGroup: '',
+        workGroupCode: '',
+        responsible: '' // Reset responsible person when workflow changes
+      }));
       return;
     }
   
     const firstStep = selectedWorkflow.steps[0];
     const initialStatus = firstStep.stepName;
-    const assignedWorkgroupName = getWorkgroupName(firstStep.workgroupCode);
+    const assignedWorkgroupCode = firstStep.workgroupCode;
+    const assignedWorkgroupName = getWorkgroupName(assignedWorkgroupCode);
   
     setFormData(prev => ({
       ...prev,
       workflowId,
       status: initialStatus,
       workGroup: assignedWorkgroupName,
+      workGroupCode: assignedWorkgroupCode,
+      responsible: '' // Reset responsible person when workgroup changes
     }));
   };
-
-
 
   const addTag = tag => {
     if (tag && !selectedTags.includes(tag)) {
@@ -282,9 +291,9 @@ const CreateTicketPage = () => {
         title: formData.title.trim(),
         description: formData.description.trim(),
         status: formData.status,
-        workflowId: formData.workflowId, // Add workflowId to the ticket data
+        workflowId: formData.workflowId,
         priority: formData.priority,
-        workGroup: formData.workGroup,
+        workgroupId: formData.workGroupCode, // Use workgroupId to match old structure
         responsible: formData.responsible,
         module: formData.module,
         tags: selectedTags,
@@ -316,6 +325,7 @@ const CreateTicketPage = () => {
         status: "",
         priority: "",
         workGroup: "",
+        workGroupCode: "",
         responsible: "",
         module: "",
         startDate: "",
@@ -341,6 +351,7 @@ const CreateTicketPage = () => {
       status: "",
       priority: "",
       workGroup: "",
+      workGroupCode: "",
       responsible: "",
       module: "",
       startDate: "",
@@ -412,6 +423,9 @@ const CreateTicketPage = () => {
       addCustomTag()
     }
   }
+
+  // Get filtered employees for the current workgroup
+  const availableEmployees = getEmployeesByWorkgroup(formData.workGroupCode)
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -487,24 +501,24 @@ const CreateTicketPage = () => {
                     Workflow <span className="text-red-500">*</span>
                   </label>
                   <select
-  id="workflow"
-  name="workflowId"
-  value={formData.workflowId}
-  onChange={handleWorkflowChange}
-  disabled={!workflows || workflows.length === 0 || !workgroups || workgroups.length === 0}
-  className="w-full px-3 py-2 border ..."
->
-  <option value="">Select workflow</option>
-  {workflows && workflows.length > 0 ? (
-    workflows.map(workflow => (
-      <option key={workflow.id} value={workflow.id}>
-        {workflow.name}
-      </option>
-    ))
-  ) : (
-    <option disabled>No workflows available</option>
-  )}
-</select>
+                    id="workflow"
+                    name="workflowId"
+                    value={formData.workflowId}
+                    onChange={handleWorkflowChange}
+                    disabled={!workflows || workflows.length === 0 || !workgroups || workgroups.length === 0}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Select workflow</option>
+                    {workflows && workflows.length > 0 ? (
+                      workflows.map(workflow => (
+                        <option key={workflow.id} value={workflow.id}>
+                          {workflow.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>No workflows available</option>
+                    )}
+                  </select>
                 </div>
                 
                 <div className="space-y-2">
@@ -549,23 +563,21 @@ const CreateTicketPage = () => {
                 </div>
 
                 <div className="space-y-2">
-  <label
-    htmlFor="workgroup"
-    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-  >
-    WorkGroup Assigned
-  </label>
-  <input
-    id="workgroup"
-    name="workGroup"
-    type="text"
-    value={getWorkgroupName()} // show name, not code
-    readOnly
-    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
-  />
-</div>
-
-
+                  <label
+                    htmlFor="workgroup"
+                    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    WorkGroup Assigned
+                  </label>
+                  <input
+                    id="workgroup"
+                    name="workGroup"
+                    type="text"
+                    value={formData.workGroup} // This should now correctly show the workgroup name
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -581,19 +593,28 @@ const CreateTicketPage = () => {
                     name="responsible"
                     value={formData.responsible}
                     onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    disabled={!formData.workGroupCode} // Disable if no workgroup is selected
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-700"
                   >
-                    <option value="">Select person</option>
-                    {employees && employees.length > 0 ? (
-                      employees.map(employee => (
-                        <option key={employee.id} value={employee.name}>
-                          {employee.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>No employees available</option>
-                    )}
+                    <option value="">
+                      {!formData.workGroupCode 
+                        ? "Select workflow first" 
+                        : availableEmployees.length === 0 
+                          ? "No employees in this workgroup" 
+                          : "Select person"
+                      }
+                    </option>
+                    {availableEmployees.map(employee => (
+                      <option key={employee.id} value={employee.name}>
+                        {employee.name}
+                      </option>
+                    ))}
                   </select>
+                  {formData.workgroupId && availableEmployees.length === 0 && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      No employees assigned to this workgroup
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">

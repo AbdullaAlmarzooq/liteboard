@@ -1,10 +1,12 @@
+// CreateWorkflowModal.js
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
+import { WORKFLOW_CATEGORIES } from '../../constants/statuses';
 
 const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) => {
   const [form, setForm] = useState({
     name: '',
-    steps: [{ stepName: '', workgroupCode: '' }],
+    steps: [{ stepName: 'Open', categoryCode: 10, workgroupCode: '' }],
   });
 
   useEffect(() => {
@@ -32,7 +34,7 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
   const addStep = () => {
     setForm(prev => ({
       ...prev,
-      steps: [...prev.steps, { stepName: '', workgroupCode: '' }]
+      steps: [...prev.steps, { stepName: 'New Step', categoryCode: 10, workgroupCode: '' }]
     }));
   };
 
@@ -111,6 +113,19 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                         placeholder="e.g., Open"
                       />
+                    </div>
+                    <div className="flex-grow">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Category</label>
+                      <select
+                        name="categoryCode"
+                        value={step.categoryCode}
+                        onChange={(e) => handleStepChange(index, e)}
+                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                      >
+                        {WORKFLOW_CATEGORIES.map(category => (
+                          <option key={category.code} value={category.code}>{category.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div className="flex-grow">
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Assigned Workgroup</label>

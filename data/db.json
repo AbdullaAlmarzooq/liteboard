@@ -580,6 +580,59 @@
       "dueDate": "2025-09-02",
       "initiateDate": "2025-08-18 17:49:41",
       "workgroupId": "WG-005"
+    },
+    {
+      "id": "TCK-1022",
+      "title": "Testing new Create new Ticket page",
+      "description": "we need to create ticket with responsible and without responsible.",
+      "status": "Open",
+      "workflowId": "WF-002",
+      "priority": "Medium",
+      "responsible": "Abdulla Almarzooq",
+      "module": "Authentication",
+      "tags": [
+        "ui/ux"
+      ],
+      "startDate": "2025-09-04",
+      "dueDate": "2025-09-25",
+      "initiateDate": "2025-09-04 08:02:51",
+      "workgroupId": "WG-004"
+    },
+    {
+      "id": "TCK-1023",
+      "title": "New ticket without responsible",
+      "description": "we need to test New ticket without responsible and export it too.",
+      "status": "To be review",
+      "workflowId": "WF-002",
+      "priority": "Medium",
+      "workgroupId": "WG-004",
+      "responsible": "",
+      "module": "User Management",
+      "tags": [
+        "urgent",
+        "feature"
+      ],
+      "startDate": "2025-09-24",
+      "dueDate": "2025-09-29",
+      "initiateDate": "2025-09-04 08:12:09",
+      "workGroup": "Digital Infrastructure",
+      "comments": [
+        {
+          "id": "COM-001",
+          "text": "test new tickets working fine with adding comments, attaching documents and activity log ",
+          "author": "Current User",
+          "timestamp": "2025-09-04T08:23:00.341Z",
+          "type": "comment"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "liteboard-tickets (6).csv",
+          "type": "text/csv",
+          "size": 5940,
+          "data": "data:text/csv;base64,SUQsVGl0bGUsRGVzY3JpcHRpb24sU3RhdHVzLFByaW9yaXR5LFdvcmsgR3JvdXAsUmVzcG9uc2libGUsTW9kdWxlLFRhZ3MsRHVlIERhdGUsSW5pdGlhdGUgRGF0ZQpUQ0stMTAyMyxOZXcgdGlja2V0IHdpdGhvdXQgcmVzcG9uc2libGUsd2UgbmVlZCB0byB0ZXN0IE5ldyB0aWNrZXQgd2l0aG91dCByZXNwb25zaWJsZSBhbmQgZXhwb3J0IGl0IHRvby4sT3BlbixNZWRpdW0sRGlnaXRhbCBDaGFubmVscywsVXNlciBNYW5hZ2VtZW50LHVyZ2VudDtmZWF0dXJlLDIwMjUtMDktMjksMjAyNS0wOS0wNCAwODoxMjowOQpUQ0stMTAyMixUZXN0aW5nIG5ldyBDcmVhdGUgbmV3IFRpY2tldCBwYWdlLHdlIG5lZWQgdG8gY3JlYXRlIHRpY2tldCB3aXRoIHJlc3BvbnNpYmxlIGFuZCB3aXRob3V0IHJlc3BvbnNpYmxlLixPcGVuLE1lZGl1bSxEaWdpdGFsIENoYW5uZWxzLEFiZHVsbGEgQWxtYXJ6b29xLEF1dGhlbnRpY2F0aW9uLHVpL3V4LDIwMjUtMDktMjUsMjAyNS0wOS0wNCAwODowMjo1MQpUQ0stMTAyMSxhZGQgZGVwZW5kZW5jaWVzIG9yIHJlbGF0aW9uIGJldHdlZW4gdGlja2V0cyxhYmxlIHRvIGFkZCBkZXBlbmRlbmNpZXMgb3IgcmVsYXRpb24gYmV0d2VlbiB0aWNrZXRzLFBlbmRpbmcgY29uZmlybWF0aW9uLE1lZGl1bSxEaWdpdGFsIFNvbHV0aW9ucywsVXNlciBNYW5hZ2VtZW50LGVuaGFuY2VtZW50LDIwMjUtMDktMDIsMjAyNS0wOC0xOCAxNzo0OTo0MQpUQ0stMTAyMCxEYXNoYm9hcmQgSW4gcHJvZ3Jlc3MgdGlja2V0cywiSW4gdGhpcyBkYXkgYW5kIGFnZSwgdW5kZXJzdGFuZGluZyBkYXRhIGlzIHRoZSBrZXkgdG8gbWFraW5nIHRoZSBiZXN0IGRlY2lzaW9ucyBmb3IgYW55IGJ1c2luZXNzLiBIb3dldmVyLCB0aGUgYW1vdW50IG9mIGluZm9ybWF0aW9uIHRoYXTigJlzIGF2YWlsYWJsZSBhdCBhbnkgdGltZSBjYW4gYmUgb3ZlcndoZWxtaW5nIGZvciB0aGUgbW9zdCBkYXRhLXNhdnZ5IHBlcnNvbi4KClNvIHdoYXTigJlzIHRoZSBrZXkgdG8gbWFraW5nIGRhdGEtZHJpdmVuIGRlY2lzaW9ucz8gRmluZGluZyB0aGUgbW9zdCBpbXBvcnRhbnQgZGF0YSBhbmQgZm9ybWF0dGluZyBpdCBpbiBhIHdheSB0aGF04oCZcyBlYXN5IHRvIHVuZGVyc3RhbmQuIFRoaXMgY2FuIGNoYW5nZSwgZGVwZW5kaW5nIG9uIHdobyB3aWxsIHZpZXcgdGhlIGRhdGEuIElmIHlvdeKAmXJlIGFuIGluZHVzdHJ5IGV4cGVydCwgeW91IG1heSBmaW5kIGNvbXBsZXggZGF0YSBlYXNpZXIgdG8gdW5kZXJzdGFuZC4gSWYgeW914oCZcmUgcHJlc2VudGluZyBkYXRhIHRvIGxlc3Mgd2VsbC12ZXJzZWQgc3Rha2Vob2xkZXJzIGF0IHlvdXIgY29tcGFueSwgeW91IG1heSBuZWVkIHRvIHNpbXBsaWZ5IGl0IGJlZm9yZSBzaGFyaW5nIGl0IHdpdGggb3RoZXJzLgoKT25lIG9mIHRoZSBlYXNpZXN0IHdheXMgdG8gbWFrZSBkYXRhIGVhc3kgdG8gdW5kZXJzdGFuZCBmb3IgdGVjaG5pY2FsIGFuZCBub24tdGVjaG5pY2FsIGF1ZGllbmNlcyBpcyB0byBjcmVhdGUgYSBkYXNoYm9hcmQgdGhhdCBlYXNpbHkgZGlzcGxheXMgYWxsIG9mIHlvdXIgZGF0YSB2aXN1YWxpemF0aW9ucyBpbiBvbmUgcGxhY2UuCgpJbiB0aGlzIGFydGljbGUsIHdlIHdpbGwgcnVuIHRocm91Z2g6CgpEYXNoYm9hcmQgZGVmaW5pdGlvbgoKSG93IGRhc2hib2FyZHMgd29yawoKVXNlcwoKSW1wb3J0YW5jZQoKSG93IHRvIGNyZWF0ZSBhIGRhc2hib2FyZAoKVHlwZXMgb2YgZGFzaGJvYXJkcwoKQmVzdCBwcmFjdGljZXMKCkJlbmVmaXRzIixQZW5kaW5nIGNvbmZpcm1hdGlvbixNZWRpdW0sRGlnaXRhbCBTb2x1dGlvbnMsSHVzc2FpbiBhbFFhc3NhYiwsYnVnLDIwMjUtMDktMTcsMjAyNS0wOC0xNiAxNzozMDowMApUQ0stMTAxOSxuZXcgSUdBIHdvcmtmbG93IHRpY2tldCxmb3IgdGVzdGluZyBvbmx5LENhbmNlbGxlZCxIaWdoLERpZ2l0YWwgSW5mcmFzdHJ1Y3R1cmUsQWJkdWxsYSBBbG1hcnpvb3EsQXV0aGVudGljYXRpb24sSUdBLDIwMjUtMDktMDUsMjAyNS0wOC0wOCAxNToyODozOQpUQ0stMTAxOCxGaXJzdCBzcGVjaWFsaXN0IHdvcmtmbG93IChpZ2EpLHRvIHRlc3QgYWxsIG9mIGl0LENhbmNlbGxlZCxIaWdoLERpZ2l0YWwgSW5mcmFzdHJ1Y3R1cmUsQWJkdWxsYSBBbG1hcnpvb3EsQXV0aGVudGljYXRpb24sdWkvdXg7SUdBO2VuaGFuY2VtZW50LDIwMjUtMDktMDYsMjAyNS0wOC0wOCAxNTowNjowNQpUQ0stMTAxNyxFZGl0VGlja2V0IG5ldyB3b3JrZmxvdyxXZSBuZWVkIHBsYW4gaG93IHRvIGRlYWwgd2l0aCBvbGQgdGlja2V0cyBhbmQgbmV3IHRpY2tldHMsSW4gUHJvZ3Jlc3MsTWVkaXVtLEN1c3RvbWVyIFNlcnZpY2VzIENlbnRlcixBYmR1bGxhIEFsbWFyem9vcSxVSS9VWCxlbmhhbmNlbWVudCwyMDI1LTA4LTI3LDIwMjUtMDgtMDggMTQ6NDQ6NDEKVENLLTEwMTYsVGlja2V0cyBwYWdlIFVJL1VYIGZpZWxkcywid2hlbiBuZWVkIHRvIHJldmlldyB0aGUgVUkvVVggb2YgdGhlIHN0YXR1cywgcHJpb3JpdHkgYW5kIHRhZ3MuIFNwZWNpYWxseSBpbiB0aGUgbGlnaHQgbW9kZSIsT3BlbixIaWdoLERpZ2l0YWwgU29sdXRpb25zLEFiZHVsbGEgQWxtYXJ6b29xLFVJL1VYLHVpL3V4LDIwMjUtMDgtMjQsMjAyNS0wOC0wNiAwNTo0MzoyMApUQ0stMTAxNSxDcmVhdGUgbmV3IFRpY2tldHMgcGFnZSBuZWVkcyByZXRlc3Rpbmcsd2UgbmVlZCB0byBzdWJtaXQgdGlja2V0IGFuZCB2aWV3IGxvY2FsIGRhdGFiYXNlLENsb3NlZCxDcml0aWNhbCxDdXN0b21lciBTZXJ2aWNlcyBDZW50ZXIsQWJkdWxsYSBBbG1hcnpvb3EsUmVwb3J0aW5nLHVyZ2VudCwyMDI1LTA4LTA3LDIwMjUtMDgtMDYgMDU6MzY6MjIKVENLLTEwMTQsRW5oYW5jZSB2YWxpZGF0aW9uIGZvciBjcmVhdGUgbmV3IFRpY2tldCBwYWdlLGl0IHNob3VsZCBiZSBpbnNpZGUgdGhlIHBhZ2UgaXRzZWxmIG9yIHRvYXN0IG1lc3NhZ2UsT3BlbixMb3csRGlnaXRhbCBJbmZyYXN0cnVjdHVyZSxIdXNzYWluIGFsUWFzc2FiLFVJL1VYLGZlYXR1cmU7dWkvdXg7ZW5oYW5jZW1lbnQsMjAyNS0wOC0yNCwyMDI1LTA4LTA2IDA1OjExOjM0ClRDSy0xMDEzLFdvcmtmbG93LFdlIG5lZWQgdG8gZmluZCBhIHdheSB0byBzaG93IHRoZSBtYWtlIGEgY3VzdG9taXphYmxlIHdvcmtmbG93cy4gd2hlcmUgaW4gaW5pdGlhdGluZyB0aGUgdGlja2V0IHlvdSBjYW4gY2hvb3NlIGdlbmVyaWMgb3Igc3BlY2lhbGlzdCBwcmUtc2V0IHdvcmtmbG93LE9wZW4sTG93LERpZ2l0YWwgU29sdXRpb25zLEFiZHVsbGEgQWxtYXJ6b29xLFVJL1VYLGZlYXR1cmUsMjAyNS0wOC0yOSwyMDI1LTA4LTAyIDE1OjM0OjA5ClRDSy0xMDEyLFNlYXJjaCBiYXIsYWRkIHNlYXJjaCBiYXIgaW4gVGlja2V0cyBwYWdlLENhbmNlbGxlZCxNZWRpdW0sRGlnaXRhbCBTb2x1dGlvbnMsSGFkaSBBbHRhd2FzaCxVSS9VWCx1aS91eCwyMDI1LTA2LTI2LDIwMjUtMDYtMjEgMDc6NDI6MTEKVENLLTEwMTEsbGlnaHQgbW9kZSxsaWdodCBtb2RlIG5lZWRzIGVuaGFuY2VtZW50cyxPcGVuLE1lZGl1bSxEaWdpdGFsIEluZnJhc3RydWN0dXJlLEh1c3NhaW4gYWxRYXNzYWIsVUkvVVgsZW5oYW5jZW1lbnQsMjAyNS0wNi0zMCwyMDI1LTA2LTIxIDA2OjU2OjA2ClRDSy0xMDEwLFVzZXIgQXV0aGVudGljYXRpb24sQXV0aGVudGljYXRpb24gcmVmZXJzIHRvIHRoZSBwcm9jZXNzIG9mIHZlcmlmeWluZyB0aGUgaWRlbnRpdHkgb2YgYSB1c2VyIG9yIGVudGl0eSBhY2Nlc3NpbmcgYSB3ZWIgYXBwbGljYXRpb24gb3Igc3lzdGVtLiBJdCBpbnZvbHZlcyBpbXBsZW1lbnRpbmcgdGhlIG5lY2Vzc2FyeSBtZWNoYW5pc21zIHRvIGVuc3VyZSB0aGF0IG9ubHkgYXV0aG9yaXplZCB1c2VycyBjYW4gYWNjZXNzIHJlc3RyaWN0ZWQgYXJlYXMgb3IgcGVyZm9ybSBzcGVjaWZpYyBhY3Rpb25zIHdpdGhpbiB0aGUgYXBwbGljYXRpb24uLEluIFByb2dyZXNzLE1lZGl1bSxEaWdpdGFsIEluZnJhc3RydWN0dXJlLEFiZHVsbGEgQWxtYXJ6b29xLEF1dGhlbnRpY2F0aW9uLGVuaGFuY2VtZW50LDIwMjUtMDYtMjYsMjAyNS0wNi0yMSAwNjo1MzozNgpUQ0stMTAwOSxEYXNoYm9hcmQgZW5oYW5jbWVudCxEYXNoYm9hcmQgbXVzdCBoYXZlIGZpbHRlcnMsSW4gUHJvZ3Jlc3MsQ3JpdGljYWwsRGlnaXRhbCBJbmZyYXN0cnVjdHVyZSxIdXNzYWluIGFsUWFzc2FiLERhc2hib2FyZCx1aS91eDtlbmhhbmNlbWVudCwyMDI1LTA3LTEyLDIwMjUtMDYtMjAgMTY6NDQ6NDYKVENLLTEwMDgsYWRkIG1vZHVsZXMgaW4gbmV3IGVuZHBvaW50IGluIGRhdGFiYXNlLCJtb2R1bGVzIG5lZWRzIHRvIGJlIGZldGNoZWQgZnJvbSB0aGUgZGF0YWJhc2UgaW4gYm90aCAiImNyZWF0ZSB0aWNrZXQiIiBhbmQgY2FuIGJlIG1hbmFnZWQgaW4gYWRtaW4gcGFuZWwgdG9vLiIsSW4gUHJvZ3Jlc3MsQ3JpdGljYWwsRGlnaXRhbCBDaGFubmVscyxIYWRpIEFsdGF3YXNoLE5vdGlmaWNhdGlvbiBTZXJ2aWNlLGZlYXR1cmU7ZW5oYW5jZW1lbnQsMjAyNS0wNy0wNywyMDI1LTA2LTIwIDE1OjM2OjU4ClRDSy0xMDA3LFRpY2tldHMgcGFnZSBleHBvcnQsVGhlIHRpY2tldHMgcGFnZSBtdXN0IGhhdmUgZXhwb3J0IGJ1dHRvbiB0byBleHBvcnQgYWxsIGRhdGEgaW50byAuY3N2IGZpbGUsSW4gUHJvZ3Jlc3MsQ3JpdGljYWwsRGlnaXRhbCBTb2x1dGlvbnMsSHVzc2FpbiBhbFFhc3NhYixSZXBvcnRpbmcgRW5naW5lLGZlYXR1cmU7ZW5oYW5jZW1lbnQsMjAyNS0wNi0yMywyMDI1LTA2LTE3IDE3OjI0OjMwClRDSy0xMDA2LGRhc2hib2FyZCAtIHJlbW92ZSBwcm9qZWN0cyxyZW1vdmUgdGhlIHByb2plY3RzIGZyb20gdGhlIGRhc2hib2FyZCBhcyB0aGUgYXBwbGljYXRpb24gaGF2ZSB0aWNrZXRzIG9ubHkgbm90IGEgcHJvamVjdHMsSW4gUHJvZ3Jlc3MsTWVkaXVtLEFkbWluLEFiZHVsbGEgQWxtYXJ6b29xLFJlcG9ydGluZyBFbmdpbmUsdWkvdXg7YnVnLDIwMjUtMDctMDEsMjAyNS0wNi0xNyAxNTozMToyNQpUQ0stMTAwNSxkYXJrIG1vZGUgaXNzdWUsImRhcmsgbW9kZSBidXR0b24gaXMgbm90IHdvcmtpbmcsIGN1cnJlbnRseSBpdCBzaG93cyB0aGUgd2Vic2l0ZSBpbiBkYXJrIG1vZGUgYWxsIHRoZSB0aW1lIixJbiBQcm9ncmVzcyxNZWRpdW0sRGlnaXRhbCBJbmZyYXN0cnVjdHVyZSxIYWRpIEFsdGF3YXNoLFVzZXIgTWFuYWdlbWVudCx1aS91eDtidWcsMjAyNS0wNi0yOCwyMDI1LTA2LTE0IDE1OjM0OjE1ClRDSy0xMDA0LEVtYWlsIG5vdGlmaWNhdGlvbnMgbm90IHNlbnQgdG8gdXNlcnMsVGhpcyBuZWVkcyB0byBiZSBoYW5kbGVkIGJ5IEluZnJhLEluIFByb2dyZXNzLEhpZ2gsRGlnaXRhbCBTb2x1dGlvbnMsQWhtZWQgQWxpIFlvdXNpZixOb3RpZmljYXRpb24gU2VydmljZSxlbWFpbDtub3RpZmljYXRpb25zO2NyaXRpY2FsLDIwMjUtMDYtMTYsMjAyNS0wNi0xNCAxNTozMjoyNQpUQ0stMTAwMyxSZXF1ZXN0IHRvIGFkZCBuZXcgdXNlciByb2xlLCxDbG9zZWQsTG93LEFkbWluLFNheWVkIE1vaGFtbWVkLEF1dGhlbnRpY2F0aW9uLHJvbGU7dXNlciwyMDI1LTA2LTA1LDIwMjUtMDYtMTQgMTU6MzE6MjUKVENLLTEwMDIsUmVwb3J0IGdlbmVyYXRpb24gdGFraW5nIHRvbyBsb25nIGFscmVhZHksVGhlIGJhY2tlbmQgbmVlZHMgZW5oYW5jbWVudHMsQ2xvc2VkLE1lZGl1bSxDdXN0b21lciBTZXJ2aWNlcyBDZW50ZXIsU2F5ZWQgTW9oYW1tZWQsVXNlciBNYW5hZ2VtZW50LHBlcmZvcm1hbmNlO3JlcG9ydCwyMDI1LTA2LTE4LDIwMjUtMDYtMTUgMTA6MzE6MjUKVENLLTEwMDEsVW5hYmxlIHRvIGxvZ2luIHRvIHNlbGYtc2VydmljZSBwb3J0YWwsV2UgbmVlZCBhdXRoZW50aWNhdGlvbiBhbmQgYXV0aG9yaXphdGlvbiBzaXQgdXAsSW4gUHJvZ3Jlc3MsSGlnaCxDdXN0b21lciBTZXJ2aWNlcyBDZW50ZXIsQWJkdWxsYSBBbG1hcnpvb3EsQXV0aGVudGljYXRpb24sbG9naW47cG9ydGFsO3VyZ2VudDtidWcsMjAyNS0wNi0yNSwyMDI1LTA2LTE2IDE1OjMxOjI1"
+        }
+      ]
     }
   ],
   "tags": [
@@ -623,8 +676,8 @@
   "workgroups": [
     {
       "id": "WG-001",
-      "name": "Customer Services Center",
-      "description": "Manage the Customer service centers."
+      "name": "Customer Services Centre",
+      "description": "Manage the Customer service Centre."
     },
     {
       "id": "WG-002",
@@ -1034,6 +1087,56 @@
       "newValue": "wallpaperflare.com_wallpaper (2).jpg",
       "timestamp": "2025-08-22T16:26:43.431Z",
       "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-036",
+      "ticketId": "TCK-1023",
+      "type": "field_change",
+      "fieldName": "workGroup",
+      "oldValue": "N/A",
+      "newValue": "Digital Channels",
+      "timestamp": "2025-09-04T08:23:02.412Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-037",
+      "ticketId": "TCK-1023",
+      "type": "field_change",
+      "fieldName": "attachment_added",
+      "oldValue": "",
+      "newValue": "liteboard-tickets (6).csv",
+      "timestamp": "2025-09-04T08:23:02.421Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-038",
+      "ticketId": "TCK-1023",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Open",
+      "newValue": "Pending confirmation",
+      "timestamp": "2025-09-04T08:23:28.692Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-039",
+      "ticketId": "TCK-1023",
+      "type": "status_change",
+      "fieldName": "status",
+      "oldValue": "Pending confirmation",
+      "newValue": "To be review",
+      "timestamp": "2025-09-04T08:23:45.584Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-040",
+      "ticketId": "TCK-1023",
+      "type": "field_change",
+      "fieldName": "workGroup",
+      "oldValue": "Digital Channels",
+      "newValue": "Digital Infrastructure",
+      "timestamp": "2025-09-04T08:23:45.594Z",
+      "changedBy": "Current User"
     }
   ],
   "workflows": [
@@ -1044,17 +1147,20 @@
         {
           "stepName": "Open",
           "workgroupCode": "WG-001",
-          "order": 1
+          "order": 1,
+          "categoryCode": "10"
         },
         {
           "stepName": "In Progress",
           "workgroupCode": "WG-005",
-          "order": 2
+          "order": 2,
+          "categoryCode": "20"
         },
         {
           "stepName": "Closed",
           "workgroupCode": "WG-001",
-          "order": 3
+          "order": 3,
+          "categoryCode": "30"
         }
       ]
     },
@@ -1065,32 +1171,38 @@
         {
           "stepName": "Open",
           "workgroupCode": "WG-004",
-          "order": 1
+          "order": 1,
+          "categoryCode": "10"
         },
         {
           "stepName": "Pending confirmation",
           "workgroupCode": "WG-004",
-          "order": 2
+          "order": 2,
+          "categoryCode": "20"
         },
         {
           "stepName": "To be review",
           "workgroupCode": "WG-002",
-          "order": 3
+          "order": 3,
+          "categoryCode": "20"
         },
         {
           "stepName": "IGA",
           "workgroupCode": "WG-002",
-          "order": 4
+          "order": 4,
+          "categoryCode": "20"
         },
         {
           "stepName": "Ready to test",
           "workgroupCode": "WG-001",
-          "order": 5
+          "order": 5,
+          "categoryCode": "20"
         },
         {
           "stepName": "Close",
           "workgroupCode": "WG-001",
-          "order": 6
+          "order": 6,
+          "categoryCode": "30"
         }
       ]
     },
@@ -1101,32 +1213,38 @@
         {
           "stepName": "Pending confirmation",
           "workgroupCode": "WG-005",
-          "order": 1
+          "order": 1,
+          "categoryCode": "10"
         },
         {
           "stepName": "To be review",
           "workgroupCode": "WG-002",
-          "order": 2
+          "order": 2,
+          "categoryCode": "20"
         },
         {
           "stepName": "RT",
           "workgroupCode": "WG-002",
-          "order": 3
+          "order": 3,
+          "categoryCode": "20"
         },
         {
           "stepName": "Ready to test",
           "workgroupCode": "WG-004",
-          "order": 4
+          "order": 4,
+          "categoryCode": "20"
         },
         {
           "stepName": "Ready to deploy",
           "workgroupCode": "WG-002",
-          "order": 5
+          "order": 5,
+          "categoryCode": "20"
         },
         {
           "stepName": "Close",
           "workgroupCode": "WG-004",
-          "order": 6
+          "order": 6,
+          "categoryCode": "30"
         }
       ]
     }

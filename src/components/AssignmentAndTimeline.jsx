@@ -3,6 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
 import Badge from "../components/Badge";
 
 const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employees, moduleOptions }) => {
+  // ✅ Filter employees by current workgroupId
+  const eligibleEmployees = employees
+    ? employees.filter(emp => emp.workgroupCode === formData.workGroup)
+    : [];
+
   return (
     <Card className="bg-white h-fit">
       <CardHeader>
@@ -10,6 +15,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-4">
+          {/* Workgroup (disabled, auto-assigned via workflow) */}
           <div className="space-y-2">
             <label
               htmlFor="workgroup"
@@ -23,12 +29,12 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
               value={formData.workGroup}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              disabled // This is the key change
+              disabled
             >
               <option value="">Select work group</option>
               {workgroups && workgroups.length > 0 ? (
                 workgroups.map(workgroup => (
-                  <option key={workgroup.id} value={workgroup.name}>
+                  <option key={workgroup.id} value={workgroup.id}>
                     {workgroup.name}
                   </option>
                 ))
@@ -38,6 +44,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             </select>
           </div>
 
+          {/* Responsible dropdown (only employees from that workgroup) */}
           <div className="space-y-2">
             <label
               htmlFor="responsible"
@@ -53,8 +60,8 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="">Select person</option>
-              {employees && employees.length > 0 ? (
-                employees.map(employee => (
+              {eligibleEmployees.length > 0 ? (
+                eligibleEmployees.map(employee => (
                   <option key={employee.id} value={employee.name}>
                     {employee.name}
                   </option>
@@ -65,6 +72,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             </select>
           </div>
 
+          {/* Module dropdown */}
           <div className="space-y-2">
             <label
               htmlFor="module"
