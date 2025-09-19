@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
 const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employees, moduleOptions }) => {
   // ✅ Filter employees by current workGroup (name)
   const eligibleEmployees = employees
-    ? employees.filter(emp => emp.workgroupCode === formData.workGroup)
+    ? employees.filter(emp => emp.workgroupCode === formData.workgroupId)
     : [];
 
   return (

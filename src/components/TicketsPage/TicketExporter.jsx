@@ -10,7 +10,7 @@ const TicketExporter = ({ ticketsToExport, workgroupsMap = {} }) => {
     if (!data || data.length === 0) return "";
 
     const headers = [
-      "ID", "Title", "Description", "Status", "Priority", "Work Group",
+      "ID", "Title", "Description", "Status", "Priority", "WorkGroup",
       "Responsible", "Module", "Tags", "Due Date", "Initiate Date"
     ];
 
@@ -27,7 +27,7 @@ const TicketExporter = ({ ticketsToExport, workgroupsMap = {} }) => {
 
         if (key === 'workGroup') {
           // map workgroupId to name
-          value = workgroupsMap[ticket.workgroupId] || '';
+          value = ticket.workGroup;
         } else {
           value = ticket[key];
         }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Tag, Briefcase, AppWindow, GitCommit } from 'lucide-react';
+import { Plus, Users, Tag, Briefcase, AppWindow, GitCommit, Trash2 } from 'lucide-react';
 import EmployeesTab from '../components/AdminPanel/EmployeesTab';
 import TagsTab from '../components/AdminPanel/TagsTab';
 import WorkgroupsTab from '../components/AdminPanel/WorkgroupsTab';
@@ -7,6 +7,8 @@ import ModulesTab from '../components/AdminPanel/ModulesTab';
 import WorkflowsTab from '../components/AdminPanel/WorkflowsTab';
 import CreateModal from '../components/AdminPanel/CreateModal';
 import CreateWorkflowModal from '../components/AdminPanel/CreateWorkflowModal';
+import ConfirmationModal from '../components/AdminPanel/ConfirmationModal';
+import AlertModal from '../components/AdminPanel/AlertModal';
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('employees');
@@ -14,14 +16,20 @@ const AdminPanel = () => {
   const [tags, setTags] = useState([]);
   const [modules, setModules] = useState([]);
   const [workgroups, setWorkgroups] = useState([]);
-  const [workflows, setWorkflows] = useState([]); // New state for workflows
+  const [workflows, setWorkflows] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createForm, setCreateForm] = useState({});
-  const [showCreateWorkflowModal, setShowCreateWorkflowModal] = useState(false); // New state for workflow modal
-  const [workflowToEdit, setWorkflowToEdit] = useState(null); // New state for editing workflows
+  const [showCreateWorkflowModal, setShowCreateWorkflowModal] = useState(false);
+  const [workflowToEdit, setWorkflowToEdit] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+
+  // New states for the alert modal
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -35,7 +43,7 @@ const AdminPanel = () => {
         fetch('http://localhost:8000/tags'),
         fetch('http://localhost:8000/workgroups'),
         fetch('http://localhost:8000/modules'),
-        fetch('http://localhost:8000/workflows') // Fetch workflows
+        fetch('http://localhost:8000/workflows')
       ]);
 
       setEmployees(await empRes.json());
@@ -85,6 +93,35 @@ const AdminPanel = () => {
     setEditForm({});
   };
 
+  const handleDelete = (id) => {
+    setItemToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    const endpoint = `http://localhost:8000/${activeTab}/${itemToDelete}`;
+    try {
+      await fetch(endpoint, {
+        method: 'DELETE'
+      });
+
+      if (activeTab === 'tags') {
+        setTags(prev => prev.filter(item => item.id !== itemToDelete));
+      } else if (activeTab === 'employees') {
+        setEmployees(prev => prev.filter(item => item.id !== itemToDelete));
+      } else if (activeTab === 'workgroups') {
+        setWorkgroups(prev => prev.filter(item => item.id !== itemToDelete));
+      } else if (activeTab === 'modules') {
+        setModules(prev => prev.filter(item => item.id !== itemToDelete));
+      }
+
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+    } catch (error) {
+      console.error('Error deleting:', error);
+    }
+  };
+
   const handleCreateClick = () => {
     let newItem = {};
 
@@ -119,13 +156,23 @@ const AdminPanel = () => {
       setCreateForm(newItem);
       setShowCreateModal(true);
     } else if (activeTab === 'workflows') {
-        setWorkflowToEdit(null); // Clear any previous edit state
-        setShowCreateWorkflowModal(true);
+      setWorkflowToEdit(null);
+      setShowCreateWorkflowModal(true);
     }
   };
 
   const handleCreateSave = async () => {
     let newItem = { ...createForm };
+
+    // Prevent duplicate tag creation and show modal instead of alert
+    if (activeTab === 'tags') {
+        const isDuplicate = tags.some(tag => tag.label.toLowerCase() === newItem.label.toLowerCase());
+        if (isDuplicate) {
+            setAlertMessage('A tag with this label already exists.');
+            setShowAlertModal(true);
+            return;
+        }
+    }
 
     if (activeTab === 'employees') {
       newItem.id = `EMP-${String(employees.length + 1).padStart(3, '0')}`;
@@ -201,7 +248,6 @@ const AdminPanel = () => {
   const handleWorkflowSave = async (workflow) => {
     try {
       if (!workflow.id) {
-        // Create new workflow
         const newId = `WF-${String(workflows.length + 1).padStart(3, '0')}`;
         const newWorkflow = { ...workflow, id: newId };
         const response = await fetch('http://localhost:8000/workflows', {
@@ -212,7 +258,6 @@ const AdminPanel = () => {
         const createdWorkflow = await response.json();
         setWorkflows(prev => [...prev, createdWorkflow]);
       } else {
-        // Edit existing workflow
         await fetch(`http://localhost:8000/workflows/${workflow.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -246,7 +291,7 @@ const AdminPanel = () => {
     { id: 'tags', label: 'Tags', icon: Tag },
     { id: 'workgroups', label: 'Workgroups', icon: Briefcase },
     { id: 'modules', label: 'Modules', icon: AppWindow },
-    { id: 'workflows', label: 'Workflows', icon: GitCommit }, // New tab
+    { id: 'workflows', label: 'Workflows', icon: GitCommit },
   ];
 
   const renderCurrentTabComponent = () => {
@@ -279,6 +324,7 @@ const AdminPanel = () => {
             handleSave={handleSave}
             handleCancel={handleCancel}
             handleInputChange={handleInputChange}
+            handleDelete={handleDelete}
           />
         );
       case 'workgroups':
@@ -377,13 +423,33 @@ const AdminPanel = () => {
             workgroups={workgroups}
           />
         )}
-        
+
         {showCreateWorkflowModal && (
           <CreateWorkflowModal
             workflowToEdit={workflowToEdit}
             onClose={() => setShowCreateWorkflowModal(false)}
             onSave={handleWorkflowSave}
             workgroups={workgroups}
+          />
+        )}
+
+        {showDeleteModal && (
+          <ConfirmationModal
+            isOpen={showDeleteModal}
+            onClose={() => setShowDeleteModal(false)}
+            onConfirm={handleConfirmDelete}
+            title="Confirm Deletion"
+            message="Are you sure you want to delete this item? This action cannot be undone."
+          />
+        )}
+
+        {/* Render the new alert modal for duplicate tags */}
+        {showAlertModal && (
+          <AlertModal
+            isOpen={showAlertModal}
+            onClose={() => setShowAlertModal(false)}
+            title="Duplicate Tag"
+            message={alertMessage}
           />
         )}
       </div>

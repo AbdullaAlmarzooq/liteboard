@@ -96,13 +96,11 @@
       "priority": "High",
       "workgroupId": "WG-001",
       "workGroup": "Customer Services Center",
-      "responsible": "",
+      "responsible": "Sayed Mohammed",
       "module": "Authentication",
       "tags": [
         "login",
-        "portal",
-        "urgent",
-        "bug"
+        "portal"
       ],
       "startDate": "2025-06-13",
       "dueDate": "2025-06-25",
@@ -178,18 +176,18 @@
       "priority": "High",
       "workgroupId": "WG-005",
       "workGroup": "Digital Transformation",
-      "responsible": "Ahmed Ali Yousif",
+      "responsible": "Hussain Darwish",
       "module": "Notification Service",
       "tags": [
         "email",
-        "notifications",
-        "critical"
+        "notifications"
       ],
       "startDate": "2025-06-14",
       "dueDate": "2025-06-16",
       "description": "This needs to be handled by Infra",
       "comments": [],
-      "initiateDate": "2025-06-14 15:32:25"
+      "initiateDate": "2025-06-14 15:32:25",
+      "attachments": []
     },
     {
       "id": "TCK-1005",
@@ -444,7 +442,7 @@
       "priority": "High",
       "workgroupId": "WG-005",
       "workGroup": "Digital Transformation",
-      "responsible": "",
+      "responsible": "Hussain Darwish",
       "module": "UI/UX",
       "tags": [
         "ui/ux"
@@ -464,7 +462,7 @@
       "priority": "Medium",
       "workgroupId": "WG-005",
       "workGroup": "Digital Transformation",
-      "responsible": "",
+      "responsible": "Hussain Darwish",
       "module": "UI/UX",
       "tags": [
         "enhancement"
@@ -596,7 +594,7 @@
       "priority": "High",
       "workgroupId": "WG-005",
       "workGroup": "Digital Transformation",
-      "responsible": "",
+      "responsible": "Hussain Darwish",
       "module": "Dashboard",
       "tags": [
         "Dashboard"
@@ -606,6 +604,41 @@
       "initiateDate": "2025-08-08 16:42:13",
       "comments": [],
       "attachments": []
+    },
+    {
+      "id": "TCK-1023",
+      "title": "Fix all issues before migration - submit",
+      "description": "make sure all the attributes submitted correctly",
+      "status": "Open",
+      "workflowId": "WF-002",
+      "priority": "Medium",
+      "workgroupId": "WG-004",
+      "workGroup": "Digital Channels",
+      "responsible": "Ahmed Ali Yousif",
+      "module": "Authentication",
+      "tags": [
+        "bug"
+      ],
+      "startDate": "2025-09-19",
+      "dueDate": "2025-10-08",
+      "initiateDate": "2025-09-19 13:45:05",
+      "comments": [
+        {
+          "id": "COM-001",
+          "text": "test the array of comments and array of attachments",
+          "author": "Current User",
+          "timestamp": "2025-09-19T13:47:20.703Z",
+          "type": "comment"
+        }
+      ],
+      "attachments": [
+        {
+          "name": "liteboard-tickets (5).csv",
+          "type": "text/csv",
+          "size": 5726,
+          "data": "data:text/csv;base64,SUQsVGl0bGUsRGVzY3JpcHRpb24sU3RhdHVzLFByaW9yaXR5LFdvcmsgR3JvdXAsUmVzcG9uc2libGUsTW9kdWxlLFRhZ3MsRHVlIERhdGUsSW5pdGlhdGUgRGF0ZQpUQ0stMTAyMixUZXN0aW5nIG5ldyBDcmVhdGUgbmV3IFRpY2tldCBwYWdlLHdlIG5lZWQgdG8gY3JlYXRlIHRpY2tldCB3aXRoIHJlc3BvbnNpYmxlIGFuZCB3aXRob3V0IHJlc3BvbnNpYmxlLixPcGVuLE1lZGl1bSwsQWJkdWxsYSBBbG1hcnpvb3EsQXV0aGVudGljYXRpb24sdWkvdXgsMjAyNS0wOS0yNSwyMDI1LTA5LTA0IDA4OjAyOjUxClRDSy0xMDIxLGFkZCBkZXBlbmRlbmNpZXMgb3IgcmVsYXRpb24gYmV0d2VlbiB0aWNrZXRzLGFibGUgdG8gYWRkIGRlcGVuZGVuY2llcyBvciByZWxhdGlvbiBiZXR3ZWVuIHRpY2tldHMsUGVuZGluZyBjb25maXJtYXRpb24sTWVkaXVtLERpZ2l0YWwgU29sdXRpb25zLCxVc2VyIE1hbmFnZW1lbnQsZW5oYW5jZW1lbnQsMjAyNS0wOS0wMiwyMDI1LTA4LTE4IDE3OjQ5OjQxClRDSy0xMDIwLERhc2hib2FyZCBJbiBwcm9ncmVzcyB0aWNrZXRzLCJJbiB0aGlzIGRheSBhbmQgYWdlLCB1bmRlcnN0YW5kaW5nIGRhdGEgaXMgdGhlIGtleSB0byBtYWtpbmcgdGhlIGJlc3QgZGVjaXNpb25zIGZvciBhbnkgYnVzaW5lc3MuIEhvd2V2ZXIsIHRoZSBhbW91bnQgb2YgaW5mb3JtYXRpb24gdGhhdOKAmXMgYXZhaWxhYmxlIGF0IGFueSB0aW1lIGNhbiBiZSBvdmVyd2hlbG1pbmcgZm9yIHRoZSBtb3N0IGRhdGEtc2F2dnkgcGVyc29uLgoKU28gd2hhdOKAmXMgdGhlIGtleSB0byBtYWtpbmcgZGF0YS1kcml2ZW4gZGVjaXNpb25zPyBGaW5kaW5nIHRoZSBtb3N0IGltcG9ydGFudCBkYXRhIGFuZCBmb3JtYXR0aW5nIGl0IGluIGEgd2F5IHRoYXTigJlzIGVhc3kgdG8gdW5kZXJzdGFuZC4gVGhpcyBjYW4gY2hhbmdlLCBkZXBlbmRpbmcgb24gd2hvIHdpbGwgdmlldyB0aGUgZGF0YS4gSWYgeW914oCZcmUgYW4gaW5kdXN0cnkgZXhwZXJ0LCB5b3UgbWF5IGZpbmQgY29tcGxleCBkYXRhIGVhc2llciB0byB1bmRlcnN0YW5kLiBJZiB5b3XigJlyZSBwcmVzZW50aW5nIGRhdGEgdG8gbGVzcyB3ZWxsLXZlcnNlZCBzdGFrZWhvbGRlcnMgYXQgeW91ciBjb21wYW55LCB5b3UgbWF5IG5lZWQgdG8gc2ltcGxpZnkgaXQgYmVmb3JlIHNoYXJpbmcgaXQgd2l0aCBvdGhlcnMuCgpPbmUgb2YgdGhlIGVhc2llc3Qgd2F5cyB0byBtYWtlIGRhdGEgZWFzeSB0byB1bmRlcnN0YW5kIGZvciB0ZWNobmljYWwgYW5kIG5vbi10ZWNobmljYWwgYXVkaWVuY2VzIGlzIHRvIGNyZWF0ZSBhIGRhc2hib2FyZCB0aGF0IGVhc2lseSBkaXNwbGF5cyBhbGwgb2YgeW91ciBkYXRhIHZpc3VhbGl6YXRpb25zIGluIG9uZSBwbGFjZS4KCkluIHRoaXMgYXJ0aWNsZSwgd2Ugd2lsbCBydW4gdGhyb3VnaDoKCkRhc2hib2FyZCBkZWZpbml0aW9uCgpIb3cgZGFzaGJvYXJkcyB3b3JrCgpVc2VzCgpJbXBvcnRhbmNlCgpIb3cgdG8gY3JlYXRlIGEgZGFzaGJvYXJkCgpUeXBlcyBvZiBkYXNoYm9hcmRzCgpCZXN0IHByYWN0aWNlcwoKQmVuZWZpdHMiLFBlbmRpbmcgY29uZmlybWF0aW9uLE1lZGl1bSxEaWdpdGFsIFNvbHV0aW9ucyxIdXNzYWluIGFsUWFzc2FiLCxidWcsMjAyNS0wOS0xNywyMDI1LTA4LTE2IDE3OjMwOjAwClRDSy0xMDE5LG5ldyBJR0Egd29ya2Zsb3cgdGlja2V0LGZvciB0ZXN0aW5nIG9ubHksQ2FuY2VsbGVkLEhpZ2gsRGlnaXRhbCBJbmZyYXN0cnVjdHVyZSxBYmR1bGxhIEFsbWFyem9vcSxBdXRoZW50aWNhdGlvbixJR0EsMjAyNS0wOS0wNSwyMDI1LTA4LTA4IDE1OjI4OjM5ClRDSy0xMDE4LEZpcnN0IHNwZWNpYWxpc3Qgd29ya2Zsb3cgKGlnYSksdG8gdGVzdCBhbGwgb2YgaXQsQ2FuY2VsbGVkLEhpZ2gsRGlnaXRhbCBJbmZyYXN0cnVjdHVyZSxBYmR1bGxhIEFsbWFyem9vcSxBdXRoZW50aWNhdGlvbix1aS91eDtJR0E7ZW5oYW5jZW1lbnQsMjAyNS0wOS0wNiwyMDI1LTA4LTA4IDE1OjA2OjA1ClRDSy0xMDE3LEVkaXRUaWNrZXQgbmV3IHdvcmtmbG93LFdlIG5lZWQgcGxhbiBob3cgdG8gZGVhbCB3aXRoIG9sZCB0aWNrZXRzIGFuZCBuZXcgdGlja2V0cyxJbiBQcm9ncmVzcyxNZWRpdW0sQ3VzdG9tZXIgU2VydmljZXMgQ2VudGVyLEFiZHVsbGEgQWxtYXJ6b29xLFVJL1VYLGVuaGFuY2VtZW50LDIwMjUtMDgtMjcsMjAyNS0wOC0wOCAxNDo0NDo0MQpUQ0stMTAxNixUaWNrZXRzIHBhZ2UgVUkvVVggZmllbGRzLCJ3aGVuIG5lZWQgdG8gcmV2aWV3IHRoZSBVSS9VWCBvZiB0aGUgc3RhdHVzLCBwcmlvcml0eSBhbmQgdGFncy4gU3BlY2lhbGx5IGluIHRoZSBsaWdodCBtb2RlIixPcGVuLEhpZ2gsRGlnaXRhbCBTb2x1dGlvbnMsQWJkdWxsYSBBbG1hcnpvb3EsVUkvVVgsdWkvdXgsMjAyNS0wOC0yNCwyMDI1LTA4LTA2IDA1OjQzOjIwClRDSy0xMDE1LENyZWF0ZSBuZXcgVGlja2V0cyBwYWdlIG5lZWRzIHJldGVzdGluZyx3ZSBuZWVkIHRvIHN1Ym1pdCB0aWNrZXQgYW5kIHZpZXcgbG9jYWwgZGF0YWJhc2UsQ2xvc2VkLENyaXRpY2FsLEN1c3RvbWVyIFNlcnZpY2VzIENlbnRlcixBYmR1bGxhIEFsbWFyem9vcSxSZXBvcnRpbmcsdXJnZW50LDIwMjUtMDgtMDcsMjAyNS0wOC0wNiAwNTozNjoyMgpUQ0stMTAxNCxFbmhhbmNlIHZhbGlkYXRpb24gZm9yIGNyZWF0ZSBuZXcgVGlja2V0IHBhZ2UsaXQgc2hvdWxkIGJlIGluc2lkZSB0aGUgcGFnZSBpdHNlbGYgb3IgdG9hc3QgbWVzc2FnZSxPcGVuLExvdyxEaWdpdGFsIEluZnJhc3RydWN0dXJlLEh1c3NhaW4gYWxRYXNzYWIsVUkvVVgsZmVhdHVyZTt1aS91eDtlbmhhbmNlbWVudCwyMDI1LTA4LTI0LDIwMjUtMDgtMDYgMDU6MTE6MzQKVENLLTEwMTMsV29ya2Zsb3csV2UgbmVlZCB0byBmaW5kIGEgd2F5IHRvIHNob3cgdGhlIG1ha2UgYSBjdXN0b21pemFibGUgd29ya2Zsb3dzLiB3aGVyZSBpbiBpbml0aWF0aW5nIHRoZSB0aWNrZXQgeW91IGNhbiBjaG9vc2UgZ2VuZXJpYyBvciBzcGVjaWFsaXN0IHByZS1zZXQgd29ya2Zsb3csT3BlbixMb3csRGlnaXRhbCBTb2x1dGlvbnMsQWJkdWxsYSBBbG1hcnpvb3EsVUkvVVgsZmVhdHVyZSwyMDI1LTA4LTI5LDIwMjUtMDgtMDIgMTU6MzQ6MDkKVENLLTEwMTIsU2VhcmNoIGJhcixhZGQgc2VhcmNoIGJhciBpbiBUaWNrZXRzIHBhZ2UsQ2FuY2VsbGVkLE1lZGl1bSxEaWdpdGFsIFNvbHV0aW9ucyxIYWRpIEFsdGF3YXNoLFVJL1VYLHVpL3V4LDIwMjUtMDYtMjYsMjAyNS0wNi0yMSAwNzo0MjoxMQpUQ0stMTAxMSxsaWdodCBtb2RlLGxpZ2h0IG1vZGUgbmVlZHMgZW5oYW5jZW1lbnRzLE9wZW4sTWVkaXVtLERpZ2l0YWwgSW5mcmFzdHJ1Y3R1cmUsSHVzc2FpbiBhbFFhc3NhYixVSS9VWCxlbmhhbmNlbWVudCwyMDI1LTA2LTMwLDIwMjUtMDYtMjEgMDY6NTY6MDYKVENLLTEwMTAsVXNlciBBdXRoZW50aWNhdGlvbixBdXRoZW50aWNhdGlvbiByZWZlcnMgdG8gdGhlIHByb2Nlc3Mgb2YgdmVyaWZ5aW5nIHRoZSBpZGVudGl0eSBvZiBhIHVzZXIgb3IgZW50aXR5IGFjY2Vzc2luZyBhIHdlYiBhcHBsaWNhdGlvbiBvciBzeXN0ZW0uIEl0IGludm9sdmVzIGltcGxlbWVudGluZyB0aGUgbmVjZXNzYXJ5IG1lY2hhbmlzbXMgdG8gZW5zdXJlIHRoYXQgb25seSBhdXRob3JpemVkIHVzZXJzIGNhbiBhY2Nlc3MgcmVzdHJpY3RlZCBhcmVhcyBvciBwZXJmb3JtIHNwZWNpZmljIGFjdGlvbnMgd2l0aGluIHRoZSBhcHBsaWNhdGlvbi4sSW4gUHJvZ3Jlc3MsTWVkaXVtLERpZ2l0YWwgSW5mcmFzdHJ1Y3R1cmUsQWJkdWxsYSBBbG1hcnpvb3EsQXV0aGVudGljYXRpb24sZW5oYW5jZW1lbnQsMjAyNS0wNi0yNiwyMDI1LTA2LTIxIDA2OjUzOjM2ClRDSy0xMDA5LERhc2hib2FyZCBlbmhhbmNtZW50LERhc2hib2FyZCBtdXN0IGhhdmUgZmlsdGVycyxJbiBQcm9ncmVzcyxDcml0aWNhbCxEaWdpdGFsIEluZnJhc3RydWN0dXJlLEh1c3NhaW4gYWxRYXNzYWIsRGFzaGJvYXJkLHVpL3V4O2VuaGFuY2VtZW50LDIwMjUtMDctMTIsMjAyNS0wNi0yMCAxNjo0NDo0NgpUQ0stMTAwOCxhZGQgbW9kdWxlcyBpbiBuZXcgZW5kcG9pbnQgaW4gZGF0YWJhc2UsIm1vZHVsZXMgbmVlZHMgdG8gYmUgZmV0Y2hlZCBmcm9tIHRoZSBkYXRhYmFzZSBpbiBib3RoICIiY3JlYXRlIHRpY2tldCIiIGFuZCBjYW4gYmUgbWFuYWdlZCBpbiBhZG1pbiBwYW5lbCB0b28uIixJbiBQcm9ncmVzcyxDcml0aWNhbCxEaWdpdGFsIENoYW5uZWxzLEhhZGkgQWx0YXdhc2gsTm90aWZpY2F0aW9uIFNlcnZpY2UsZmVhdHVyZTtlbmhhbmNlbWVudCwyMDI1LTA3LTA3LDIwMjUtMDYtMjAgMTU6MzY6NTgKVENLLTEwMDcsVGlja2V0cyBwYWdlIGV4cG9ydCxUaGUgdGlja2V0cyBwYWdlIG11c3QgaGF2ZSBleHBvcnQgYnV0dG9uIHRvIGV4cG9ydCBhbGwgZGF0YSBpbnRvIC5jc3YgZmlsZSxJbiBQcm9ncmVzcyxDcml0aWNhbCxEaWdpdGFsIFNvbHV0aW9ucyxIdXNzYWluIGFsUWFzc2FiLFJlcG9ydGluZyBFbmdpbmUsZmVhdHVyZTtlbmhhbmNlbWVudCwyMDI1LTA2LTIzLDIwMjUtMDYtMTcgMTc6MjQ6MzAKVENLLTEwMDYsZGFzaGJvYXJkIC0gcmVtb3ZlIHByb2plY3RzLHJlbW92ZSB0aGUgcHJvamVjdHMgZnJvbSB0aGUgZGFzaGJvYXJkIGFzIHRoZSBhcHBsaWNhdGlvbiBoYXZlIHRpY2tldHMgb25seSBub3QgYSBwcm9qZWN0cyxJbiBQcm9ncmVzcyxNZWRpdW0sQWRtaW4sQWJkdWxsYSBBbG1hcnpvb3EsUmVwb3J0aW5nIEVuZ2luZSx1aS91eDtidWcsMjAyNS0wNy0wMSwyMDI1LTA2LTE3IDE1OjMxOjI1ClRDSy0xMDA1LGRhcmsgbW9kZSBpc3N1ZSwiZGFyayBtb2RlIGJ1dHRvbiBpcyBub3Qgd29ya2luZywgY3VycmVudGx5IGl0IHNob3dzIHRoZSB3ZWJzaXRlIGluIGRhcmsgbW9kZSBhbGwgdGhlIHRpbWUiLEluIFByb2dyZXNzLE1lZGl1bSxEaWdpdGFsIEluZnJhc3RydWN0dXJlLEhhZGkgQWx0YXdhc2gsVXNlciBNYW5hZ2VtZW50LHVpL3V4O2J1ZywyMDI1LTA2LTI4LDIwMjUtMDYtMTQgMTU6MzQ6MTUKVENLLTEwMDQsRW1haWwgbm90aWZpY2F0aW9ucyBub3Qgc2VudCB0byB1c2VycyxUaGlzIG5lZWRzIHRvIGJlIGhhbmRsZWQgYnkgSW5mcmEsSW4gUHJvZ3Jlc3MsSGlnaCxEaWdpdGFsIFNvbHV0aW9ucyxBaG1lZCBBbGkgWW91c2lmLE5vdGlmaWNhdGlvbiBTZXJ2aWNlLGVtYWlsO25vdGlmaWNhdGlvbnM7Y3JpdGljYWwsMjAyNS0wNi0xNiwyMDI1LTA2LTE0IDE1OjMyOjI1ClRDSy0xMDAzLFJlcXVlc3QgdG8gYWRkIG5ldyB1c2VyIHJvbGUsLENsb3NlZCxMb3csQWRtaW4sU2F5ZWQgTW9oYW1tZWQsQXV0aGVudGljYXRpb24scm9sZTt1c2VyLDIwMjUtMDYtMDUsMjAyNS0wNi0xNCAxNTozMToyNQpUQ0stMTAwMixSZXBvcnQgZ2VuZXJhdGlvbiB0YWtpbmcgdG9vIGxvbmcgYWxyZWFkeSxUaGUgYmFja2VuZCBuZWVkcyBlbmhhbmNtZW50cyxDbG9zZWQsTWVkaXVtLEN1c3RvbWVyIFNlcnZpY2VzIENlbnRlcixTYXllZCBNb2hhbW1lZCxVc2VyIE1hbmFnZW1lbnQscGVyZm9ybWFuY2U7cmVwb3J0LDIwMjUtMDYtMTgsMjAyNS0wNi0xNSAxMDozMToyNQpUQ0stMTAwMSxVbmFibGUgdG8gbG9naW4gdG8gc2VsZi1zZXJ2aWNlIHBvcnRhbCxXZSBuZWVkIGF1dGhlbnRpY2F0aW9uIGFuZCBhdXRob3JpemF0aW9uIHNpdCB1cCxJbiBQcm9ncmVzcyxIaWdoLEN1c3RvbWVyIFNlcnZpY2VzIENlbnRlcixBYmR1bGxhIEFsbWFyem9vcSxBdXRoZW50aWNhdGlvbixsb2dpbjtwb3J0YWw7dXJnZW50O2J1ZywyMDI1LTA2LTI1LDIwMjUtMDYtMTYgMTU6MzE6MjU="
+        }
+      ]
     }
   ],
   "tags": [
@@ -644,6 +677,38 @@
     {
       "id": "TAG-009",
       "label": "IGA"
+    },
+    {
+      "id": "TAG-010",
+      "label": "Dashboard"
+    },
+    {
+      "id": "TAG-011",
+      "label": "email"
+    },
+    {
+      "id": "TAG-012",
+      "label": "notifications"
+    },
+    {
+      "id": "TAG-013",
+      "label": "critical"
+    },
+    {
+      "id": "TAG-014",
+      "label": " implementation"
+    },
+    {
+      "id": "TAG-015",
+      "label": "report"
+    },
+    {
+      "id": "TAG-016",
+      "label": "login"
+    },
+    {
+      "id": "TAG-017",
+      "label": "portal"
     }
   ],
   "workgroups": [
@@ -1249,6 +1314,106 @@
       "oldValue": "Abdulla Almarzooq",
       "newValue": "N/A",
       "timestamp": "2025-09-19T06:27:39.181Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-055",
+      "ticketId": "TCK-1004",
+      "type": "field_change",
+      "fieldName": "responsible",
+      "oldValue": "Ahmed Ali Yousif",
+      "newValue": "N/A",
+      "timestamp": "2025-09-19T13:02:13.387Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-056",
+      "ticketId": "TCK-1004",
+      "type": "field_change",
+      "fieldName": "tags_removed",
+      "oldValue": "critical",
+      "newValue": "",
+      "timestamp": "2025-09-19T13:02:13.396Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-057",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "tags_removed",
+      "oldValue": "urgent",
+      "newValue": "",
+      "timestamp": "2025-09-19T13:04:52.177Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-058",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "tags_removed",
+      "oldValue": "bug",
+      "newValue": "",
+      "timestamp": "2025-09-19T13:04:52.186Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-059",
+      "ticketId": "TCK-1022",
+      "type": "field_change",
+      "fieldName": "responsible",
+      "oldValue": "N/A",
+      "newValue": "Hussain Darwish",
+      "timestamp": "2025-09-19T13:42:48.823Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-060",
+      "ticketId": "TCK-1017",
+      "type": "field_change",
+      "fieldName": "responsible",
+      "oldValue": "N/A",
+      "newValue": "Hussain Darwish",
+      "timestamp": "2025-09-19T13:43:20.963Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-061",
+      "ticketId": "TCK-1016",
+      "type": "field_change",
+      "fieldName": "responsible",
+      "oldValue": "N/A",
+      "newValue": "Hussain Darwish",
+      "timestamp": "2025-09-19T13:43:26.528Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-062",
+      "ticketId": "TCK-1004",
+      "type": "field_change",
+      "fieldName": "responsible",
+      "oldValue": "N/A",
+      "newValue": "Hussain Darwish",
+      "timestamp": "2025-09-19T13:43:37.633Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-063",
+      "ticketId": "TCK-1001",
+      "type": "field_change",
+      "fieldName": "responsible",
+      "oldValue": "N/A",
+      "newValue": "Sayed Mohammed",
+      "timestamp": "2025-09-19T13:43:55.129Z",
+      "changedBy": "Current User"
+    },
+    {
+      "id": "ACT-064",
+      "ticketId": "TCK-1023",
+      "type": "field_change",
+      "fieldName": "attachment_added",
+      "oldValue": "",
+      "newValue": "liteboard-tickets (5).csv",
+      "timestamp": "2025-09-19T13:47:52.034Z",
       "changedBy": "Current User"
     }
   ],
