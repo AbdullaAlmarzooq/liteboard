@@ -25,6 +25,7 @@ const EditTicket = () => {
     workflowId: '',
     status: '',
     priority: 'Medium',
+    workgroupId: '',
     workGroup: '',
     responsible: '',
     module: '',
@@ -64,7 +65,8 @@ const EditTicket = () => {
         workflowId: ticket.workflowId || '',
         status: ticket.status || '',
         priority: ticket.priority || 'Medium',
-        workGroup: ticket.workgroupId || ticket.workGroup || '',
+        workgroupId: ticket.workgroupId || '',   // <-- load code
+        workGroup: ticket.workGroup || '',       // <-- load name
         responsible: ticket.responsible || '',
         module: ticket.module || '',
         tags: ticket.tags || [],
@@ -122,7 +124,8 @@ const EditTicket = () => {
           if (workgroup) {
             setFormData(prev => ({
               ...prev,
-              workGroup: currentStep.workgroupCode
+              workgroupId: currentStep.workgroupCode,
+              workGroup: workgroup.name
             }));
           }
         }

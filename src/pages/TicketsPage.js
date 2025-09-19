@@ -14,22 +14,12 @@ import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
 const TicketsPage = () => {
   const navigate = useNavigate()
   const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
-  const { data: workgroups } = useFetch('http://localhost:8000/workgroups'); // <--- new
   const [isDeleting, setIsDeleting] = useState(null);
   const [filteredTickets, setFilteredTickets] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState(null);
   const [currentPage, setCurrentPage_] = useState(1); // Renamed to avoid conflict
   const [itemsPerPage, setItemsPerPage] = useState(10); // State for items per page
-
-  const workgroupMap = useMemo(() => {
-    if (!workgroups) return {};
-    const map = {};
-    workgroups.forEach(wg => {
-      map[wg.id] = wg.name;
-    });
-    return map;
-  }, [workgroups]);
 
   // Sort tickets by extracting numeric part from ID in descending order (newest first)
   const sortedTickets = useMemo(() => {
@@ -68,9 +58,9 @@ const TicketsPage = () => {
       case "Closed":
         return "default"
       case "In Progress":
-        return "outline"
+        return "secondary"
       case "Open":
-        return "outline"
+        return "new"
       default:
         return "outline"
     }
@@ -165,10 +155,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
         </div>
         <div className="flex gap-3">
 
-        <TicketExporter
-      ticketsToExport={filteredTickets}
-      workgroupsMap={workgroupMap} // from your Dashboard or TicketFilter
-      />
+        <TicketExporter ticketsToExport={ticketsToDisplay} />
       </div>
       </div>
 
@@ -247,7 +234,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                           </Badge>
                         </td>
                         <td className="p-3 text-gray-700 dark:text-gray-300">
-                        {workgroupMap[ticket.workgroupId] || '—'}
+                          {ticket.workGroup}
                         </td>
                         <td className="p-3 text-gray-700 dark:text-gray-300">
                           {ticket.responsible}
@@ -317,7 +304,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
         {currentTickets.map(ticket => { // Use currentTickets for the paged data
           const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
           return (
-            <Card className = "bg-white" key={ticket.id}>
+            <Card key={ticket.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-sm text-gray-500 dark:text-gray-400">
@@ -341,7 +328,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                       WorkGroup:
                     </span>
                     <div className="font-medium text-gray-900 dark:text-white">
-                    {workgroupMap[ticket.workgroupId] || '—'}
+                      {ticket.workGroup}
                     </div>
                   </div>
                   <div>

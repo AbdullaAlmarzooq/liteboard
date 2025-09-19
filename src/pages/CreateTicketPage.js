@@ -293,7 +293,8 @@ const CreateTicketPage = () => {
         status: formData.status,
         workflowId: formData.workflowId,
         priority: formData.priority,
-        workgroupId: formData.workGroupCode, // Use workgroupId to match old structure
+        workgroupId: formData.workGroupCode,
+        workGroup: formData.workGroup,
         responsible: formData.responsible,
         module: formData.module,
         tags: selectedTags,
