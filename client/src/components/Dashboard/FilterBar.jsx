@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
-const FilterBar = ({ onFilterChange, allTickets, workgroupMap }) => {
+const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
   const [selectedWorkGroups, setSelectedWorkGroups] = useState([]);
   const [selectedModules, setSelectedModules] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
@@ -8,17 +8,12 @@ const FilterBar = ({ onFilterChange, allTickets, workgroupMap }) => {
 
   const dropdownRefs = useRef({});
 
-  // Build options
-  const allWorkGroups = Object.entries(workgroupMap).map(([id, name]) => ({ id, name }));
-  const allModules = [...new Set(allTickets.map(t => t.module?.trim()).filter(Boolean))].sort();
-  const allStatuses = [...new Set(allTickets.map(t => t.status?.trim()).filter(Boolean))].sort();
+  // Toggle dropdown open/close
+  const toggleDropdown = (category) => {
+    setOpenDropdown(openDropdown === category ? null : category);
+  };
 
-  // Notify parent on selection change
-  useEffect(() => {
-    onFilterChange({ selectedWorkGroups, selectedModules, selectedStatuses });
-  }, [selectedWorkGroups, selectedModules, selectedStatuses, onFilterChange]);
-
-  // Close dropdowns on outside click
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (openDropdown && dropdownRefs.current[openDropdown] &&
@@ -30,34 +25,53 @@ const FilterBar = ({ onFilterChange, allTickets, workgroupMap }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openDropdown]);
 
-  // Handlers
+  // Handlers for selection
   const handleWorkGroupChange = (e) => {
     const { value, checked } = e.target;
-    setSelectedWorkGroups(prev =>
-      checked ? [...prev, value] : prev.filter(id => id !== value)
-    );
+    const newSelection = checked
+      ? [...selectedWorkGroups, value]
+      : selectedWorkGroups.filter(id => id !== value);
+    setSelectedWorkGroups(newSelection);
+    onFilterChange({ selectedWorkGroups: newSelection, selectedModules, selectedStatuses });
   };
+
   const handleModuleChange = (e) => {
     const { value, checked } = e.target;
-    setSelectedModules(prev =>
-      checked ? [...prev, value] : prev.filter(m => m !== value)
-    );
+    const newSelection = checked
+      ? [...selectedModules, value]
+      : selectedModules.filter(m => m !== value);
+    setSelectedModules(newSelection);
+    onFilterChange({ selectedWorkGroups, selectedModules: newSelection, selectedStatuses });
   };
+
   const handleStatusChange = (e) => {
     const { value, checked } = e.target;
-    setSelectedStatuses(prev =>
-      checked ? [...prev, value] : prev.filter(s => s !== value)
-    );
+    const newSelection = checked
+      ? [...selectedStatuses, value]
+      : selectedStatuses.filter(s => s !== value);
+    setSelectedStatuses(newSelection);
+    onFilterChange({ selectedWorkGroups, selectedModules, selectedStatuses: newSelection });
   };
-  const toggleDropdown = (category) => setOpenDropdown(openDropdown === category ? null : category);
+
   const clearAllFilters = () => {
     setSelectedWorkGroups([]);
     setSelectedModules([]);
     setSelectedStatuses([]);
-    setOpenDropdown(null);
+    onFilterChange({ selectedWorkGroups: [], selectedModules: [], selectedStatuses: [] });
   };
 
-  // Reusable dropdown
+  // Compute filtered options dynamically
+  const filteredTickets = allTickets.filter(t => 
+    (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroup_id)) &&
+    (!selectedModules.length || selectedModules.includes(t.module_name)) &&
+    (!selectedStatuses.length || selectedStatuses.includes(t.status))
+  );
+
+  const allWorkGroups = workgroups;
+  const allModules = [...new Set(filteredTickets.map(t => t.module_name).filter(Boolean))].sort();
+  const allStatuses = [...new Set(filteredTickets.map(t => t.status).filter(Boolean))].sort();
+
+  // Reusable dropdown component
   const FilterDropdownButton = ({ category, title, options, selectedValues, onChange }) => {
     const isOpen = openDropdown === category;
     const hasSelection = selectedValues.length > 0;
@@ -73,7 +87,11 @@ const FilterBar = ({ onFilterChange, allTickets, workgroupMap }) => {
           }`}
         >
           <span>{title}</span>
-          {hasSelection && <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-500 text-white">{selectedValues.length}</span>}
+          {hasSelection && (
+            <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-500 text-white">
+              {selectedValues.length}
+            </span>
+          )}
           <span className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}>▼</span>
         </button>
 
@@ -83,12 +101,12 @@ const FilterBar = ({ onFilterChange, allTickets, workgroupMap }) => {
               {options.length > 0 ? (
                 options.map(option => (
                   <label
-                    key={option.id ?? option} // Workgroups have id, modules/status are strings
+                    key={option.id ?? option}
                     className="flex items-center space-x-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
                   >
                     <input
                       type="checkbox"
-                      value={option.id ?? option} // Workgroups use id, modules/status use string
+                      value={option.id ?? option}
                       checked={selectedValues.includes(option.id ?? option)}
                       onChange={onChange}
                       className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700"
@@ -118,7 +136,6 @@ const FilterBar = ({ onFilterChange, allTickets, workgroupMap }) => {
           selectedValues={selectedWorkGroups}
           onChange={handleWorkGroupChange}
         />
-
         <FilterDropdownButton
           category="module"
           title="Module"
@@ -126,7 +143,6 @@ const FilterBar = ({ onFilterChange, allTickets, workgroupMap }) => {
           selectedValues={selectedModules}
           onChange={handleModuleChange}
         />
-
         <FilterDropdownButton
           category="status"
           title="Status"

@@ -7,9 +7,11 @@ const router = express.Router();
 router.get("/", (req, res) => {
   try {
     const rows = db.prepare("SELECT id, name FROM workgroups").all();
-    res.json(rows);
+
+    // Ensure we always return an array
+    res.json(Array.isArray(rows) ? rows : []);
   } catch (err) {
-    console.error(err);
+    console.error("Error fetching workgroups:", err);
     res.status(500).json({ error: "Failed to fetch workgroups" });
   }
 });

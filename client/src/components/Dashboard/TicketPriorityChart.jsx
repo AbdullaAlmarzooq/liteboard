@@ -1,36 +1,24 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 
-
-const TicketPriorityChart = ({ tickets }) => { 
+const TicketPriorityChart = ({ tickets = [] }) => {
   const [data, setData] = useState([]);
 
   useEffect(() => {
     if (tickets.length > 0) {
-      const counts = { High: 0, Medium: 0, Low: 0 }; 
-
-      tickets.forEach(ticket => { 
-        const priority = ticket.priority?.trim(); 
-        if (counts.hasOwnProperty(priority)) { 
-          counts[priority]++; 
-        } else {
-          console.warn("Unknown priority found:", priority); 
-        }
+      const counts = { High: 0, Medium: 0, Low: 0 };
+      tickets.forEach(ticket => {
+        const priority = ticket.priority?.trim();
+        if (priority && counts.hasOwnProperty(priority)) counts[priority]++;
       });
-
-      const chartData = Object.entries(counts).map(([priority, count]) => ({ 
-        priority,
-        count,
-      }));
-
-      setData(chartData); 
+      setData(Object.entries(counts).map(([priority, count]) => ({ priority, count })));
     } else {
-        setData([]);
+      setData([]);
     }
-  }, [tickets]); 
+  }, [tickets]);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-6  dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
+    <div className="bg-white rounded-xl shadow-sm p-6 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
       <h2 className="text-xl font-bold mb-4">Tickets by Priority</h2>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data}>
@@ -38,7 +26,7 @@ const TicketPriorityChart = ({ tickets }) => {
           <XAxis dataKey="priority" />
           <YAxis allowDecimals={false} />
           <Tooltip />
-          <Bar dataKey="count" fill="#6a9cc6" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="count" fill="#6a9cc6" radius={[4,4,0,0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

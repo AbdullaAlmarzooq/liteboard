@@ -1,11 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo } from "react";
 
-const TotalPendingTickets = ({ tickets }) => {
+const TotalPendingTickets = ({ tickets = [] }) => {
   const totalPending = useMemo(() => {
-    return tickets.filter(ticket => 
-      ticket.status !== 'Closed' &&
-      ticket.status !== 'Cancelled'
-    ).length;
+    return tickets.filter(t => t.status !== 'Closed' && t.status !== 'Cancelled').length;
   }, [tickets]);
 
   return (
