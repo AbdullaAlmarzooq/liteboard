@@ -3,10 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import useFetch from '../../useFetch'
 import { Search } from 'lucide-react';
 
-
-const SearchBar = () => {
+const SearchBar = ({ allTickets }) => { // Accept allTickets as prop to avoid duplicate API calls
   const navigate = useNavigate()
-  const { data: allTickets, isPending, error } = useFetch('http://localhost:8000/tickets')
+  
+  // Fallback to direct API call if allTickets not provided
+  const { data: fetchedTickets, isPending, error } = useFetch(
+    !allTickets ? 'http://localhost:8000/api/tickets' : null
+  )
+  
+  // Use provided tickets or fallback to fetched tickets
+  const tickets = allTickets || fetchedTickets
 
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -37,8 +43,21 @@ const SearchBar = () => {
     })
   }
 
+  // Helper function to extract searchable text from tags
+  const getSearchableTagText = (tags) => {
+    if (!tags || !Array.isArray(tags)) return ''
+    
+    return tags.map(tag => {
+      // Handle both old format (strings) and new format (objects)
+      if (typeof tag === 'string') return tag
+      if (typeof tag === 'object' && tag.name) return tag.name
+      if (typeof tag === 'object' && tag.label) return tag.label // fallback
+      return ''
+    }).join(' ').toLowerCase()
+  }
+
   const handleSearch = () => {
-    if (isPending || error || !allTickets) return
+    if ((allTickets ? false : isPending) || error || !tickets) return
     if (!searchTerm.trim()) {
       setSearchResults([])
       setIsModalOpen(false)
@@ -46,7 +65,10 @@ const SearchBar = () => {
     }
 
     const lowerCaseSearchTerm = searchTerm.toLowerCase()
-    const filtered = allTickets.filter(ticket => {
+    const filtered = tickets.filter(ticket => {
+      // Get searchable tag text
+      const tagText = getSearchableTagText(ticket.tags)
+      
       return (
         ticket.title?.toLowerCase().includes(lowerCaseSearchTerm) ||
         ticket.id?.toString().toLowerCase().includes(lowerCaseSearchTerm) ||
@@ -54,7 +76,9 @@ const SearchBar = () => {
         ticket.responsible?.toLowerCase().includes(lowerCaseSearchTerm) ||
         ticket.module?.toLowerCase().includes(lowerCaseSearchTerm) ||
         ticket.description?.toLowerCase().includes(lowerCaseSearchTerm) ||
-        ticket.tags?.some(tag => tag.toLowerCase().includes(lowerCaseSearchTerm))
+        ticket.status?.toLowerCase().includes(lowerCaseSearchTerm) ||
+        ticket.priority?.toLowerCase().includes(lowerCaseSearchTerm) ||
+        tagText.includes(lowerCaseSearchTerm)
       )
     })
 
@@ -82,11 +106,39 @@ const SearchBar = () => {
           card: 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700',
           hover: 'hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:border-blue-300 dark:hover:border-blue-600'
         }
+      case 'open':
+        return {
+          card: 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700',
+          hover: 'hover:bg-green-100 dark:hover:bg-green-900/40 hover:border-green-300 dark:hover:border-green-600'
+        }
+      case 'in progress':
+        return {
+          card: 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-700',
+          hover: 'hover:bg-yellow-100 dark:hover:bg-yellow-900/40 hover:border-yellow-300 dark:hover:border-yellow-600'
+        }
       default:
         return {
           card: 'bg-gray-50 dark:bg-gray-500/20 border-gray-200 dark:border-gray-400',
           hover: 'hover:bg-gray-100 dark:hover:bg-gray-900/30 hover:border-gray-300 dark:hover:border-gray-700'
         }
+    }
+  }
+
+  // Helper function to get priority badge styling
+  const getPriorityBadge = (priority) => {
+    const normalizedPriority = priority?.toLowerCase()
+    
+    switch (normalizedPriority) {
+      case 'critical':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+      case 'high':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+      case 'low':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
     }
   }
 
@@ -104,24 +156,38 @@ const SearchBar = () => {
     navigate(`/view-ticket/${ticketId}`)
   }
 
+  const isLoading = allTickets ? false : isPending
+  const hasError = error
+  const hasTickets = tickets && tickets.length > 0
+
   return (
     <div className="flex flex-col sm:flex-row gap-3 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm items-center">
       <input
         type="text"
-        placeholder={isPending ? "Loading tickets..." : (error ? "Error loading tickets" : "Search tickets...")}
-        className="flex-grow p-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+        placeholder={isLoading ? "Loading tickets..." : (hasError ? "Error loading tickets" : "Search tickets by title, ID, workgroup, responsible, module, tags...")}
+        className="flex-grow p-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
         value={searchTerm}
         onChange={(e) => setSearchTerm(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-        disabled={isPending || error || !allTickets}
+        disabled={isLoading || hasError || !hasTickets}
       />
 
       <button
         onClick={handleSearch}
-        className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        disabled={isPending || error || !allTickets}
+        className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed transition-colors"
+        disabled={isLoading || hasError || !hasTickets || !searchTerm.trim()}
       >
-        {isPending ? 'Loading...' : <Search />}
+        {isLoading ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            Loading...
+          </>
+        ) : (
+          <>
+            <Search className="w-4 h-4" />
+            Search
+          </>
+        )}
       </button>
 
       {isModalOpen && (
@@ -130,15 +196,15 @@ const SearchBar = () => {
           onClick={closeModal} // Close modal when clicking backdrop
         >
           <div 
-            className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()} // Prevent modal from closing when clicking inside
           >
-            <div className="flex justify-between items-center p-5 border-b dark:border-gray-700">
+            <div className="flex justify-between items-center p-6 border-b dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-900">
               <h2 className="text-xl font-bold dark:text-white">
                 Search Results 
                 {searchResults.length > 0 && (
                   <span className="text-sm font-normal text-gray-600 dark:text-gray-400 ml-2">
-                    ({searchResults.length} found, sorted by newest)
+                    ({searchResults.length} found)
                   </span>
                 )}
               </h2>
@@ -151,7 +217,7 @@ const SearchBar = () => {
               </button>
             </div>
 
-            <div className="p-5">
+            <div className="p-6">
               {searchResults.length > 0 ? (
                 <ul className="space-y-4">
                   {searchResults.map(ticket => {
@@ -159,29 +225,78 @@ const SearchBar = () => {
                     return (
                       <li
                         key={ticket.id}
-                        className={`p-4 ${statusStyling.card} rounded-md cursor-pointer ${statusStyling.hover} transition-colors border`}
+                        className={`p-4 ${statusStyling.card} rounded-lg cursor-pointer ${statusStyling.hover} transition-all duration-200 border-2`}
                         onClick={(e) => handleTicketClick(ticket.id, e)}
                       >
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="text-lg font-semibold dark:text-white flex-1">{ticket.title}</h3>
-                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 whitespace-nowrap">
+                        <div className="flex justify-between items-start mb-3">
+                          <h3 className="text-lg font-semibold dark:text-white flex-1 pr-4">{ticket.title}</h3>
+                          <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
                             {formatInitiateDate(ticket.initiateDate)}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-300 space-y-1">
-                          <p>ID: {ticket.id}</p>
-                          <p>Status: <span className="capitalize">{ticket.status}</span></p>
-                          <p>Priority: <span className="capitalize">{ticket.priority}</span></p>
-                          {ticket.workGroup && <p>WorkGroup: {ticket.workGroup}</p>}
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600 dark:text-gray-300">
+                          <div>
+                            <p><span className="font-medium">ID:</span> {ticket.id}</p>
+                            <p><span className="font-medium">WorkGroup:</span> {ticket.workGroup || 'Unassigned'}</p>
+                            <p><span className="font-medium">Responsible:</span> {ticket.responsible || 'Unassigned'}</p>
+                          </div>
+                          <div>
+                            <p><span className="font-medium">Module:</span> {ticket.module || 'No Module'}</p>
+                            {ticket.dueDate && (
+                              <p><span className="font-medium">Due:</span> {new Date(ticket.dueDate).toLocaleDateString()}</p>
+                            )}
+                          </div>
                         </div>
+
+                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityBadge(ticket.priority)}`}>
+                            {ticket.priority}
+                          </span>
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                            {ticket.status}
+                          </span>
+                          {ticket.tags && ticket.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {ticket.tags.slice(0, 3).map((tag, index) => {
+                                const tagName = typeof tag === 'string' ? tag : (tag.name || tag.label || 'Unknown')
+                                return (
+                                  <span key={index} className="px-2 py-1 text-xs bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded">
+                                    {tagName}
+                                  </span>
+                                )
+                              })}
+                              {ticket.tags.length > 3 && (
+                                <span className="px-2 py-1 text-xs bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded">
+                                  +{ticket.tags.length - 3} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {ticket.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">
+                            {ticket.description.length > 100 
+                              ? `${ticket.description.substring(0, 100)}...` 
+                              : ticket.description
+                            }
+                          </p>
+                        )}
                       </li>
                     )
                   })}
                 </ul>
               ) : (
-                <p className="text-gray-600 dark:text-gray-300 text-center py-8">
-                  No tickets found for "{searchTerm}".
-                </p>
+                <div className="text-center py-12">
+                  <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-300 text-lg">
+                    No tickets found for "{searchTerm}".
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
+                    Try different keywords or check your spelling.
+                  </p>
+                </div>
               )}
             </div>
           </div>

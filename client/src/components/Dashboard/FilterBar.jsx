@@ -16,8 +16,11 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (openDropdown && dropdownRefs.current[openDropdown] &&
-          !dropdownRefs.current[openDropdown].contains(e.target)) {
+      if (
+        openDropdown &&
+        dropdownRefs.current[openDropdown] &&
+        !dropdownRefs.current[openDropdown].contains(e.target)
+      ) {
         setOpenDropdown(null);
       }
     };
@@ -30,7 +33,7 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
     const { value, checked } = e.target;
     const newSelection = checked
       ? [...selectedWorkGroups, value]
-      : selectedWorkGroups.filter(id => id !== value);
+      : selectedWorkGroups.filter((id) => id !== value);
     setSelectedWorkGroups(newSelection);
     onFilterChange({ selectedWorkGroups: newSelection, selectedModules, selectedStatuses });
   };
@@ -39,7 +42,7 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
     const { value, checked } = e.target;
     const newSelection = checked
       ? [...selectedModules, value]
-      : selectedModules.filter(m => m !== value);
+      : selectedModules.filter((m) => m !== value);
     setSelectedModules(newSelection);
     onFilterChange({ selectedWorkGroups, selectedModules: newSelection, selectedStatuses });
   };
@@ -48,7 +51,7 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
     const { value, checked } = e.target;
     const newSelection = checked
       ? [...selectedStatuses, value]
-      : selectedStatuses.filter(s => s !== value);
+      : selectedStatuses.filter((s) => s !== value);
     setSelectedStatuses(newSelection);
     onFilterChange({ selectedWorkGroups, selectedModules, selectedStatuses: newSelection });
   };
@@ -60,16 +63,31 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
     onFilterChange({ selectedWorkGroups: [], selectedModules: [], selectedStatuses: [] });
   };
 
-  // Compute filtered options dynamically
-  const filteredTickets = allTickets.filter(t => 
-    (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroup_id)) &&
-    (!selectedModules.length || selectedModules.includes(t.module_name)) &&
-    (!selectedStatuses.length || selectedStatuses.includes(t.status))
-  );
-
+  // Compute narrowed lists
+  // Workgroups = provided list
   const allWorkGroups = workgroups;
-  const allModules = [...new Set(filteredTickets.map(t => t.module_name).filter(Boolean))].sort();
-  const allStatuses = [...new Set(filteredTickets.map(t => t.status).filter(Boolean))].sort();
+
+  // Modules depend only on workgroup
+  const modulesTickets = allTickets.filter(
+    (t) => !selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroup_id)
+  );
+  const allModules = [...new Set(modulesTickets.map((t) => t.module_name).filter(Boolean))].sort();
+
+  // Statuses depend on workgroup + module
+  const statusesTickets = allTickets.filter(
+    (t) =>
+      (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroup_id)) &&
+      (!selectedModules.length || selectedModules.includes(t.module_name))
+  );
+  const allStatuses = [...new Set(statusesTickets.map((t) => t.status).filter(Boolean))].sort();
+
+  // Final filtered tickets (all 3 filters applied)
+  const filteredTickets = allTickets.filter(
+    (t) =>
+      (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroup_id)) &&
+      (!selectedModules.length || selectedModules.includes(t.module_name)) &&
+      (!selectedStatuses.length || selectedStatuses.includes(t.status))
+  );
 
   // Reusable dropdown component
   const FilterDropdownButton = ({ category, title, options, selectedValues, onChange }) => {
@@ -77,7 +95,7 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
     const hasSelection = selectedValues.length > 0;
 
     return (
-      <div className="relative" ref={el => dropdownRefs.current[category] = el}>
+      <div className="relative" ref={(el) => (dropdownRefs.current[category] = el)}>
         <button
           onClick={() => toggleDropdown(category)}
           className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border transition-colors ${
@@ -99,7 +117,7 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
           <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm z-50 max-h-60 overflow-y-auto">
             <div className="p-2">
               {options.length > 0 ? (
-                options.map(option => (
+                options.map((option) => (
                   <label
                     key={option.id ?? option}
                     className="flex items-center space-x-2 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer"
@@ -111,11 +129,15 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
                       onChange={onChange}
                       className="h-4 w-4 text-blue-600 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{option.name ?? option}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      {option.name ?? option}
+                    </span>
                   </label>
                 ))
               ) : (
-                <p className="text-gray-500 dark:text-gray-400 text-sm p-2">No {title.toLowerCase()} available.</p>
+                <p className="text-gray-500 dark:text-gray-400 text-sm p-2">
+                  No {title.toLowerCase()} available.
+                </p>
               )}
             </div>
           </div>
@@ -124,7 +146,8 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
     );
   };
 
-  const hasActiveFilters = selectedWorkGroups.length > 0 || selectedModules.length > 0 || selectedStatuses.length > 0;
+  const hasActiveFilters =
+    selectedWorkGroups.length > 0 || selectedModules.length > 0 || selectedStatuses.length > 0;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 flex flex-col md:flex-row gap-4 justify-start items-start transition-colors duration-200">

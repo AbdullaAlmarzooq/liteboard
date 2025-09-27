@@ -7,26 +7,56 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom'
 import SearchBar from "../components/TicketsPage/SearchBar";
 import TicketExporter from "../components/TicketsPage/TicketExporter"
-import Pagination from "../components/TicketsPage/Pagination" // Import the new component
+import Pagination from "../components/TicketsPage/Pagination"
 import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
 
 
 const TicketsPage = () => {
   const navigate = useNavigate()
-  const { data: tickets, isPending, error } = useFetch('http://localhost:8000/tickets');
+  // Fixed: Updated API endpoint to match server route
+  const { data: ticketsData, isPending, error } = useFetch('http://localhost:8000/api/tickets');
   const [isDeleting, setIsDeleting] = useState(null);
   const [filteredTickets, setFilteredTickets] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState(null);
-  const [currentPage, setCurrentPage_] = useState(1); // Renamed to avoid conflict
-  const [itemsPerPage, setItemsPerPage] = useState(10); // State for items per page
+  const [currentPage, setCurrentPage_] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Transform the data from database format to component format
+  const tickets = useMemo(() => {
+    if (!ticketsData) return [];
+    
+    return ticketsData.map(ticket => ({
+      id: ticket.id,
+      title: ticket.title,
+      description: ticket.description,
+      status: ticket.status,
+      priority: ticket.priority,
+      workflowId: ticket.workflow_id,
+      workgroupId: ticket.workgroup_id,
+      workGroup: ticket.workgroup_name || 'Unassigned',
+      moduleId: ticket.module_id,
+      module: ticket.module_name || 'No Module',
+      initiateDate: ticket.initiateDate,
+      responsibleEmployeeId: ticket.responsible_employee_id,
+      responsible: ticket.responsible_name || 'Unassigned', // Now from employees table
+      tags: ticket.tags || [], // Now from ticket_tags join
+      dueDate: ticket.due_date, // Now from tickets.due_date
+    }));
+  }, [ticketsData]);
 
   // Sort tickets by extracting numeric part from ID in descending order (newest first)
   const sortedTickets = useMemo(() => {
     if (!tickets) return [];
     return [...tickets].sort((a, b) => {
-      const aNum = parseInt(a.id.split('-')[1]);
-      const bNum = parseInt(b.id.split('-')[1]);
+      // Handle different ID formats - if it's just numbers or contains dashes
+      const extractNumber = (id) => {
+        const match = id.toString().match(/(\d+)$/);
+        return match ? parseInt(match[1]) : 0;
+      };
+      
+      const aNum = extractNumber(a.id);
+      const bNum = extractNumber(b.id);
       return bNum - aNum;
     });
   }, [tickets]);
@@ -51,7 +81,6 @@ const TicketsPage = () => {
   const handleItemsPerPageChange = (size) => {
     setItemsPerPage(size);
   };
-
 
   const getStatusVariant = status => {
     switch (status) {
@@ -101,7 +130,8 @@ const TicketsPage = () => {
     setIsDeleting(ticketToDelete.id);
     
     try {
-      const response = await fetch(`http://localhost:8000/tickets/${ticketToDelete.id}`, {
+      // Fixed: Updated API endpoint to match server route structure
+      const response = await fetch(`http://localhost:8000/api/tickets/${ticketToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -123,7 +153,7 @@ const TicketsPage = () => {
     navigate(`/view-ticket/${ticketId}`);
   };
 
-const handleFilteredTicketsChange = (newFilteredTickets) => {
+  const handleFilteredTicketsChange = (newFilteredTickets) => {
     setFilteredTickets(newFilteredTickets);
   };
 
@@ -154,22 +184,21 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
           </p>
         </div>
         <div className="flex gap-3">
-
-        <TicketExporter ticketsToExport={ticketsToDisplay} />
+          <TicketExporter ticketsToExport={ticketsToDisplay} />
+        </div>
       </div>
-      </div>
 
-            <TicketFilter
+      <TicketFilter
         tickets={sortedTickets}
         onFilteredTicketsChange={handleFilteredTicketsChange}
       />
 
-        <SearchBar allTickets={tickets || []} />
+      <SearchBar allTickets={tickets || []} />
 
       {/* Desktop Table View */}
       <div className="hidden lg:block">
-      <Card className="bg-white dark:bg-gray-800 shadow-sm">
-      <CardHeader>
+        <Card className="bg-white dark:bg-gray-800 shadow-sm">
+          <CardHeader>
             <CardTitle></CardTitle>
           </CardHeader>
           <CardContent>
@@ -210,7 +239,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentTickets.map(ticket => { // Use currentTickets for the paged data
+                  {currentTickets.map(ticket => {
                     const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
                     return (
                       <tr
@@ -244,20 +273,22 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                         </td>
                         <td className="p-3">
                           <div className="flex flex-wrap gap-1">
-                            {ticket.tags?.map(tag => (
+                            {ticket.tags?.length > 0 ? ticket.tags.map(tag => (
                               <Badge
-                                key={tag}
+                                key={tag.id}
                                 variant="outline"
                                 className="text-xs"
                               >
-                                {tag}
+                                {tag.name}
                               </Badge>
-                            ))}
+                            )) : (
+                              <span className="text-gray-400 text-xs">No tags</span>
+                            )}
                           </div>
                         </td>
                         <td className="p-3 text-sm text-gray-600 dark:text-gray-400">
                           <div className="flex items-center gap-1">
-                            {ticket.dueDate}
+                            {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'No due date'}
                             {isOverdue && (
                               <span className="text-red-500 text-xs">⚠️</span>
                             )}
@@ -270,14 +301,12 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                               className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Eye className="w-3 h-3" />
-                              
                             </button>
                             <button
                               onClick={() => navigate(`/edit-ticket/${ticket.id}`)}
                               className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Edit className="w-3 h-3" />
-                              
                             </button>
                             <button
                               onClick={() => openDeleteModal(ticket)}
@@ -301,7 +330,7 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
 
       {/* Mobile Card View */}
       <div className="lg:hidden space-y-4">
-        {currentTickets.map(ticket => { // Use currentTickets for the paged data
+        {currentTickets.map(ticket => {
           const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
           return (
             <Card key={ticket.id}>
@@ -348,11 +377,11 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                     </div>
                   </div>
                   <div>
-                    <span className="text-gray-500 dark:text-gray-400">
+                    <span className="text-gray-500 dark:text-gray-400 text-sm">
                       Due Date:
                     </span>
                     <div className="font-medium text-gray-900 dark:text-white flex items-center gap-1">
-                      {ticket.dueDate}
+                      {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'No due date'}
                       {isOverdue && (
                         <span className="text-red-500 text-xs">⚠️</span>
                       )}
@@ -364,17 +393,19 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                     Tags:
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {ticket.tags?.map(tag => (
-                      <Badge key={tag} variant="outline" className="text-xs">
-                        {tag}
+                    {ticket.tags?.length > 0 ? ticket.tags.map(tag => (
+                      <Badge key={tag.id} variant="outline" className="text-xs">
+                        {tag.name}
                       </Badge>
-                    ))}
+                    )) : (
+                      <span className="text-gray-400 text-xs">No tags</span>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => handleView(ticket.id)}
-                    className="flex-1 px-2 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 disabled:opacity-50 flex items-center justify-center gap-1"
+                    className="flex-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 disabled:opacity-50 flex items-center justify-center gap-1"
                   >
                     <Eye className="w-3 h-3" />
                     View
@@ -389,7 +420,8 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
                   <button
                     onClick={() => openDeleteModal(ticket)}
                     disabled={isDeleting === ticket.id}
-                    className="flex-1 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 hover:text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-800/30 dark:hover:text-red-200 disabled:opacity-50 flex items-center justify-center gap-1"                  >
+                    className="flex-1 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 hover:text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-800/30 dark:hover:text-red-200 disabled:opacity-50 flex items-center justify-center gap-1"
+                  >
                     <Trash2 className="w-3 h-3" />
                     {isDeleting === ticket.id ? 'Deleting...' : 'Delete'}
                   </button>
@@ -502,6 +534,5 @@ const handleFilteredTicketsChange = (newFilteredTickets) => {
     </div>
   )
 }
-
 
 export default TicketsPage
