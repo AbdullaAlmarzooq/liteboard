@@ -193,7 +193,7 @@ const TicketsPage = () => {
         onFilteredTicketsChange={handleFilteredTicketsChange}
       />
 
-      <SearchBar allTickets={tickets || []} />
+      <SearchBar />
 
       {/* Desktop Table View */}
       <div className="hidden lg:block">

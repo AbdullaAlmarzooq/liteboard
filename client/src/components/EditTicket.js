@@ -1,3 +1,4 @@
+// EditTicket.js
 import { useState, useEffect } from 'react';
 import useFetch from "../useFetch";
 import Button from "../components/Button";
@@ -7,29 +8,43 @@ import AssignmentAndTimeline from './AssignmentAndTimeline';
 import CommentSection from './CommentSection';
 import AttachmentUploader from './AttachmentUploader';
 
+// Helper function for tag names, adapted for object format
+const getTagNames = (tags) => {
+  if (!tags || !Array.isArray(tags)) return [];
+  return tags.map(tag => typeof tag === 'object' ? tag.name : tag);
+};
+
+// Helper function to find tag ID from name
+const getTagIdByName = (tagsList, tagName) => {
+    const tag = tagsList.find(t => t.label === tagName || t.name === tagName);
+    return tag ? tag.id : null;
+};
 
 
 const EditTicket = () => {
   const { ticketId } = useParams()
   const navigate = useNavigate()
-  const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/tickets/${ticketId}`);
-  const { data: employees } = useFetch('http://localhost:8000/employees');
-  const { data: tags } = useFetch('http://localhost:8000/tags');
-  const { data: workgroups } = useFetch('http://localhost:8000/workgroups');
-  const { data: workflows, isPending: workflowsPending } = useFetch('http://localhost:8000/workflows');
+
+  const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}`);
+  const { data: employees } = useFetch('http://localhost:8000/api/employees'); 
+  const { data: tagsList } = useFetch('http://localhost:8000/api/tags'); 
+  const { data: workgroups } = useFetch('http://localhost:8000/api/workgroups');
+  const { data: workflows, isPending: workflowsPending } = useFetch('http://localhost:8000/api/workflows');
 
   // State for the main form data
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     workflowId: '',
-    status: '',
+    status: '', // Maps to step_code in the DB
     priority: 'Medium',
     workgroupId: '',
-    workGroup: '',
-    responsible: '',
-    module: '',
-    tags: [],
+    workGroup: '', // Resolved name from JOIN
+    responsibleEmployeeId: '', // New ID field for API PUT
+    responsible: '', // Resolved name from JOIN
+    moduleId: '', // New ID field for API PUT
+    module: '', // Resolved name from JOIN
+    tags: [], // Array of {id, name} objects
     startDate: '',
     dueDate: '',
   });
@@ -63,103 +78,145 @@ const EditTicket = () => {
         title: ticket.title || '',
         description: ticket.description || '',
         workflowId: ticket.workflowId || '',
-        status: ticket.status || '',
+        status: ticket.status || '', // Status is now resolved from step_code
         priority: ticket.priority || 'Medium',
-        workgroupId: ticket.workgroupId || '',   // <-- load code
-        workGroup: ticket.workGroup || '',       // <-- load name
-        responsible: ticket.responsible || '',
-        module: ticket.module || '',
-        tags: ticket.tags || [],
+        workgroupId: ticket.workgroupId || '',
+        workGroup: ticket.workGroup || '',       // Resolved name
+        responsibleEmployeeId: ticket.responsibleEmployeeId || '', // ID
+        responsible: ticket.responsible || '', // Resolved name
+        moduleId: ticket.moduleId || '', // ID
+        module: ticket.module || '', // Resolved name
+        tags: ticket.tags || [], // Array of objects
         startDate: ticket.startDate || '',
         dueDate: ticket.dueDate || '',
       });
+      // 2. UPDATE: Load comments and attachments from the ticket response
       setComments(ticket.comments || []);
-      // Populate saved attachments state from fetched data
       setSavedAttachments(ticket.attachments || []);
     }
   }, [ticket]);
 
-  // Effect to determine available statuses based on the selected workflow
-  useEffect(() => {
-    if (formData.workflowId && workflows) {
-      const selectedWorkflow = workflows.find(wf => wf.id === formData.workflowId);
-      if (selectedWorkflow) {
-        const currentStepIndex = selectedWorkflow.steps.findIndex(step => step.stepName === formData.status);
-        const newStatusOptions = [];
-        
-        // Add the current status
-        if (currentStepIndex !== -1) {
-            newStatusOptions.push(selectedWorkflow.steps[currentStepIndex].stepName);
-        }
+// Generate allowed status options based on workflow steps
+useEffect(() => {
+  if (formData.workflowId && workflows) {
+    const selectedWorkflow = workflows.find(wf => wf.id === formData.workflowId);
 
-        // Add the previous status if it exists
-        if (currentStepIndex > 0) {
-          newStatusOptions.push(selectedWorkflow.steps[currentStepIndex - 1].stepName);
-        }
-        
-        // Add the next status if it exists
-        if (currentStepIndex !== -1 && currentStepIndex < selectedWorkflow.steps.length - 1) {
-          newStatusOptions.push(selectedWorkflow.steps[currentStepIndex + 1].stepName);
-        }
-        
-        // Ensure "Cancelled" is always an option
-        if (!newStatusOptions.includes('Cancelled')) {
-            newStatusOptions.push('Cancelled');
-        }
+    if (selectedWorkflow && selectedWorkflow.steps) {
+      const allSteps = [...selectedWorkflow.steps].sort(
+        (a, b) => a.stepOrder - b.stepOrder
+      );
 
-        setStatusOptions(newStatusOptions);
+      const currentStep = allSteps.find(step => step.stepName === formData.status || step.stepCode === formData.status);
+      const currentOrder = currentStep ? currentStep.stepOrder : -1;
+
+      let newStatusOptions = [];
+
+      // Previous step
+      const prevStep = allSteps.find(step => step.stepOrder === currentOrder - 1);
+      if (prevStep) newStatusOptions.push(prevStep);
+
+      // Current step
+      if (currentStep) {
+        newStatusOptions.push(currentStep);
+      } else {
+        // Fallback if ticket.status is not in workflow (e.g., Cancelled)
+        newStatusOptions.push({ stepCode: formData.status, stepName: formData.status });
       }
-    }
-  }, [formData.workflowId, formData.status, workflows]);
 
-  // Effect to automatically update workgroup based on status
+      // Next step
+      const nextStep = allSteps.find(step => step.stepOrder === currentOrder + 1);
+      if (nextStep) newStatusOptions.push(nextStep);
+
+      // Always allow Cancelled
+      if (!newStatusOptions.find(s => s.stepName === "Cancelled")) {
+        newStatusOptions.push({ stepCode: "CANCELLED", stepName: "Cancelled" });
+      }
+
+      setStatusOptions(newStatusOptions);
+    } else {
+      // Fallback if workflow is missing
+      setStatusOptions([
+        { stepCode: "WF-001-01", stepName: "Open" },
+        { stepCode: "WF-001-03", stepName: "Closed" },
+        { stepCode: "CANCELLED", stepName: "Cancelled" },
+      ]);
+    }
+  }
+}, [formData.workflowId, formData.status, workflows]);
+
+
+  useEffect(() => {
+    if (formData.workflowId && formData.status && workflows && workgroups) {
+      const selectedWorkflow = workflows.find(wf => wf.id === formData.workflowId);
+      // CRUCIAL FIX: Check for selectedWorkflow.steps
+      if (selectedWorkflow && selectedWorkflow.steps) { 
+        const currentStep = selectedWorkflow.steps.find(step => step.stepName === formData.status);
+        if (currentStep && currentStep.workgroupCode) {
+          // Find the full workgroup name from the workgroups list
+          const workgroup = workgroups.find(wg => wg.id === currentStep.workgroupCode);
+          if (workgroup) {
+            setFormData(prev => ({
+              ...prev,
+              workgroupId: currentStep.workgroupCode,
+              workGroup: workgroup.name
+            }));
+          }
+        }
+      }
+    }
+  }, [formData.workflowId, formData.status, workflows, workgroups]);
+
+// Effect to automatically update responsible options based on status/workgroup
+// This is fine, as it uses the fetched 'employees' list
   useEffect(() => {
-    if (formData.workflowId && formData.status && workflows) {
+    if (formData.workflowId && formData.status && workflows && employees) {
       const selectedWorkflow = workflows.find(wf => wf.id === formData.workflowId);
-      if (selectedWorkflow) {
+      // CRUCIAL FIX: Check for selectedWorkflow.steps
+      if (selectedWorkflow && selectedWorkflow.steps) { 
         const currentStep = selectedWorkflow.steps.find(step => step.stepName === formData.status);
         if (currentStep && currentStep.workgroupCode) {
-          // Find the full workgroup name from the workgroups list
-          const workgroup = workgroups.find(wg => wg.id === currentStep.workgroupCode);
-          if (workgroup) {
+          const eligibleEmployees = employees.filter(emp => emp.workgroupCode === currentStep.workgroupCode);
+
+          if (formData.responsible && !eligibleEmployees.find(emp => emp.name === formData.responsible)) {
             setFormData(prev => ({
               ...prev,
-              workgroupId: currentStep.workgroupCode,
-              workGroup: workgroup.name
+              responsible: '', 
+              responsibleEmployeeId: '',
             }));
           }
         }
       }
     }
-  }, [formData.workflowId, formData.status, workflows, workgroups]);
-
-// Effect to automatically update responsible options based on status/workgroup
-useEffect(() => {
-  if (formData.workflowId && formData.status && workflows && employees) {
-    const selectedWorkflow = workflows.find(wf => wf.id === formData.workflowId);
-    if (selectedWorkflow) {
-      const currentStep = selectedWorkflow.steps.find(step => step.stepName === formData.status);
-      if (currentStep && currentStep.workgroupCode) {
-        // Filter employees in this workgroup
-        const eligibleEmployees = employees.filter(emp => emp.workgroupCode === currentStep.workgroupCode);
-
-        // If current responsible is not in the list, reset it
-        if (!eligibleEmployees.find(emp => emp.name === formData.responsible)) {
-          setFormData(prev => ({
-            ...prev,
-            responsible: '' // force user to pick again
-          }));
-        }
-      }
-    }
-  }
-}, [formData.workflowId, formData.status, workflows, employees]);
-
+  }, [formData.workflowId, formData.status, workflows, employees]);
 
 
   // Handler for all input changes in the main form
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    // 3. UPDATE: Handle responsible/module change to update both ID and Name
+    if (name === 'responsible') {
+        const responsibleEmployee = employees.find(emp => emp.name === value);
+        setFormData(prev => ({
+            ...prev,
+            responsible: value,
+            responsibleEmployeeId: responsibleEmployee ? responsibleEmployee.id : '',
+        }));
+        return;
+    }
+    
+    if (name === 'module') {
+        // NOTE: Since the module select uses module name as value, we'll need a full modules list to get the ID.
+        // Assuming moduleOptions is the full list or we fetch it separately.
+        // For now, assume the user only changes the displayed name field.
+        setFormData(prev => ({
+            ...prev,
+            module: value,
+            // You'd need a moduleId here if modules were fetched. For now, keep as is.
+        }));
+        return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -168,12 +225,35 @@ useEffect(() => {
 
   // Handler for toggling tags
   const handleTagToggle = (tagLabel) => {
-    setFormData(prev => ({
-      ...prev,
-      tags: prev.tags.includes(tagLabel)
-        ? prev.tags.filter(t => t !== tagLabel)
-        : [...prev.tags, tagLabel]
-    }));
+    // tagLabel is the 'name' or 'label' of the tag being clicked
+    setFormData(prev => {
+      // Check if the tag is already selected by its name
+      const isSelected = prev.tags.some(t => t.name === tagLabel);
+      
+      if (isSelected) {
+        // Remove the tag object
+        return {
+          ...prev,
+          tags: prev.tags.filter(t => t.name !== tagLabel)
+        };
+      } else {
+        // Add the tag object. We need its ID from the tagsData list.
+        // The tag list from the API uses 'label' for the name.
+        const tagObject = tagsList.find(t => t.label === tagLabel);
+        if (tagObject) {
+          return {
+            ...prev,
+            // Create the expected object format for the frontend state and backend payload
+            tags: [...prev.tags, { 
+                id: tagObject.id, 
+                name: tagObject.label, 
+                color: tagObject.color 
+            }]
+          };
+        }
+        return prev;
+      }
+    });
   };
 
   // Handler for updating the newAttachments state
@@ -183,7 +263,7 @@ useEffect(() => {
   
   // Handler for removing an attachment from the saved list
   const handleRemoveSavedAttachment = (fileToRemove) => {
-    const updatedAttachments = savedAttachments.filter(file => file !== fileToRemove);
+    const updatedAttachments = savedAttachments.filter(file => file.id !== fileToRemove.id); // Use ID for removal
     setSavedAttachments(updatedAttachments);
   };
 
@@ -194,14 +274,15 @@ useEffect(() => {
     setIsAddingComment(true);
     setSubmitError('');
 
-    const nextSequenceNumber = comments.length + 1;
-    const paddedSequence = String(nextSequenceNumber).padStart(3, '0');
-    const newCommentId = `COM-${paddedSequence}`;
-
+    // NOTE: The backend handles comment ID generation now for new comments if we were POSTing to /api/comments.
+    // However, the current implementation still sends the full ticket object on PUT.
+    // The backend's PUT logic must handle inserting a new comment if the ID is not found.
+    // We'll generate a temporary client-side ID for list management.
+    const newCommentId = `CLT-COM-${Date.now()}`; // Temporary ID for client-side uniqueness
     const newComment = {
       id: newCommentId,
       text: newCommentText,
-      author: 'Current User',
+      author: 'Current User', // Placeholder for the current user
       timestamp: new Date().toISOString(),
       type: "comment",
     };
@@ -209,7 +290,8 @@ useEffect(() => {
     const updatedComments = [...comments, newComment];
 
     try {
-      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+      // 5. UPDATE: Use /api/ prefix
+      const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -217,12 +299,16 @@ useEffect(() => {
         body: JSON.stringify({
           ...ticket,
           ...formData,
-          comments: updatedComments,
+          // Pass the whole array of comments for the backend to diff
+          comments: updatedComments, 
+          // Pass the whole array of attachments (saved + new)
+          attachments: [...savedAttachments, ...newAttachments],
         }),
       });
 
       if (response.ok) {
-        setComments(updatedComments);
+        // The backend should return the updated ticket, but for now we trust the local update
+        setComments(updatedComments.map(c => c.id === newCommentId ? { ...c, id: `COM-${comments.length + 1}` } : c)); // Simulate a persistent ID
         setNewCommentText('');
       } else {
         setSubmitError('Failed to add comment.');
@@ -249,7 +335,8 @@ useEffect(() => {
     const updatedComments = comments.filter(comment => comment.id !== commentToDeleteId);
     
     try {
-      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+      // 6. UPDATE: Use /api/ prefix
+      const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -258,6 +345,7 @@ useEffect(() => {
           ...ticket,
           ...formData,
           comments: updatedComments,
+          attachments: [...savedAttachments, ...newAttachments],
         }),
       });
       
@@ -288,7 +376,8 @@ useEffect(() => {
     );
 
     try {
-      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+      // 7. UPDATE: Use /api/ prefix
+      const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -297,6 +386,7 @@ useEffect(() => {
           ...ticket,
           ...formData,
           comments: updatedComments,
+          attachments: [...savedAttachments, ...newAttachments],
         }),
       });
 
@@ -321,11 +411,15 @@ useEffect(() => {
 
   // Function to add a generic activity entry
   const addActivityEntry = async (ticketId, fieldName, oldValue, newValue) => {
-    // First, fetch the existing status history to get the next ID
+    // 8. UPDATE: Use /api/ prefix for status_history
     try {
-      const historyResponse = await fetch('http://localhost:8000/status_history');
+      // Fetching history to get the next ID is an anti-pattern for a normalized DB,
+      // but we keep the ID generation logic for now for consistency with the original code.
+      // A proper normalized DB would let the server generate the ID.
+      const historyResponse = await fetch('http://localhost:8000/api/status_history');
       const historyData = await historyResponse.json();
       
+      // Client-side ID generation (should be server-side)
       const nextSequenceNumber = historyData.length + 1;
       const paddedSequence = String(nextSequenceNumber).padStart(3, '0');
       const newHistoryId = `ACT-${paddedSequence}`;
@@ -333,19 +427,20 @@ useEffect(() => {
       const historyEntry = {
         id: newHistoryId,
         ticketId,
-        type: 'field_change', // New type for field changes
+        type: 'field_change',
         fieldName,
         oldValue,
         newValue,
         timestamp: new Date().toISOString(),
-        changedBy: 'Current User', // Placeholder for the user who made the change
+        changedBy: 'Current User',
       };
 
       if (fieldName === 'status') {
         historyEntry.type = 'status_change';
       }
       
-      await fetch('http://localhost:8000/status_history', {
+      // 9. UPDATE: Use /api/ prefix
+      await fetch('http://localhost:8000/api/status_history', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -367,60 +462,83 @@ useEffect(() => {
     const finalAttachments = [...savedAttachments, ...newAttachments];
 
     // Compare original ticket data with new form data and log changes
+    // 10. UPDATE: Use the resolved names/new IDs for comparison
     const fieldsToTrack = ['title', 'description', 'status', 'priority', 'workGroup', 'responsible', 'module', 'dueDate', 'startDate'];
     for (const field of fieldsToTrack) {
-      if (ticket[field] !== formData[field]) {
-        const oldValue = ticket[field] || 'N/A';
-        const newValue = formData[field] || 'N/A';
+      const ticketFieldName = field === 'responsible' ? 'responsible' : field;
+      const formDataFieldName = field === 'responsible' ? 'responsible' : field;
+      
+      // The original ticket has resolved names (workGroup, responsible, module).
+      if (ticket[ticketFieldName] !== formData[formDataFieldName]) {
+        const oldValue = ticket[ticketFieldName] || 'N/A';
+        const newValue = formData[formDataFieldName] || 'N/A';
         await addActivityEntry(ticket.id, field, oldValue, newValue);
       }
     }
+    
+    // Tag handling
+    const originalTagNames = getTagNames(ticket.tags);
+    const newTagNames = getTagNames(formData.tags);
 
-    // Handle tag changes separately
-    const originalTags = ticket.tags || [];
-    const newTags = formData.tags || [];
+    const tagsAddedNames = newTagNames.filter(name => !originalTagNames.includes(name));
+    const tagsRemovedNames = originalTagNames.filter(name => !newTagNames.includes(name));
 
-    const tagsAdded = newTags.filter(tag => !originalTags.includes(tag));
-    const tagsRemoved = originalTags.filter(tag => !newTags.includes(tag));
-
-    for (const tag of tagsAdded) {
-      await addActivityEntry(ticket.id, 'tags_added', '', tag);
+    for (const name of tagsAddedNames) {
+      await addActivityEntry(ticket.id, 'tags_added', '', name);
     }
     
-    for (const tag of tagsRemoved) {
-      await addActivityEntry(ticket.id, 'tags_removed', tag, '');
+    for (const name of tagsRemovedNames) {
+      await addActivityEntry(ticket.id, 'tags_removed', name, '');
     }
 
-    // Handle attachment changes by comparing original and final lists
-    const originalAttachments = ticket.attachments || [];
-    const attachmentsAdded = finalAttachments.filter(a => !originalAttachments.find(oa => oa.name === a.name));
-    const attachmentsRemoved = originalAttachments.filter(oa => !finalAttachments.find(a => a.name === oa.name));
+    // Attachment handling (simplified - comparing by file name)
+    const originalAttachmentNames = (ticket.attachments || []).map(a => a.name);
+    const finalAttachmentNames = finalAttachments.map(a => a.name);
 
-    for (const a of attachmentsAdded) {
-        await addActivityEntry(ticket.id, 'attachment_added', '', a.name);
+    const attachmentsAdded = finalAttachmentNames.filter(name => !originalAttachmentNames.includes(name));
+    const attachmentsRemoved = originalAttachmentNames.filter(name => !finalAttachmentNames.includes(name));
+
+    for (const name of attachmentsAdded) {
+        await addActivityEntry(ticket.id, 'attachment_added', '', name);
     }
-    for (const a of attachmentsRemoved) {
-        await addActivityEntry(ticket.id, 'attachment_removed', a.name, '');
+    for (const name of attachmentsRemoved) {
+        await addActivityEntry(ticket.id, 'attachment_removed', name, '');
     }
 
+    // 11. Final PUT request to the API
     try {
-      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
+      // 12. UPDATE: Use /api/ prefix
+      const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...ticket,
-          ...formData,
+          // Pass required IDs for update logic
+          workflowId: formData.workflowId,
+          workgroupId: formData.workgroupId,
+          moduleId: formData.moduleId,
+          responsibleEmployeeId: formData.responsibleEmployeeId, // Use the ID
+          
+          // Pass other fields
+          title: formData.title,
+          description: formData.description,
+          status: formData.status, // Maps to step_code
+          priority: formData.priority,
+          dueDate: formData.dueDate,
+          startDate: formData.startDate,
+          
+          // Pass the tags objects (backend will extract the ID)
+          tags: formData.tags, 
           comments,
-          attachments: finalAttachments, // Send the merged list
+          attachments: finalAttachments,
         }),
       });
 
       if (response.ok) {
         // Clear the new attachments list after successful submission
         setNewAttachments([]);
-        navigate(`/view-ticket/${ticket.id}`);
+        navigate(`/view-ticket/${ticketId}`); // Use ticketId from params for navigation
       } else {
         setSubmitError('Failed to update ticket');
       }
@@ -490,7 +608,7 @@ useEffect(() => {
               formData={formData}
               handleInputChange={handleInputChange}
               handleTagToggle={handleTagToggle}
-              tags={tags}
+              tags={tagsList} // Use the full list of tags
               statusOptions={statusOptions}
               priorityOptions={priorityOptions}
             />
@@ -533,10 +651,10 @@ useEffect(() => {
               <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow space-y-3">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Attachments</h4>
                 <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {savedAttachments.map((file, index) => {
-                    const isImage = file.type.startsWith('image/');
+                  {savedAttachments.map((file) => {
+                    const isImage = file.type?.startsWith('image/');
                     return (
-                      <li key={index} className="flex items-center justify-between py-2">
+                      <li key={file.id} className="flex items-center justify-between py-2">
                         <div className="flex items-center gap-3">
                           {isImage && (
                             <img src={file.data} alt="Attachment preview" className="w-10 h-10 object-cover rounded-md" />

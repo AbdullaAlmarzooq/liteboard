@@ -90,7 +90,7 @@ CREATE TABLE tickets (
     step_code TEXT,
     workgroup_id TEXT,
     responsible_employee_id TEXT,
-    module TEXT,
+    module_id TEXT,
     start_date DATE,
     due_date DATE,
     initiate_date DATETIME NOT NULL,
@@ -99,7 +99,8 @@ CREATE TABLE tickets (
     FOREIGN KEY (workflow_id) REFERENCES workflows(id),
     FOREIGN KEY (step_code) REFERENCES workflow_steps(step_code),
     FOREIGN KEY (workgroup_id) REFERENCES workgroups(id),
-    FOREIGN KEY (responsible_employee_id) REFERENCES employees(id)
+    FOREIGN KEY (responsible_employee_id) REFERENCES employees(id),
+    FOREIGN KEY (module_id) REFERENCES modules(id)
 );
 
 -- 9. TICKET TAGS TABLE (Many-to-Many relationship)

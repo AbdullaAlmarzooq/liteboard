@@ -3,311 +3,348 @@ import Badge from "./Badge"
 import Button from "./Button"
 import useFetch from "../useFetch"
 import { useParams, useNavigate } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import ReactFlow, { Background } from 'reactflow'
 import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3, Edit, X } from "lucide-react";
-import { useMemo } from 'react'
 import 'reactflow/dist/style.css'
 
 
 const WorkflowDiagram = ({ steps, currentStepName }) => {
-  if (!steps || steps.length === 0) return null;
+  if (!steps || steps.length === 0) return null;
 
-  const nodes = steps.map((step, i) => {
-    const isCurrent = step.stepName === currentStepName;
-    return {
-      id: `step-${i}`,
-      position: { x: i * 200, y: 50 },
-      data: { label: step.stepName },
-      style: {
-        border: isCurrent
-          ? '2px solid var(--highlight-color)'
-          : '1px solid var(--border-color)',
-        borderRadius: '8px',
-        padding: '10px',
-        background: isCurrent
-          ? 'var(--highlight-bg)'
-          : 'var(--node-bg)',
-        color: isCurrent
-          ? 'var(--highlight-text)'
-          : 'var(--text-color)',
-        fontSize: '12px',
-        fontWeight: isCurrent ? 'bold' : 'normal',
-        boxShadow: isCurrent
-          ? '0 0 12px var(--highlight-shadow)'
-          : 'none',
-      },
-      sourcePosition: 'right',
-      targetPosition: 'left',
-    };
-  });
+  const nodes = steps.map((step, i) => {
+    const isCurrent = step.stepName === currentStepName;
+    return {
+      id: `step-${i}`,
+      position: { x: i * 200, y: 0 },
+      data: { label: step.stepName },
+      style: {
+        border: isCurrent
+          ? '2px solid var(--highlight-color)'
+          : '1px solid var(--border-color)',
+        borderRadius: '8px',
+        padding: '10px',
+        background: isCurrent
+          ? 'var(--highlight-bg)'
+          : 'var(--node-bg)',
+        color: isCurrent
+          ? 'var(--highlight-text)'
+          : 'var(--text-color)',
+        fontSize: '12px',
+        fontWeight: isCurrent ? 'bold' : 'normal',
+        boxShadow: isCurrent
+          ? '0 0 12px var(--highlight-shadow)'
+          : 'none',
+      },
+      sourcePosition: 'right',
+      targetPosition: 'left',
+    };
+  });
 
-  const edges = steps.slice(0, -1).map((_, i) => ({
-    id: `edge-${i}`,
-    source: `step-${i}`,
-    target: `step-${i + 1}`,
-    type: 'smoothstep',
-    style: { stroke: 'var(--edge-color)' },
-  }));
+  const edges = steps.slice(0, -1).map((_, i) => ({
+    id: `edge-${i}`,
+    source: `step-${i}`,
+    target: `step-${i + 1}`,
+    type: 'smoothstep',
+    style: { stroke: 'var(--edge-color)' },
+  }));
 
-  return (
-    <div
-      style={{
-        height: 200,
-        '--highlight-color': '#3b82f6',          // blue-500
-        '--highlight-bg': 'rgba(59,130,246)', // light transparent blue
-        '--highlight-text': '#1e3a8a',            // darker blue text
-        '--highlight-shadow': 'rgba(59,130,246,0.5)',
-        '--node-bg': '#ffffff',                  // light mode default node
-        '--border-color': '#d1d5db',             // gray-300
-        '--text-color': '#111827',               // gray-900
-        '--edge-color': '#9ca3af',               // gray-400
-      }}
-      className="mt-4 border border-gray-300 rounded-md
-        dark:[--highlight-color:#60a5fa] 
-        dark:[--highlight-bg:rgba(96,165,250,0.2)]
-        dark:[--highlight-text:#dbeafe] 
-        dark:[--highlight-shadow:rgba(96,165,250,0.6)]
-        dark:[--node-bg:#1f2937] 
-        dark:[--border-color:#374151]
-        dark:[--text-color:#f9fafb] 
-        dark:[--edge-color:#6b7280]"
-    >
-      <ReactFlow nodes={nodes} edges={edges} fitView>
-        <Background />
-      </ReactFlow>
-    </div>
-  );
+  return (
+    <div
+      style={{
+        height: 200,
+        '--highlight-color': '#3b82f6',          // blue-500
+        '--highlight-bg': 'rgba(59,130,246)', // light transparent blue
+        '--highlight-text': '#1e3a8a',            // darker blue text
+        '--highlight-shadow': 'rgba(59,130,246,0.5)',
+        '--node-bg': '#ffffff',                  // light mode default node
+        '--border-color': '#d1d5db',             // gray-300
+        '--text-color': '#111827',               // gray-900
+        '--edge-color': '#9ca3af',               // gray-400
+      }}
+      className="border border-gray-300 rounded-md overflow-hidden
+        dark:[--highlight-color:#60a5fa] 
+        dark:[--highlight-bg:rgba(96,165,250,0.2)]
+        dark:[--highlight-text:#dbeafe] 
+        dark:[--highlight-shadow:rgba(96,165,250,0.6)]
+        dark:[--node-bg:#1f2937] 
+        dark:[--border-color:#374151]
+        dark:[--text-color:#f9fafb] 
+        dark:[--edge-color:#6b7280]"
+    >
+      <ReactFlow nodes={nodes} edges={edges} fitView>
+        <Background />
+      </ReactFlow>
+    </div>
+  );
 };
 
 // Cancel Ticket Modal Component
 const CancelTicketModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
-  const [comment, setComment] = useState('')
-  const [error, setError] = useState('')
+  const [comment, setComment] = useState('')
+  const [error, setError] = useState('')
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    if (!comment.trim()) {
-      setError('Comment is required to cancel the ticket')
-      return
-    }
-    onConfirm(comment.trim())
-  }
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    if (!comment.trim()) {
+      setError('Comment is required to cancel the ticket')
+      return
+    }
+    onConfirm(comment.trim())
+  }
 
-  const handleClose = () => {
-    setComment('')
-    setError('')
-    onClose()
-  }
+  const handleClose = () => {
+    setComment('')
+    setError('')
+    onClose()
+  }
 
-  useEffect(() => {
-    if (comment.trim()) {
-      setError('')
-    }
-  }, [comment])
+  useEffect(() => {
+    if (comment.trim()) {
+      setError('')
+    }
+  }, [comment])
 
-  if (!isOpen) return null
+  if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-            Cancel Ticket
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">
-            Are you sure you want to cancel this ticket? This action cannot be undone.
-          </p>
-          
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label htmlFor="cancelComment" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Cancellation Reason <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                id="cancelComment"
-                rows={4}
-                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                  error ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Please provide a reason for cancelling this ticket..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                disabled={isLoading}
-              />
-              {error && (
-                <p className="mt-1 text-sm text-red-600">{error}</p>
-              )}
-            </div>
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+            Cancel Ticket
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Are you sure you want to cancel this ticket? This action cannot be undone.
+          </p>
+          
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label htmlFor="cancelComment" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Cancellation Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                id="cancelComment"
+                rows={4}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+                  error ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Please provide a reason for cancelling this ticket..."
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                disabled={isLoading}
+              />
+              {error && (
+                <p className="mt-1 text-sm text-red-600">{error}</p>
+              )}
+            </div>
 
-            <div className="flex justify-end space-x-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-                disabled={isLoading}
-              >
-                Keep Ticket
-              </Button>
-              <Button
-                type="submit"
-                variant="destructive"
-                disabled={isLoading || !comment.trim()}
-              >
-                {isLoading ? 'Cancelling...' : 'Cancel Ticket'}
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  )
+            <div className="flex justify-end space-x-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={isLoading}
+              >
+                Keep Ticket
+              </Button>
+              <Button
+                type="submit"
+                variant="destructive"
+                disabled={isLoading || !comment.trim()}
+              >
+                {isLoading ? 'Cancelling...' : 'Cancel Ticket'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 const ViewTicket = () => {
-  const { ticketId } = useParams()
-  const navigate = useNavigate()
-  const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/tickets/${ticketId}`)
-  const { data: statusHistory, isPending: isHistoryPending, error: historyError } = useFetch(`http://localhost:8000/status_history?ticketId=${ticketId}`)
-  const { data: workgroups } = useFetch('http://localhost:8000/workgroups'); // <-- move here
+  const { ticketId } = useParams()
+  const navigate = useNavigate()
+  
+  // Fetch ticket data with correct API endpoint
+  const { data: rawTicket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}`)
+  
+  // Fetch status history - this should work now with your actual table
+  const { data: statusHistory, isPending: isHistoryPending, error: historyError } = useFetch(`http://localhost:8000/api/status_history?ticketId=${ticketId}`)
 
-  const workgroupMap = useMemo(() => {
-    if (!workgroups) return {};
-    const map = {};
-    workgroups.forEach(wg => {
-      map[wg.id] = wg.name;
-    });
-    return map;
-  }, [workgroups]);
+  // Transform raw ticket data to match component expectations
+  const ticket = useMemo(() => {
+    if (!rawTicket) return null;
+    
+    return {
+      id: rawTicket.id,
+      title: rawTicket.title,
+      description: rawTicket.description,
+      status: rawTicket.status,
+      priority: rawTicket.priority,
+      // FIX 1: Read the new camelCase aliases from the server response
+      workflowId: rawTicket.workflowId, 
+      workgroupId: rawTicket.workgroupId,
+      workGroup: rawTicket.workgroup_name || 'Unassigned',
+      moduleId: rawTicket.moduleId,
+      module: rawTicket.module_name || 'No Module',
+      initiateDate: rawTicket.initiateDate,
+      responsibleEmployeeId: rawTicket.responsibleEmployeeId,
+      responsible: rawTicket.responsible_name || 'Unassigned',
+      tags: rawTicket.tags || [],
+      dueDate: rawTicket.dueDate, // Corrected from due_date
+      startDate: rawTicket.startDate, // Corrected from start_date
+      // Also read comments and attachments from the raw ticket response
+      comments: rawTicket.comments || [], 
+      attachments: rawTicket.attachments || [] 
+    };
+  }, [rawTicket]);
 
+  // Cancel ticket modal state
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
+  
+  // Fetch workflow if ticket has workflowId
+  const [workflow, setWorkflow] = useState(null)
+  useEffect(() => {
+    if (ticket?.workflowId) {
+      fetch(`http://localhost:8000/api/workflows/${ticket.workflowId}`)
+        .then(res => {
+          if (res.ok) return res.json();
+          throw new Error('Workflow not found');
+        })
+        .then(data => setWorkflow(data))
+        .catch(err => {
+          console.warn("Workflow endpoint not available:", err);
+          setWorkflow(null);
+        });
+    }
+  }, [ticket])
 
-  // Cancel ticket modal state
-  const [showCancelModal, setShowCancelModal] = useState(false)
-  const [isCancelling, setIsCancelling] = useState(false)
-  
-  // Fetch workflow if ticket has workflowId
-  const [workflow, setWorkflow] = useState(null)
-  useEffect(() => {
-    if (ticket?.workflowId) {
-      fetch(`http://localhost:8000/workflows/${ticket.workflowId}`)
-        .then(res => res.json())
-        .then(data => setWorkflow(data))
-        .catch(err => console.error("Error fetching workflow:", err))
-    }
-  }, [ticket])
+  // Handle cancel ticket
+  const handleCancelTicket = async (comment) => {
+    setIsCancelling(true)
+    try {
+      // FIX 2: Use camelCase keys for the PUT request body,
+      // as the server's PUT route expects them for mapping.
+      const updatedTicket = {
+        title: ticket.title,
+        description: ticket.description,
+        status: "Cancelled", // The required change
+        priority: ticket.priority,
+        workflowId: ticket.workflowId, 
+        workgroupId: ticket.workgroupId,
+        moduleId: ticket.moduleId,
+        responsibleEmployeeId: ticket.responsibleEmployeeId,
+        dueDate: ticket.dueDate,
+        startDate: ticket.startDate, // Must include startDate
+        tags: ticket.tags, // Send full array for server to process
+        comments: ticket.comments, // Send existing comments to prevent deletion
+        attachments: ticket.attachments, // Send existing attachments to prevent deletion
+      }
 
-  // Handle cancel ticket
-  const handleCancelTicket = async (comment) => {
-    setIsCancelling(true)
-    try {
-      // Generate a unique comment ID
-      const commentId = `${ticketId}-${String(Date.now()).slice(-3)}`
-      
-      // Create the cancellation comment
-      const cancellationComment = {
-        id: commentId,
-        text: `Ticket cancelled. Reason: ${comment}`,
-        author: "Current User", // Replace with actual user context
-        timestamp: new Date().toISOString()
-      }
+      const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedTicket),
+      })
 
-      // Update the ticket with cancelled status and add the comment
-      const updatedTicket = {
-        ...ticket,
-        status: "Cancelled",
-        comments: [...(ticket.comments || []), cancellationComment]
-      }
+      if (response.ok) {
+        // Close modal and refresh the page data
+        setShowCancelModal(false)
+        window.location.reload()
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to cancel ticket: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error cancelling ticket:', error)
+      alert('Failed to cancel ticket. Please try again.')
+    } finally {
+      setIsCancelling(false)
+    }
+  }
 
-      const response = await fetch(`http://localhost:8000/tickets/${ticketId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatedTicket),
-      })
+  const getStatusVariant = status => {
+    switch (status) {
+      case "Cancelled": return "destructive"
+      case "Closed": return "default"
+      case "In Progress": return "secondary"
+      case "Open": return "outline"
+      default: return "outline"
+    }
+  }
 
-      if (response.ok) {
-        // Close modal and refresh the page data
-        setShowCancelModal(false)
-        window.location.reload() // Simple refresh, or implement proper state update
-      } else {
-        const errorData = await response.json()
-        alert(`Failed to cancel ticket: ${errorData.message || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error cancelling ticket:', error)
-      alert('Failed to cancel ticket. Please try again.')
-    } finally {
-      setIsCancelling(false)
-    }
-  }
+  const getPriorityVariant = priority => {
+    switch (priority) {
+      case "Critical": return "destructive"
+      case "High": return "destructive"
+      case "Medium": return "secondary"
+      case "Low": return "outline"
+      default: return "outline"
+    }
+  }
 
-  const getStatusVariant = status => {
-    switch (status) {
-      case "Cancelled": return "destructive"
-      case "Closed": return "default"
-      case "In Progress": return "secondary"
-      case "Open": return "outline"
-      default: return "outline"
-    }
-  }
+  const formatTimestamp = timestamp => {
+    const date = new Date(timestamp)
+    return date.toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
 
-  const getPriorityVariant = priority => {
-    switch (priority) {
-      case "Critical": return "destructive"
-      case "High": return "destructive"
-      case "Medium": return "secondary"
-      case "Low": return "outline"
-      default: return "outline"
-    }
-  }
+  const formatFieldName = (fieldName) => {
+    switch (fieldName) {
+      case 'workGroup': return 'Work Group'
+      case 'responsible': return 'Responsible Person'
+      case 'dueDate': return 'Due Date'
+      case 'startDate': return 'Start Date'
+      case 'module': return 'Module'
+      case 'title': return 'Title'
+      case 'description': return 'Description'
+      case 'priority': return 'Priority'
+      case 'tags_added': return 'Added Tag'
+      case 'tags_removed': return 'Removed Tag'
+      default: return fieldName
+    }
+  }
 
-  const formatTimestamp = timestamp => {
-    const date = new Date(timestamp)
-    return date.toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-  }
+  const [timeline, setTimeline] = useState([])
+  useEffect(() => {
+    if (ticket && statusHistory) {
+      const commentsWithTypes = (ticket.comments || []).map(comment => ({
+        ...comment,
+        type: 'comment'
+      }))
+      const combinedTimeline = [...commentsWithTypes, ...statusHistory]
+      combinedTimeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      setTimeline(combinedTimeline)
+    }
+  }, [ticket, statusHistory])
 
-  const formatFieldName = (fieldName) => {
-    switch (fieldName) {
-      case 'workGroup': return 'Work Group'
-      case 'responsible': return 'Responsible Person'
-      case 'dueDate': return 'Due Date'
-      case 'startDate': return 'Start Date'
-      case 'module': return 'Module'
-      case 'title': return 'Title'
-      case 'description': return 'Description'
-      case 'priority': return 'Priority'
-      case 'tags_added': return 'Added Tag'
-      case 'tags_removed': return 'Removed Tag'
-      default: return fieldName
-    }
-  }
+  // Helper function to render tags properly
+  const renderTag = (tag, index) => {
+    const tagName = typeof tag === 'object' && tag.name ? tag.name : 
+                   typeof tag === 'object' && tag.label ? tag.label :
+                   typeof tag === 'string' ? tag : 'Unknown Tag';
+    
+    return (
+      <Badge key={index} variant="secondary">{tagName}</Badge>
+    );
+  };
 
-  const [timeline, setTimeline] = useState([])
-  useEffect(() => {
-    if (ticket && statusHistory) {
-      const commentsWithTypes = (ticket.comments || []).map(comment => ({
-        ...comment,
-        type: 'comment'
-      }))
-      const combinedTimeline = [...commentsWithTypes, ...statusHistory]
-      combinedTimeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-      setTimeline(combinedTimeline)
-    }
-  }, [ticket, statusHistory])
+  // Check if ticket can be cancelled (not already closed or cancelled)
+  const canCancelTicket = ticket && !['Closed', 'Cancelled'].includes(ticket.status)
 
-  // Check if ticket can be cancelled (not already closed or cancelled)
-  const canCancelTicket = ticket && !['Closed', 'Cancelled'].includes(ticket.status)
-
-  if (isPending || isHistoryPending) {
-    return <div className="flex items-center justify-center min-h-64 text-gray-500">Loading ticket details...</div>
-  }
-  if (error || historyError) {
-    return <div className="flex items-center justify-center min-h-64 text-red-500">Error loading ticket: {error || historyError}</div>
-  }
-  if (!ticket) {
-    return <div className="flex items-center justify-center min-h-64 text-gray-500">Ticket not found</div>
-  }
+  if (isPending || isHistoryPending) {
+    return <div className="flex items-center justify-center min-h-64 text-gray-500">Loading ticket details...</div>
+  }
+  if (error || historyError) {
+    return <div className="flex items-center justify-center min-h-64 text-red-500">Error loading ticket: {error || historyError}</div>
+  }
+  if (!ticket) {
+    return <div className="flex items-center justify-center min-h-64 text-gray-500">Ticket not found</div>
+  }
 
   return (
     <div className="flex flex-col h-full space-y-6 dark:bg-gray-900 dark:text-white p-6">
@@ -342,9 +379,7 @@ const ViewTicket = () => {
             <CardContent>
               <p className="text-gray-600 dark:text-gray-300">{ticket.description}</p>
               <div className="flex flex-wrap gap-2 mt-4">
-                {ticket.tags?.map((tag, index) => (
-                  <Badge key={index} variant="secondary">{tag}</Badge>
-                ))}
+                {ticket.tags?.map((tag, index) => renderTag(tag, index))}
               </div>
             </CardContent>
           </Card>
@@ -355,7 +390,7 @@ const ViewTicket = () => {
               <CardHeader>
                 <CardTitle className="text-xl">Workflow: {workflow.name}</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-0">
                 <WorkflowDiagram
                   steps={workflow.steps}
                   currentStepName={ticket.status} // highlight based on current ticket status
@@ -484,11 +519,11 @@ const ViewTicket = () => {
             <CardContent className="space-y-4">
               <div><label className="text-sm font-medium">Priority</label>
                 <Badge variant={getPriorityVariant(ticket.priority)}>{ticket.priority}</Badge></div>
-              <div><label className="text-sm font-medium">Workgroup</label><div>{workgroupMap[ticket.workgroupId] || '—'}</div></div>
+              <div><label className="text-sm font-medium">Workgroup</label><div>{ticket.workGroup}</div></div>
               <div><label className="text-sm font-medium">Responsible</label><div>{ticket.responsible}</div></div>
               <div><label className="text-sm font-medium">Module</label><div>{ticket.module}</div></div>
-              <div><label className="text-sm font-medium">Start Date</label><div>{ticket.startDate || 'N/A'}</div></div>
-              <div><label className="text-sm font-medium">Due Date</label><div>{ticket.dueDate || 'N/A'}</div></div>
+              <div><label className="text-sm font-medium">Start Date</label><div>{ticket.startDate ? new Date(ticket.startDate).toLocaleDateString() : 'N/A'}</div></div>
+              <div><label className="text-sm font-medium">Due Date</label><div>{ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'N/A'}</div></div>
             </CardContent>
           </Card>
 

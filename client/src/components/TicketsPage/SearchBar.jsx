@@ -1,18 +1,36 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useFetch from '../../useFetch'
 import { Search } from 'lucide-react';
 
-const SearchBar = ({ allTickets }) => { // Accept allTickets as prop to avoid duplicate API calls
+const SearchBar = () => {
   const navigate = useNavigate()
   
-  // Fallback to direct API call if allTickets not provided
-  const { data: fetchedTickets, isPending, error } = useFetch(
-    !allTickets ? 'http://localhost:8000/api/tickets' : null
-  )
+  // Fetch raw tickets data from API
+  const { data: rawTickets, isPending, error } = useFetch('http://localhost:8000/api/tickets')
   
-  // Use provided tickets or fallback to fetched tickets
-  const tickets = allTickets || fetchedTickets
+  // Transform the raw data to match the format expected by the component
+  const tickets = useMemo(() => {
+    if (!rawTickets) return [];
+    
+    return rawTickets.map(ticket => ({
+      id: ticket.id,
+      title: ticket.title,
+      description: ticket.description,
+      status: ticket.status,
+      priority: ticket.priority,
+      workflowId: ticket.workflow_id,
+      workgroupId: ticket.workgroup_id,
+      workGroup: ticket.workgroup_name || 'Unassigned',
+      moduleId: ticket.module_id,
+      module: ticket.module_name || 'No Module',
+      initiateDate: ticket.initiateDate,
+      responsibleEmployeeId: ticket.responsible_employee_id,
+      responsible: ticket.responsible_name || 'Unassigned',
+      tags: ticket.tags || [],
+      dueDate: ticket.due_date,
+    }));
+  }, [rawTickets]);
 
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -57,7 +75,7 @@ const SearchBar = ({ allTickets }) => { // Accept allTickets as prop to avoid du
   }
 
   const handleSearch = () => {
-    if ((allTickets ? false : isPending) || error || !tickets) return
+    if (isPending || error || !tickets) return
     if (!searchTerm.trim()) {
       setSearchResults([])
       setIsModalOpen(false)
@@ -156,7 +174,7 @@ const SearchBar = ({ allTickets }) => { // Accept allTickets as prop to avoid du
     navigate(`/view-ticket/${ticketId}`)
   }
 
-  const isLoading = allTickets ? false : isPending
+  const isLoading = isPending
   const hasError = error
   const hasTickets = tickets && tickets.length > 0
 

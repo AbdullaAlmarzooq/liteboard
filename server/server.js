@@ -3,6 +3,11 @@ const express = require("express");
 const cors = require("cors");
 const ticketsRouter = require("./routes/tickets");
 const workgroupsRouter = require("./routes/workgroups");
+const statusHistoryRouter = require("./routes/status_history");
+const workflowsRouter = require("./routes/workflows");
+const tagsRouter = require("./routes/tags");
+const workflowStepsRouter = require("./routes/workflowSteps");
+
 
 const app = express();
 const PORT = 8000;
@@ -14,6 +19,10 @@ app.use(express.json());
 // Routes
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/workgroups", workgroupsRouter);
+app.use("/api/status_history", statusHistoryRouter);
+app.use("/api/workflows", workflowsRouter);
+app.use("/api/tags", tagsRouter);
+app.use("/api/workflow_steps", workflowStepsRouter);
 
 // Root check
 app.get("/", (req, res) => {
