@@ -7,7 +7,8 @@ const statusHistoryRouter = require("./routes/status_history");
 const workflowsRouter = require("./routes/workflows");
 const tagsRouter = require("./routes/tags");
 const workflowStepsRouter = require("./routes/workflowSteps");
-
+const commentsRouter = require("./routes/comments");
+const attachmentsRouter = require("./routes/attachments");
 
 const app = express();
 const PORT = 8000;
@@ -23,6 +24,8 @@ app.use("/api/status_history", statusHistoryRouter);
 app.use("/api/workflows", workflowsRouter);
 app.use("/api/tags", tagsRouter);
 app.use("/api/workflow_steps", workflowStepsRouter);
+app.use("/api/comments", commentsRouter);
+app.use("/api/attachments", attachmentsRouter);
 
 // Root check
 app.get("/", (req, res) => {
