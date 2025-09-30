@@ -21,29 +21,30 @@ router.get("/:id", (req, res) => {
       return res.status(404).json({ error: "Workflow not found or inactive" });
     }
     
-    // Get the workflow steps with workgroup names
-    const stepsQuery = `
-      SELECT ws.id, ws.step_code, ws.step_name, ws.step_order, 
-             ws.category_code, ws.created_at,
-             w.name AS workgroup_name
-      FROM workflow_steps ws
-      LEFT JOIN workgroups w ON ws.workgroup_code = w.id
-      WHERE ws.workflow_id = ?
-      ORDER BY ws.step_order ASC
-    `;
-    
-    const steps = db.prepare(stepsQuery).all(id);
-    
-    // Transform steps to match what ViewTicket expects
-    const transformedSteps = steps.map(step => ({
-      id: step.id,
-      stepCode: step.step_code,
-      stepName: step.step_name,
-      stepOrder: step.step_order,
-      workgroupName: step.workgroup_name,
-      categoryCode: step.category_code,
-      createdAt: step.created_at
-    }));
+// Get the workflow steps with workgroup names
+const stepsQuery = `
+  SELECT ws.id, ws.step_code, ws.step_name, ws.step_order, 
+         ws.workgroup_code, ws.category_code, ws.created_at,
+         w.name AS workgroup_name
+  FROM workflow_steps ws
+  LEFT JOIN workgroups w ON ws.workgroup_code = w.id
+  WHERE ws.workflow_id = ?
+  ORDER BY ws.step_order ASC
+`;
+
+const steps = db.prepare(stepsQuery).all(id);
+
+// Transform steps to match what ViewTicket expects
+const transformedSteps = steps.map(step => ({
+  id: step.id,
+  stepCode: step.step_code,
+  stepName: step.step_name,
+  stepOrder: step.step_order,
+  workgroupCode: step.workgroup_code,
+  workgroupName: step.workgroup_name,
+  categoryCode: step.category_code,
+  createdAt: step.created_at
+}));
     
     const workflowResponse = {
       id: workflow.id,

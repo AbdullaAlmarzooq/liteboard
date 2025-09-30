@@ -356,6 +356,8 @@ const CreateTicketPage = () => {
         due_date: formatDate(formData.dueDate) || null
       }
 
+       console.log('Ticket data being sent:', ticketData);
+
       const response = await fetch('http://localhost:8000/api/tickets', {
         method: 'POST',
         headers: {
