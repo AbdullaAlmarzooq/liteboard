@@ -39,11 +39,11 @@ const AdminPanel = () => {
     setLoading(true);
     try {
       const [empRes, tagsRes, wgRes, modRes, wfRes] = await Promise.all([
-        fetch('http://localhost:8000/employees'),
-        fetch('http://localhost:8000/tags'),
-        fetch('http://localhost:8000/workgroups'),
-        fetch('http://localhost:8000/modules'),
-        fetch('http://localhost:8000/workflows')
+        fetch('http://localhost:8000/api/employees'),
+        fetch('http://localhost:8000/api/tags'),
+        fetch('http://localhost:8000/api/workgroups'),
+        fetch('http://localhost:8000/api/modules'),
+        fetch('http://localhost:8000/api/workflows')
       ]);
 
       setEmployees(await empRes.json());

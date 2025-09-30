@@ -1,10 +1,28 @@
-import { Card, CardContent, CardHeader, CardTitle } from "./Card";
 
-const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags, statusOptions, priorityOptions }) => {
+const TicketDetailsForm = ({ 
+  formData, 
+  handleInputChange, 
+  handleTagToggle, 
+  tags = [], 
+  statusOptions = [], 
+  priorityOptions = [] 
+}) => {
+
+  // --- Card Component Structure Emulation ---
+  const Card = ({ children, className = "" }) => (
+    <div className={`p-6 bg-white shadow-lg rounded-xl transition-all duration-300 ${className}`}>
+      {children}
+    </div>
+  );
+  const CardHeader = ({ children }) => <div className="mb-4">{children}</div>;
+  const CardTitle = ({ children }) => <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{children}</h3>;
+  const CardContent = ({ children, className = "" }) => <div className={className}>{children}</div>;
+  // --- End Card Component Structure Emulation ---
+  
   return (
-    <>
+    <div className="space-y-6">
       {/* Basic Information */}
-      <Card className="bg-white">
+      <Card className="bg-white dark:bg-gray-800">
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
         </CardHeader>
@@ -19,7 +37,7 @@ const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags,
               value={formData.title}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
           </div>
 
@@ -32,7 +50,7 @@ const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags,
               value={formData.description}
               onChange={handleInputChange}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               placeholder="Describe the ticket details..."
             />
           </div>
@@ -46,8 +64,9 @@ const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags,
                 name="status"
                 value={formData.status}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
+                {/* Now safe because statusOptions defaults to [] */}
                 {statusOptions.map(status => (
                   <option key={status} value={status}>{status}</option>
                 ))}
@@ -62,8 +81,9 @@ const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags,
                 name="priority"
                 value={formData.priority}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
+                {/* Now safe because priorityOptions defaults to [] */}
                 {priorityOptions.map(priority => (
                   <option key={priority} value={priority}>{priority}</option>
                 ))}
@@ -74,20 +94,21 @@ const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags,
       </Card>
 
       {/* Tags */}
-      <Card className="bg-white">
+      <Card className="bg-white dark:bg-gray-800">
         <CardHeader>
           <CardTitle>Tags</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {tags && tags.map(tag => (
+            {/* Safe because tags defaults to [] */}
+            {tags.map(tag => (
               <button
                 key={tag.id}
                 type="button"
                 onClick={() => handleTagToggle(tag.label)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors shadow-sm ${
                   formData.tags.includes(tag.label)
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
                 }`}
               >
@@ -97,7 +118,7 @@ const TicketDetailsForm = ({ formData, handleInputChange, handleTagToggle, tags,
           </div>
         </CardContent>
       </Card>
-    </>
+    </div>
   );
 };
 

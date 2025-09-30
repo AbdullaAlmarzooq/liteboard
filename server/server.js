@@ -9,6 +9,9 @@ const tagsRouter = require("./routes/tags");
 const workflowStepsRouter = require("./routes/workflowSteps");
 const commentsRouter = require("./routes/comments");
 const attachmentsRouter = require("./routes/attachments");
+const employeesRouter = require("./routes/employees");
+const modulesRouter = require("./routes/modules");
+const ticketTagsRouter = require("./routes/tickets_tags");
 
 const app = express();
 const PORT = 8000;
@@ -26,6 +29,9 @@ app.use("/api/tags", tagsRouter);
 app.use("/api/workflow_steps", workflowStepsRouter);
 app.use("/api/comments", commentsRouter);
 app.use("/api/attachments", attachmentsRouter);
+app.use("/api/employees", employeesRouter);
+app.use("/api/modules", modulesRouter);
+app.use("/api/ticket_tags", ticketTagsRouter);
 
 // Root check
 app.get("/", (req, res) => {
