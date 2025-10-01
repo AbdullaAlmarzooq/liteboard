@@ -12,6 +12,8 @@ const attachmentsRouter = require("./routes/attachments");
 const employeesRouter = require("./routes/employees");
 const modulesRouter = require("./routes/modules");
 const ticketTagsRouter = require("./routes/tickets_tags");
+const workflowTransitionsRouter = require('./routes/workflow_transitions');
+
 
 const app = express();
 const PORT = 8000;
@@ -32,6 +34,7 @@ app.use("/api/attachments", attachmentsRouter);
 app.use("/api/employees", employeesRouter);
 app.use("/api/modules", modulesRouter);
 app.use("/api/ticket_tags", ticketTagsRouter);
+app.use("/api/workflow_transitions", workflowTransitionsRouter);
 
 // Root check
 app.get("/", (req, res) => {
