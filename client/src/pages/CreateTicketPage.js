@@ -78,6 +78,7 @@ const CreateTicketPage = () => {
     description: "",
     workflowId: "",
     status: "",
+    stepCode: "",
     priority: "",
     workGroup: "",
     workGroupCode: "",
@@ -120,6 +121,7 @@ const CreateTicketPage = () => {
         ...prev, 
         workflowId: '', 
         status: '', 
+        stepCode: '',
         workGroup: '',
         workGroupCode: '',
         responsible: '' 
@@ -135,6 +137,9 @@ const CreateTicketPage = () => {
       
       const selectedWorkflow = await response.json();
       
+      console.log('Full workflow response:', selectedWorkflow);
+      console.log('Workflow steps:', selectedWorkflow.steps);
+      
       if (!selectedWorkflow) {
         throw new Error('Workflow data is missing');
       }
@@ -146,6 +151,7 @@ const CreateTicketPage = () => {
           ...prev, 
           workflowId, 
           status: '', 
+          stepCode: '',
           workGroup: '',
           workGroupCode: '',
           responsible: ''
@@ -159,6 +165,7 @@ const CreateTicketPage = () => {
           ...prev, 
           workflowId, 
           status: '', 
+          stepCode: '',
           workGroup: '',
           workGroupCode: '',
           responsible: ''
@@ -166,20 +173,23 @@ const CreateTicketPage = () => {
         return;
       }
 
-        const firstStep = selectedWorkflow.steps[0];
-        const initialStatus = firstStep.stepName || firstStep.step_name || '';
-        const assignedWorkgroupCode = firstStep.workgroupCode || firstStep.workgroup_code || '';
-        const assignedWorkgroupName = firstStep.workgroupName || firstStep.workgroup_name || getWorkgroupName(assignedWorkgroupCode);
+      const firstStep = selectedWorkflow.steps[0];
+      console.log('First step:', firstStep);
+      
+      const initialStatus = firstStep.stepName || firstStep.step_name || '';
+      const stepCode = firstStep.stepCode || firstStep.step_code || '';
+      const assignedWorkgroupCode = firstStep.workgroupCode || firstStep.workgroup_code || '';
+      const assignedWorkgroupName = firstStep.workgroupName || firstStep.workgroup_name || getWorkgroupName(assignedWorkgroupCode);
 
-        setFormData(prev => ({
-  ...prev,
-  workflowId,
-  status: initialStatus,
-  workGroup: assignedWorkgroupName,
-  workGroupCode: assignedWorkgroupCode,
-  responsible: ''
-        }));
-
+      setFormData(prev => ({
+        ...prev,
+        workflowId,
+        status: initialStatus,
+        stepCode: stepCode,
+        workGroup: assignedWorkgroupName,
+        workGroupCode: assignedWorkgroupCode,
+        responsible: ''
+      }));
     } catch (error) {
       console.error('Error fetching workflow:', error);
       showToast(`Failed to load workflow: ${error.message}`, 'error');
@@ -187,6 +197,7 @@ const CreateTicketPage = () => {
         ...prev, 
         workflowId, 
         status: '', 
+        stepCode: '',
         workGroup: '',
         workGroupCode: '',
         responsible: ''
@@ -346,6 +357,7 @@ const CreateTicketPage = () => {
         title: formData.title.trim(),
         description: formData.description.trim(),
         status: formData.status,
+        step_code: formData.stepCode,
         priority: formData.priority,
         workflow_id: formData.workflowId,
         workgroup_id: formData.workGroupCode,
@@ -356,7 +368,7 @@ const CreateTicketPage = () => {
         due_date: formatDate(formData.dueDate) || null
       }
 
-       console.log('Ticket data being sent:', ticketData);
+      console.log('Ticket data being sent:', ticketData);
 
       const response = await fetch('http://localhost:8000/api/tickets', {
         method: 'POST',
@@ -378,6 +390,7 @@ const CreateTicketPage = () => {
         description: "",
         workflowId: "",
         status: "",
+        stepCode: "",
         priority: "",
         workGroup: "",
         workGroupCode: "",
@@ -404,6 +417,7 @@ const CreateTicketPage = () => {
       description: "",
       workflowId: "",
       status: "",
+      stepCode: "",
       priority: "",
       workGroup: "",
       workGroupCode: "",

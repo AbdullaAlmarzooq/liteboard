@@ -1,3 +1,5 @@
+// server/routes/employees.js
+
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
@@ -17,10 +19,7 @@ router.get("/", (req, res) => {
     const employeesQuery = `
       SELECT 
         id, 
-        name, 
-        email, 
-        position, 
-        department, 
+        name,
         workgroup_code AS workgroupId
       FROM employees
       WHERE active = 1
@@ -44,9 +43,9 @@ router.get("/:id", (req, res) => {
   try {
     const employeeQuery = `
       SELECT 
-        id, name, email, position, department, 
+        id, name, email,
         workgroup_code AS workgroupId, 
-        active, joined_date, created_at, updated_at
+        active, created_at, updated_at
       FROM employees
       WHERE id = ?
     `;
@@ -67,7 +66,7 @@ router.get("/:id", (req, res) => {
 // POST create a new employee
 // ----------------------------------------------------------------------
 router.post("/", (req, res) => {
-  const { name, email, position, department, workgroup_code, joined_date } = req.body;
+  const { name, email, workgroup_code } = req.body;
 
   if (!name || !email) {
     return res.status(400).json({ error: "Name and email are required fields" });
@@ -84,18 +83,15 @@ router.post("/", (req, res) => {
 
     const insertEmployee = db.prepare(`
       INSERT INTO employees 
-        (id, name, email, position, department, workgroup_code, joined_date)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        (id, name, email, workgroup_code)
+      VALUES (?, ?, ?, ?)
     `);
 
     insertEmployee.run(
       newId, 
       name, 
       email, 
-      position || null, 
-      department || null, 
-      workgroup_code || null, 
-      joined_date || null
+      workgroup_code || null,
     );
 
     res.status(201).json({ message: "Employee created successfully", id: newId });
@@ -110,7 +106,7 @@ router.post("/", (req, res) => {
 // ----------------------------------------------------------------------
 router.put("/:id", (req, res) => {
   const { id } = req.params;
-  const { name, email, position, department, workgroup_code, active, joined_date } = req.body;
+  const { name, email, active } = req.body;
 
   if (!name || !email) {
     return res.status(400).json({ error: "Name and email are required fields" });
@@ -128,11 +124,8 @@ router.put("/:id", (req, res) => {
       SET 
         name = ?, 
         email = ?, 
-        position = ?, 
-        department = ?, 
         workgroup_code = ?, 
         active = ?, 
-        joined_date = ?
       WHERE id = ?
     `);
     
@@ -142,11 +135,8 @@ router.put("/:id", (req, res) => {
     const result = updateEmployee.run(
       name, 
       email, 
-      position || null, 
-      department || null, 
       workgroup_code || null, 
       activeValue, 
-      joined_date || null,
       id
     );
 

@@ -156,26 +156,31 @@ router.get("/:id", (req, res) => {
 // CREATE ticket
 // ----------------------------------------------------------------------
 router.post("/", (req, res) => {
-  const { id, title, description, status, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, tag_ids } = req.body;
+  const { id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, tag_ids } = req.body;
 
   try {
+    // Get current time in Bahrain timezone
+    const now = new Date();
+    const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
+    const timestamp = bahrainTime.toISOString().slice(0, 19).replace('T', ' '); // Format: YYYY-MM-DD HH:MM:SS
+
     const insertTicket = db.prepare(`
       INSERT INTO tickets 
-        (id, title, description, status, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, initiate_date) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        (id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, initiate_date, created_at, updated_at) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertTag = db.prepare(`
       INSERT INTO ticket_tags (ticket_id, tag_id, created_at) 
-      VALUES (?, ?, datetime('now'))
+      VALUES (?, ?, ?)
     `);
 
     const transaction = db.transaction(() => {
-      insertTicket.run(id, title, description, status, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date);
+      insertTicket.run(id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, timestamp, timestamp, timestamp);
 
       if (tag_ids && Array.isArray(tag_ids)) {
         tag_ids.forEach(tag_id => {
-          insertTag.run(id, tag_id);
+          insertTag.run(id, tag_id, timestamp);
         });
       }
     });
@@ -246,6 +251,9 @@ router.put("/:id", (req, res) => {
   const due_date = dueDate;
   const start_date = startDate;
   const tag_ids = tags ? tags.map(tag => tag.id) : []; 
+  const now = new Date();
+  const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
+  const timestamp = bahrainTime.toISOString().slice(0, 19).replace('T', ' ');
 
   try {
     const updateTicket = db.prepare(`
@@ -253,9 +261,12 @@ router.put("/:id", (req, res) => {
       SET 
         title = ?, description = ?, status = ?, priority = ?, 
         workflow_id = ?, workgroup_id = ?, module_id = ?, 
-        responsible_employee_id = ?, due_date = ?, start_date = ?
+        responsible_employee_id = ?, due_date = ?, start_date = ?, updated_at = ?
       WHERE id = ?
     `);
+
+    updateTicket.run(title, description, status, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, timestamp, id);
+
 
     const deleteExistingTags = db.prepare(`DELETE FROM ticket_tags WHERE ticket_id = ?`);
     const insertTag = db.prepare(`INSERT INTO ticket_tags (ticket_id, tag_id, created_at) VALUES (?, ?, datetime('now'))`);

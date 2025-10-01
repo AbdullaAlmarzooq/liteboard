@@ -26,7 +26,7 @@ const EmployeesTab = ({
       {employees.map(employee => (
         <div
           key={employee.id}
-          className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 p-4 shadow-sm"
+          className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 p-4 shadow-sm"
         >
           <div className="flex justify-between items-start mb-3">
             <div className="flex items-center space-x-2">
