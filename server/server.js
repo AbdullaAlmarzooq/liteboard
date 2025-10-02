@@ -13,6 +13,7 @@ const employeesRouter = require("./routes/employees");
 const modulesRouter = require("./routes/modules");
 const ticketTagsRouter = require("./routes/tickets_tags");
 const workflowTransitionsRouter = require('./routes/workflow_transitions');
+const workflowManagementRouter = require('./routes/workflowManagement');
 
 
 const app = express();
@@ -35,6 +36,7 @@ app.use("/api/employees", employeesRouter);
 app.use("/api/modules", modulesRouter);
 app.use("/api/ticket_tags", ticketTagsRouter);
 app.use("/api/workflow_transitions", workflowTransitionsRouter);
+app.use("/api/workflow_management", workflowManagementRouter);
 
 // Root check
 app.get("/", (req, res) => {

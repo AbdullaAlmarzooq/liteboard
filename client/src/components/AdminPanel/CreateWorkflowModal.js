@@ -11,33 +11,55 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
         stepName: 'Open',
         categoryCode: 10,
         workgroupCode: '',
-        allowedNext: [],
-        cancelAllowed: false,
-      },
+        allowedNextSteps: [],
+        allowedPrevSteps: [],
+        allowCancel: true
+      }
     ],
   });
 
   useEffect(() => {
     if (workflowToEdit) {
-      // Ensure allowedNext arrays exist
-      const stepsWithAllowed = workflowToEdit.steps.map(step => ({
-        ...step,
-        allowedNext: step.allowedNext || [],
-        cancelAllowed: step.cancelAllowed || false,
-      }));
-      setForm({ ...workflowToEdit, steps: stepsWithAllowed });
+      setForm(workflowToEdit);
     }
   }, [workflowToEdit]);
 
-  const handleWorkflowNameChange = (e) => {
-    setForm(prev => ({ ...prev, name: e.target.value }));
+  // Update step data
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleStepChange = (index, newStep) => {
-    const newSteps = form.steps.map((step, i) => (i === index ? newStep : step));
-    setForm(prev => ({ ...prev, steps: newSteps }));
+  const handleStepChange = (index, e) => {
+    const { name, value, type, checked } = e.target;
+    setForm(prev => {
+      const stepsCopy = prev.steps.map((step, i) => {
+        if (i === index) {
+          let updatedStep = { ...step };
+          if (type === 'checkbox') {
+            // For allowedNextSteps / allowedPrevSteps checkboxes
+            if (name === 'allowedNextSteps' || name === 'allowedPrevSteps') {
+              if (checked) {
+                updatedStep[name] = [...updatedStep[name], value];
+              } else {
+                updatedStep[name] = updatedStep[name].filter(v => v !== value);
+              }
+            } else {
+              updatedStep[name] = checked;
+            }
+          } else {
+            updatedStep[name] = value;
+          }
+          updatedStep.order = i + 1;
+          return updatedStep;
+        }
+        return step;
+      });
+      return { ...prev, steps: stepsCopy };
+    });
   };
 
+  // Add / remove steps
   const addStep = () => {
     setForm(prev => ({
       ...prev,
@@ -47,63 +69,58 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
           stepName: 'New Step',
           categoryCode: 10,
           workgroupCode: '',
-          allowedNext: [],
-          cancelAllowed: false,
-        },
-      ],
+          allowedNextSteps: [],
+          allowedPrevSteps: [],
+          allowCancel: true
+        }
+      ]
     }));
   };
 
   const removeStep = (index) => {
     setForm(prev => ({
       ...prev,
-      steps: prev.steps.filter((_, i) => i !== index),
+      steps: prev.steps.filter((_, i) => i !== index)
     }));
   };
 
-  const toggleAllowedNext = (stepIndex, targetStepName) => {
-    const step = form.steps[stepIndex];
-    const allowedNext = step.allowedNext || [];
-    const newAllowed = allowedNext.includes(targetStepName)
-      ? allowedNext.filter(name => name !== targetStepName)
-      : [...allowedNext, targetStepName];
-
-    handleStepChange(stepIndex, { ...step, allowedNext: newAllowed });
-  };
-
   const handleSave = () => {
-    // Send form to parent for backend saving
     onSave(form);
     onClose();
   };
 
+  const getTitle = () => workflowToEdit ? `Edit Workflow: ${workflowToEdit.name}` : 'Create New Workflow';
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
+          {/* Header */}
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">
-              {workflowToEdit ? `Edit Workflow: ${workflowToEdit.name}` : 'Create New Workflow'}
-            </h3>
+            <h3 className="text-lg font-semibold">{getTitle()}</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
               <X size={24} />
             </button>
           </div>
 
           {/* Workflow Name */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-1">Workflow Name</label>
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+              Workflow Name
+            </label>
             <input
               type="text"
+              name="name"
               value={form.name}
-              onChange={handleWorkflowNameChange}
+              onChange={handleInputChange}
+              placeholder="Enter workflow name, e.g., IT Support Flow"
               className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
-              placeholder="Workflow name"
             />
+            <p className="text-xs text-gray-400 mt-1">Type a descriptive name for this workflow.</p>
           </div>
 
-          {/* Steps */}
-          <div className="mt-6">
+          {/* Workflow Steps */}
+          <div className="mt-4">
             <div className="flex justify-between items-center mb-2">
               <h4 className="text-md font-semibold">Workflow Steps</h4>
               <button onClick={addStep} className="flex items-center text-blue-600 hover:text-blue-800">
@@ -112,102 +129,131 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
             </div>
 
             <div className="space-y-4">
-              {form.steps.map((step, stepIndex) => (
-                <div
-                  key={stepIndex}
-                  className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md shadow-inner flex flex-col space-y-2"
-                >
-                  <div className="flex space-x-4 items-end">
-                    {/* Step Name */}
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium mb-1">Step Name</label>
-                      <input
-                        type="text"
-                        value={step.stepName}
-                        onChange={(e) => handleStepChange(stepIndex, { ...step, stepName: e.target.value })}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
-                      />
-                    </div>
+              {form.steps.map((step, index) => (
+                <div key={index} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md shadow-inner flex flex-col md:flex-row md:items-start space-y-3 md:space-y-0 md:space-x-4">
 
-                    {/* Category */}
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium mb-1">Category</label>
-                      <select
-                        value={step.categoryCode}
-                        onChange={(e) =>
-                          handleStepChange(stepIndex, { ...step, categoryCode: parseInt(e.target.value, 10) })
-                        }
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
-                      >
-                        {WORKFLOW_CATEGORIES.map((cat) => (
-                          <option key={cat.code} value={cat.code}>
-                            {cat.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* Step Name */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                      Step/Status Name
+                    </label>
+                    <input
+                      type="text"
+                      name="stepName"
+                      value={step.stepName}
+                      onChange={(e) => handleStepChange(index, e)}
+                      placeholder="Enter status name, e.g., Open, In Progress"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                    />
+                  </div>
 
-                    {/* Workgroup */}
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium mb-1">Assigned Workgroup</label>
-                      <select
-                        value={step.workgroupCode}
-                        onChange={(e) => handleStepChange(stepIndex, { ...step, workgroupCode: e.target.value })}
-                        className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
-                      >
-                        <option value="">Select Workgroup</option>
-                        {workgroups.map((wg) => (
-                          <option key={wg.id} value={wg.id}>
-                            {wg.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* Category */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                      Category
+                    </label>
+                    <select
+                      name="categoryCode"
+                      value={step.categoryCode}
+                      onChange={(e) => handleStepChange(index, e)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                    >
+                      {WORKFLOW_CATEGORIES.map(category => (
+                        <option key={category.code} value={category.code}>{category.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                    {/* Remove Step */}
-                    {form.steps.length > 1 && (
-                      <button onClick={() => removeStep(stepIndex)} className="text-red-600 hover:text-red-800 mb-1">
-                        <Trash2 size={20} />
-                      </button>
-                    )}
+                  {/* Workgroup */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                      Assigned Workgroup
+                    </label>
+                    <select
+                      name="workgroupCode"
+                      value={step.workgroupCode}
+                      onChange={(e) => handleStepChange(index, e)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                    >
+                      <option value="">Select Workgroup</option>
+                      {workgroups.map(wg => (
+                        <option key={wg.id} value={wg.id}>{wg.name}</option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Allowed Next Steps */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Allowed Next Steps</label>
-                    <div className="flex flex-wrap gap-2">
-                      {form.steps
-                        .filter((_, idx) => idx !== stepIndex)
-                        .map((otherStep, idx) => (
-                          <label key={idx} className="flex items-center space-x-1 bg-gray-200 dark:bg-gray-600 p-1 rounded-md">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                      Allowed Next Steps
+                    </label>
+                    <div className="flex flex-col max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2 bg-white dark:bg-gray-800">
+                      {form.steps.map((s, i) => (
+                        i !== index && (
+                          <label key={i} className="flex items-center text-sm mb-1">
                             <input
                               type="checkbox"
-                              checked={step.allowedNext?.includes(otherStep.stepName) || false}
-                              onChange={() => toggleAllowedNext(stepIndex, otherStep.stepName)}
+                              name="allowedNextSteps"
+                              value={s.stepName}
+                              checked={step.allowedNextSteps.includes(s.stepName)}
+                              onChange={(e) => handleStepChange(index, e)}
+                              className="mr-2"
                             />
-                            <span className="text-sm">{otherStep.stepName}</span>
+                            {s.stepName}
                           </label>
-                        ))}
+                        )
+                      ))}
                     </div>
                   </div>
 
-                  {/* Cancel Allowed */}
-                  <div className="flex items-center space-x-2 mt-2">
+                  {/* Allowed Previous Steps */}
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                      Allowed Previous Steps
+                    </label>
+                    <div className="flex flex-col max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2 bg-white dark:bg-gray-800">
+                      {form.steps.map((s, i) => (
+                        i !== index && (
+                          <label key={i} className="flex items-center text-sm mb-1">
+                            <input
+                              type="checkbox"
+                              name="allowedPrevSteps"
+                              value={s.stepName}
+                              checked={step.allowedPrevSteps.includes(s.stepName)}
+                              onChange={(e) => handleStepChange(index, e)}
+                              className="mr-2"
+                            />
+                            {s.stepName}
+                          </label>
+                        )
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Allow Cancel */}
+                  <div className="flex items-center mt-2">
                     <input
                       type="checkbox"
-                      checked={step.cancelAllowed || false}
-                      onChange={(e) =>
-                        handleStepChange(stepIndex, { ...step, cancelAllowed: e.target.checked })
-                      }
+                      name="allowCancel"
+                      checked={step.allowCancel}
+                      onChange={(e) => handleStepChange(index, e)}
+                      className="mr-2"
                     />
-                    <span className="text-sm">Can be Cancelled</span>
+                    <label className="text-sm text-gray-700 dark:text-gray-200">Allow Cancel</label>
                   </div>
+
+                  {/* Remove Step */}
+                  {form.steps.length > 1 && (
+                    <button onClick={() => removeStep(index)} className="text-red-600 hover:text-red-800 mt-2">
+                      <Trash2 size={20} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Footer */}
           <div className="flex justify-end space-x-3 mt-6">
             <button
               onClick={onClose}
