@@ -4,13 +4,30 @@ const db = require("../db/db");
 const router = express.Router();
 const crypto = require("crypto");
 
-// Helper to generate step codes
-const generateStepCode = (workflowId) => {
+// Helper to generate unique codes
+const generateStepCode = () => {
   return `STEP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 };
 
+const generateWorkflowId = () => {
+  const last = db.prepare(`
+    SELECT id FROM workflows 
+    WHERE id LIKE 'WF-%' 
+    ORDER BY CAST(SUBSTR(id, 4) AS INTEGER) DESC 
+    LIMIT 1
+  `).get();
+
+  let nextNumber = 1;
+  if (last) {
+    nextNumber = parseInt(last.id.replace("WF-", ""), 10) + 1;
+  }
+
+  return `WF-${String(nextNumber).padStart(3, "0")}`;
+};
+
+
 // ----------------------------------------------------------------------
-// GET all workflows with steps and transitions
+// GET all workflows with steps and transitions for Admin Panel
 // ----------------------------------------------------------------------
 router.get("/", (req, res) => {
   try {
@@ -26,12 +43,18 @@ router.get("/", (req, res) => {
       // Get transitions for each step
       steps.forEach(step => {
         const nextSteps = db.prepare(`
-          SELECT to_step_code FROM workflow_transitions WHERE from_step_code = ?
-        `).all(step.step_code).map(r => r.to_step_code);
+          SELECT ws.step_name 
+          FROM workflow_transitions wt
+          JOIN workflow_steps ws ON wt.to_step_code = ws.step_code
+          WHERE wt.from_step_code = ?
+        `).all(step.step_code).map(r => r.step_name);
 
         const prevSteps = db.prepare(`
-          SELECT from_step_code FROM workflow_transitions WHERE to_step_code = ?
-        `).all(step.step_code).map(r => r.from_step_code);
+          SELECT ws.step_name 
+          FROM workflow_transitions wt
+          JOIN workflow_steps ws ON wt.from_step_code = ws.step_code
+          WHERE wt.to_step_code = ?
+        `).all(step.step_code).map(r => r.step_name);
 
         step.allowedNextSteps = nextSteps;
         step.allowedPreviousSteps = prevSteps;
@@ -48,87 +71,91 @@ router.get("/", (req, res) => {
 });
 
 // ----------------------------------------------------------------------
-// POST create or update workflow with steps and transitions
+// POST create new workflow with steps and transitions
 // ----------------------------------------------------------------------
 router.post("/", (req, res) => {
-  const { id, name, steps } = req.body;
+  const { name, steps } = req.body;
 
-  if (!name || !steps || !Array.isArray(steps)) {
-    return res.status(400).json({ error: "Invalid workflow data" });
+  if (!name || !steps || !Array.isArray(steps) || steps.length === 0) {
+    return res.status(400).json({ error: "Invalid workflow data. Name and steps are required." });
   }
 
   try {
-    // If new workflow
-    let workflowId = id;
-    if (!workflowId) {
-      workflowId = `WF-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
-      db.prepare(`INSERT INTO workflows (id, name, active, created_at) VALUES (?, ?, 1, datetime('now'))`).run(workflowId, name);
-    } else {
-      // Update existing workflow name
-      db.prepare(`UPDATE workflows SET name = ?, updated_at = datetime('now') WHERE id = ?`).run(name, workflowId);
-    }
+    const workflowId = generateWorkflowId();
+    
+    // Create workflow
+    db.prepare(`
+      INSERT INTO workflows (id, name, active, created_at, updated_at) 
+      VALUES (?, ?, 1, datetime('now'), datetime('now'))
+    `).run(workflowId, name);
 
-    // Save steps
+    // Create steps with generated step codes
     steps.forEach((step, index) => {
-      const stepCode = step.stepCode || generateStepCode(workflowId);
-
-      // Upsert step
+      const stepCode = generateStepCode();
+      
       db.prepare(`
-        INSERT INTO workflow_steps (workflow_id, step_code, step_name, step_order, category_code, workgroup_code)
-        VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(step_code) DO UPDATE SET
-          step_name = excluded.step_name,
-          step_order = excluded.step_order,
-          category_code = excluded.category_code,
-          workgroup_code = excluded.workgroup_code
-      `).run(workflowId, stepCode, step.stepName, index + 1, step.categoryCode, step.workgroupCode);
+        INSERT INTO workflow_steps (
+          workflow_id, step_code, step_name, step_order, 
+          category_code, workgroup_code
+        ) VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        workflowId,
+        stepCode,
+        step.stepName,
+        index + 1,
+        step.categoryCode || 10,
+        step.workgroupCode || null
+      );
 
-      step.stepCode = stepCode; // Ensure stepCode exists for transitions
+      step.stepCode = stepCode; // Store for transition creation
     });
 
-    // Clear old transitions for this workflow
-    db.prepare(`
-      DELETE FROM workflow_transitions WHERE from_step_code IN (
-        SELECT step_code FROM workflow_steps WHERE workflow_id = ?
-      )
-    `).run(workflowId);
-
-    // Insert transitions
-    steps.forEach(step => {
-      // Next steps
-      if (step.allowedNextSteps && step.allowedNextSteps.length) {
+    // Create transitions based on allowed next/previous steps
+    steps.forEach((step, index) => {
+      // Handle next steps
+      if (step.allowedNextSteps && step.allowedNextSteps.length > 0) {
         step.allowedNextSteps.forEach(nextStepName => {
           const nextStep = steps.find(s => s.stepName === nextStepName);
-          if (nextStep) {
+          if (nextStep && nextStep.stepCode) {
             db.prepare(`
-              INSERT INTO workflow_transitions (workflow_id, from_step_code, to_step_code)
-              VALUES (?, ?, ?)
+              INSERT INTO workflow_transitions (
+                workflow_id, from_step_code, to_step_code
+              ) VALUES (?, ?, ?)
             `).run(workflowId, step.stepCode, nextStep.stepCode);
           }
         });
       }
 
-      // Previous steps
-      if (step.allowedPreviousSteps && step.allowedPreviousSteps.length) {
+      // Handle previous steps
+      if (step.allowedPreviousSteps && step.allowedPreviousSteps.length > 0) {
         step.allowedPreviousSteps.forEach(prevStepName => {
           const prevStep = steps.find(s => s.stepName === prevStepName);
-          if (prevStep) {
-            db.prepare(`
-              INSERT INTO workflow_transitions (workflow_id, from_step_code, to_step_code)
-              VALUES (?, ?, ?)
-            `).run(workflowId, prevStep.stepCode, step.stepCode);
+          if (prevStep && prevStep.stepCode) {
+            // Check if transition already exists
+            const exists = db.prepare(`
+              SELECT id FROM workflow_transitions
+              WHERE workflow_id = ? AND from_step_code = ? AND to_step_code = ?
+            `).get(workflowId, prevStep.stepCode, step.stepCode);
+            
+            if (!exists) {
+              db.prepare(`
+                INSERT INTO workflow_transitions (
+                  workflow_id, from_step_code, to_step_code
+                ) VALUES (?, ?, ?)
+              `).run(workflowId, prevStep.stepCode, step.stepCode);
+            }
           }
         });
       }
 
-      // Handle Cancel step if categoryCode indicates Cancel (optional)
+      // Handle Cancel step (category_code 90)
       if (step.categoryCode === 90) {
-        // Allow transition from any step to this Cancel step
         steps.forEach(otherStep => {
-          if (otherStep.stepCode !== step.stepCode) {
+          if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
             db.prepare(`
-              INSERT INTO workflow_transitions (workflow_id, from_step_code, to_step_code)
-              VALUES (?, ?, ?)
+              INSERT INTO workflow_transitions (
+                workflow_id, from_step_code, to_step_code, cancel_allowed
+              ) VALUES (?, ?, ?, 1)
             `).run(workflowId, otherStep.stepCode, step.stepCode);
           }
         });
@@ -137,94 +164,125 @@ router.post("/", (req, res) => {
 
     res.json({ success: true, workflowId });
   } catch (err) {
-    console.error("Failed to save workflow:", err);
-    res.status(500).json({ error: "Failed to save workflow" });
+    console.error("Failed to create workflow:", err);
+    res.status(500).json({ error: "Failed to create workflow" });
   }
 });
 
-// PATCH /workflow_management/:id
+// ----------------------------------------------------------------------
+// PATCH update existing workflow
+// ----------------------------------------------------------------------
 router.patch("/:id", (req, res) => {
   const workflowId = req.params.id;
   const { name, steps } = req.body;
 
-  if (!name || !steps || !Array.isArray(steps)) {
+  if (!name || !steps || !Array.isArray(steps) || steps.length === 0) {
     return res.status(400).json({ error: "Invalid workflow data" });
   }
 
   try {
     // Update workflow name
-    db.prepare(`UPDATE workflows SET name = ?, updated_at = datetime('now') WHERE id = ?`)
-      .run(name, workflowId);
+    db.prepare(`
+      UPDATE workflows 
+      SET name = ?, updated_at = datetime('now') 
+      WHERE id = ?
+    `).run(name, workflowId);
+
+    // Get existing steps to preserve step_codes
+    const existingSteps = db.prepare(`
+      SELECT step_code, step_name FROM workflow_steps 
+      WHERE workflow_id = ?
+    `).all(workflowId);
 
     // Upsert steps
     steps.forEach((step, index) => {
-      const stepCode = step.stepCode || `STEP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+      // Try to match by name to preserve step_code
+      const existingStep = existingSteps.find(es => es.step_name === step.stepName);
+      const stepCode = step.stepCode || existingStep?.step_code || generateStepCode();
 
       db.prepare(`
-        INSERT INTO workflow_steps (workflow_id, step_code, step_name, step_order, category_code, workgroup_code)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO workflow_steps (
+          workflow_id, step_code, step_name, step_order, 
+          category_code, workgroup_code
+        ) VALUES (?, ?, ?, ?, ?, ?)
         ON CONFLICT(step_code) DO UPDATE SET
           step_name = excluded.step_name,
           step_order = excluded.step_order,
           category_code = excluded.category_code,
           workgroup_code = excluded.workgroup_code
-      `).run(workflowId, stepCode, step.stepName, index + 1, step.categoryCode, step.workgroupCode);
+      `).run(
+        workflowId,
+        stepCode,
+        step.stepName,
+        index + 1,
+        step.categoryCode || 10,
+        step.workgroupCode || null
+      );
 
       step.stepCode = stepCode;
     });
 
-    // Get existing transitions
-    const existingTransitions = db.prepare(`
-      SELECT from_step_code, to_step_code FROM workflow_transitions
-      WHERE workflow_id = ?
-    `).all(workflowId);
+    // Remove steps that are no longer in the workflow
+    const currentStepCodes = steps.map(s => s.stepCode);
+    db.prepare(`
+      DELETE FROM workflow_steps 
+      WHERE workflow_id = ? AND step_code NOT IN (${currentStepCodes.map(() => '?').join(',')})
+    `).run(workflowId, ...currentStepCodes);
 
-    // Build new transitions from modal data
-    const newTransitions = [];
+    // Clear all transitions for this workflow
+    db.prepare(`
+      DELETE FROM workflow_transitions 
+      WHERE workflow_id = ?
+    `).run(workflowId);
+
+    // Recreate transitions
     steps.forEach(step => {
-      if (step.allowedNextSteps?.length) {
+      // Next steps
+      if (step.allowedNextSteps && step.allowedNextSteps.length > 0) {
         step.allowedNextSteps.forEach(nextStepName => {
           const nextStep = steps.find(s => s.stepName === nextStepName);
-          if (nextStep) newTransitions.push({ from: step.stepCode, to: nextStep.stepCode });
-        });
-      }
-
-      if (step.allowedPreviousSteps?.length) {
-        step.allowedPreviousSteps.forEach(prevStepName => {
-          const prevStep = steps.find(s => s.stepName === prevStepName);
-          if (prevStep) newTransitions.push({ from: prevStep.stepCode, to: step.stepCode });
-        });
-      }
-
-      // Handle Cancel step (optional)
-      if (step.categoryCode === 90) {
-        steps.forEach(otherStep => {
-          if (otherStep.stepCode !== step.stepCode) {
-            newTransitions.push({ from: otherStep.stepCode, to: step.stepCode });
+          if (nextStep && nextStep.stepCode) {
+            db.prepare(`
+              INSERT INTO workflow_transitions (
+                workflow_id, from_step_code, to_step_code
+              ) VALUES (?, ?, ?)
+            `).run(workflowId, step.stepCode, nextStep.stepCode);
           }
         });
       }
-    });
 
-    // Remove transitions that are not in newTransitions
-    existingTransitions.forEach(t => {
-      const exists = newTransitions.some(nt => nt.from === t.from_step_code && nt.to === t.to_step_code);
-      if (!exists) {
-        db.prepare(`
-          DELETE FROM workflow_transitions
-          WHERE workflow_id = ? AND from_step_code = ? AND to_step_code = ?
-        `).run(workflowId, t.from_step_code, t.to_step_code);
+      // Previous steps
+      if (step.allowedPreviousSteps && step.allowedPreviousSteps.length > 0) {
+        step.allowedPreviousSteps.forEach(prevStepName => {
+          const prevStep = steps.find(s => s.stepName === prevStepName);
+          if (prevStep && prevStep.stepCode) {
+            const exists = db.prepare(`
+              SELECT id FROM workflow_transitions
+              WHERE workflow_id = ? AND from_step_code = ? AND to_step_code = ?
+            `).get(workflowId, prevStep.stepCode, step.stepCode);
+            
+            if (!exists) {
+              db.prepare(`
+                INSERT INTO workflow_transitions (
+                  workflow_id, from_step_code, to_step_code
+                ) VALUES (?, ?, ?)
+              `).run(workflowId, prevStep.stepCode, step.stepCode);
+            }
+          }
+        });
       }
-    });
 
-    // Insert new transitions if they don't exist
-    newTransitions.forEach(nt => {
-      const exists = existingTransitions.some(t => t.from_step_code === nt.from && t.to_step_code === nt.to);
-      if (!exists) {
-        db.prepare(`
-          INSERT INTO workflow_transitions (workflow_id, from_step_code, to_step_code)
-          VALUES (?, ?, ?)
-        `).run(workflowId, nt.from, nt.to);
+      // Cancel step
+      if (step.categoryCode === 90) {
+        steps.forEach(otherStep => {
+          if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
+            db.prepare(`
+              INSERT INTO workflow_transitions (
+                workflow_id, from_step_code, to_step_code, cancel_allowed
+              ) VALUES (?, ?, ?, 1)
+            `).run(workflowId, otherStep.stepCode, step.stepCode);
+          }
+        });
       }
     });
 
@@ -232,6 +290,27 @@ router.patch("/:id", (req, res) => {
   } catch (err) {
     console.error("Failed to update workflow:", err);
     res.status(500).json({ error: "Failed to update workflow" });
+  }
+});
+
+// ----------------------------------------------------------------------
+// DELETE workflow
+// ----------------------------------------------------------------------
+router.delete("/:id", (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Soft delete by setting active = 0
+    db.prepare(`
+      UPDATE workflows 
+      SET active = 0, updated_at = datetime('now') 
+      WHERE id = ?
+    `).run(id);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Failed to delete workflow:", err);
+    res.status(500).json({ error: "Failed to delete workflow" });
   }
 });
 

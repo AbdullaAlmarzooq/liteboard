@@ -18,16 +18,17 @@ router.get("/", (req, res) => {
   try {
     const employeesQuery = `
       SELECT 
-        id, 
-        name,
-        workgroup_code AS workgroupId
-      FROM employees
-      WHERE active = 1
-      ORDER BY name ASC
+        e.id, 
+        e.name,
+        e.workgroup_code AS workgroupId,
+        w.name AS workgroupName
+      FROM employees e
+      LEFT JOIN workgroups w ON e.workgroup_code = w.id
+      WHERE e.active = 1
+      ORDER BY e.name ASC
     `;
     const rows = db.prepare(employeesQuery).all();
 
-    // Ensure we always return an array
     res.json(Array.isArray(rows) ? rows : []);
   } catch (err) {
     console.error("Error fetching employees:", err);
@@ -43,11 +44,17 @@ router.get("/:id", (req, res) => {
   try {
     const employeeQuery = `
       SELECT 
-        id, name, email,
-        workgroup_code AS workgroupId, 
-        active, created_at, updated_at
-      FROM employees
-      WHERE id = ?
+        e.id, 
+        e.name, 
+        e.email,
+        e.workgroup_code AS workgroupId,
+        w.name AS workgroupName,
+        e.active, 
+        e.created_at, 
+        e.updated_at
+      FROM employees e
+      LEFT JOIN workgroups w ON e.workgroup_code = w.id
+      WHERE e.id = ?
     `;
     const employee = db.prepare(employeeQuery).get(id);
 

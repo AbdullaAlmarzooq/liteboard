@@ -3,6 +3,52 @@ const express = require("express");
 const db = require("../db/db"); // SQLite connection
 const router = express.Router();
 
+
+// Helper to validate workflow transition
+const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
+  const transition = db.prepare(`
+    SELECT id FROM workflow_transitions
+    WHERE workflow_id = ? AND from_step_code = ? AND to_step_code = ?
+  `).get(workflowId, fromStepCode, toStepCode);
+  
+  return !!transition;
+};
+
+// Helper to get allowed next steps for a ticket
+const getAllowedNextSteps = (ticketId) => {
+  const ticket = db.prepare(`
+    SELECT workflow_id, step_code FROM tickets WHERE id = ?
+  `).get(ticketId);
+  
+  if (!ticket) return [];
+  
+  const allowedSteps = db.prepare(`
+    SELECT 
+      ws.step_code,
+      ws.step_name,
+      ws.category_code,
+      wt.cancel_allowed
+    FROM workflow_transitions wt
+    JOIN workflow_steps ws ON wt.to_step_code = ws.step_code
+    WHERE wt.workflow_id = ? AND wt.from_step_code = ?
+  `).all(ticket.workflow_id, ticket.step_code);
+  
+  return allowedSteps;
+};
+
+// Get allowed next steps for a ticket
+router.get("/:id/allowed-steps", (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const allowedSteps = getAllowedNextSteps(id);
+    res.json(allowedSteps);
+  } catch (err) {
+    console.error("Failed to fetch allowed steps:", err);
+    res.status(500).json({ error: "Failed to fetch allowed steps" });
+  }
+});
+
 // Helper: fetch all comments for a ticket
 const fetchTicketComments = (ticketId) => {
   const commentsQuery = `
@@ -16,6 +62,7 @@ const fetchTicketComments = (ticketId) => {
   `;
   return db.prepare(commentsQuery).all(ticketId);
 };
+
 
 // Helper: fetch all attachments for a ticket
 const fetchTicketAttachments = (ticketId) => {

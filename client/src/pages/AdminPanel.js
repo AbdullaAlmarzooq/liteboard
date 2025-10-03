@@ -250,7 +250,7 @@ const AdminPanel = () => {
       if (!workflow.id) {
         const newId = `WF-${String(workflows.length + 1).padStart(3, '0')}`;
         const newWorkflow = { ...workflow, id: newId };
-        const response = await fetch('http://localhost:8000/api/workflows', {
+        const response = await fetch('http://localhost:8000/api/workflow_management', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newWorkflow)
@@ -258,7 +258,7 @@ const AdminPanel = () => {
         const createdWorkflow = await response.json();
         setWorkflows(prev => [...prev, createdWorkflow]);
       } else {
-        await fetch(`http://localhost:8000/api/workflows/${workflow.id}`, {
+        await fetch(`http://localhost:8000/api/workflow_management/${workflow.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(workflow)
@@ -272,7 +272,7 @@ const AdminPanel = () => {
 
   const handleWorkflowDelete = async (id) => {
     try {
-      await fetch(`http://localhost:8000/api/workflows/${id}`, {
+      await fetch(`http://localhost:8000/api/workflow_management/${id}`, {
         method: 'DELETE'
       });
       setWorkflows(prev => prev.filter(wf => wf.id !== id));

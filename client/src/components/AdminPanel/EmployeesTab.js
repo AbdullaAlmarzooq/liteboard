@@ -9,17 +9,11 @@ const EmployeesTab = ({
   handleEdit,
   handleSave,
   handleCancel,
-  handleInputChange,
-  handleSkillsChange
+  handleInputChange
 }) => {
   if (employees.length === 0) {
     return <div className="text-center py-8 text-gray-500">No employees found</div>;
   }
-
-  const getWorkgroupName = (workgroupCode) => {
-    const workgroup = workgroups.find(wg => wg.id === workgroupCode);
-    return workgroup ? workgroup.name : workgroupCode || 'Unknown';
-  };
 
   return (
     <div className="grid gap-4">
@@ -98,9 +92,8 @@ const EmployeesTab = ({
               <h3 className="font-semibold text-lg">{employee.name}</h3>
               <p className="text-gray-600">{employee.email}</p>
               <p className="text-sm text-gray-500">
-                Workgroup: {getWorkgroupName(employee.workgroupCode)}
+                Workgroup: {employee.workgroupName || 'Unknown'}
               </p>
-              <p className="text-xs text-gray-400">Joined: {employee.joined_date}</p>
             </div>
           )}
         </div>
