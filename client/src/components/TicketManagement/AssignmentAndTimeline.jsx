@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
+import { Card, CardContent, CardHeader, CardTitle } from "../Card";
 
 const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employees, moduleOptions }) => {
   // ✅ Filter employees by current workGroup (name)
@@ -25,7 +25,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             name="workGroup"
             value={formData.workGroup}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             disabled
           >
             <option value="">Select work group</option>
@@ -54,7 +54,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             name="responsible"
             value={formData.responsible}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="">Select person</option>
             {eligibleEmployees.length > 0 ? (
@@ -82,7 +82,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             name="module"
             value={formData.module}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="">Select module</option>
             {moduleOptions.map(module => (
@@ -110,7 +110,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             type="date"
             value={formData.startDate}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
         <div>
@@ -126,7 +126,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             type="date"
             value={formData.dueDate}
             onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
       </CardContent>

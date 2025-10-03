@@ -1,23 +1,25 @@
-
+// TicketDetailsForm.jsx - UPDATED FOR WORKFLOW INTEGRATION
 const TicketDetailsForm = ({ 
   formData, 
   handleInputChange, 
   handleTagToggle, 
   tags = [], 
   statusOptions = [], 
-  priorityOptions = [] 
+  priorityOptions = [],
+  loadingSteps = false
 }) => {
 
-  // --- Card Component Structure Emulation ---
+  // Card Component Structure
   const Card = ({ children, className = "" }) => (
     <div className={`p-6 bg-white shadow-lg rounded-xl transition-all duration-300 ${className}`}>
       {children}
     </div>
   );
   const CardHeader = ({ children }) => <div className="mb-4">{children}</div>;
-  const CardTitle = ({ children }) => <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{children}</h3>;
+  const CardTitle = ({ children }) => (
+    <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{children}</h3>
+  );
   const CardContent = ({ children, className = "" }) => <div className={className}>{children}</div>;
-  // --- End Card Component Structure Emulation ---
   
   return (
     <div className="space-y-6">
@@ -56,23 +58,46 @@ const TicketDetailsForm = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Status Dropdown - Now with workflow validation */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Status
               </label>
               <select
                 name="status"
-                value={formData.status}
+                value={formData.stepCode}
                 onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                disabled={loadingSteps}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {/* Now safe because statusOptions defaults to [] */}
-                {statusOptions.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
+                {loadingSteps ? (
+                  <option>Loading steps...</option>
+                ) : statusOptions.length === 0 ? (
+                  <option>No transitions available</option>
+                ) : (
+                  statusOptions.map((option, index) => (
+                    <option 
+                      key={option.value || index} 
+                      value={option.value || option.step_code || option}
+                    >
+                      {option.label || option.step_name || option.stepName || option}
+                    </option>
+                  ))
+                )}
               </select>
+              {statusOptions.length > 1 && !loadingSteps && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Only valid workflow transitions are shown
+                </p>
+              )}
+              {statusOptions.length === 1 && !loadingSteps && (
+                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                  No further transitions available from current status
+                </p>
+              )}
             </div>
 
+            {/* Priority Dropdown */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Priority
@@ -83,7 +108,6 @@ const TicketDetailsForm = ({
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               >
-                {/* Now safe because priorityOptions defaults to [] */}
                 {priorityOptions.map(priority => (
                   <option key={priority} value={priority}>{priority}</option>
                 ))}
@@ -100,21 +124,31 @@ const TicketDetailsForm = ({
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {/* Safe because tags defaults to [] */}
-            {tags.map(tag => (
-              <button
-                key={tag.id}
-                type="button"
-                onClick={() => handleTagToggle(tag.label)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors shadow-sm ${
-                  formData.tags.includes(tag.label)
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {tag.label}
-              </button>
-            ))}
+            {tags.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                No tags available
+              </p>
+            ) : (
+              tags.map(tag => {
+                const isSelected = formData.tags.some(t => 
+                  (t.name || t.label || t) === tag.label
+                );
+                return (
+                  <button
+                    key={tag.id}
+                    type="button"
+                    onClick={() => handleTagToggle(tag.label)}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors shadow-sm ${
+                      isSelected
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {tag.label}
+                  </button>
+                );
+              })
+            )}
           </div>
         </CardContent>
       </Card>

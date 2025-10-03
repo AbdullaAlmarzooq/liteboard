@@ -1,5 +1,5 @@
-import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
-import Button from "../components/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "../Card";
+import Button from "../Button";
 import { Trash2, Edit } from 'lucide-react';
 
 const CommentSection = ({

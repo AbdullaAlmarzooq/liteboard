@@ -6,7 +6,7 @@ import Dashboard from "./pages/Dashboard"
 import TicketsPage from "./pages/TicketsPage"
 import CreateTicketPage from "./pages/CreateTicketPage"
 import ViewTicket from "./components/ViewTicket"
-import EditTicket from "./components/EditTicket"
+import EditTicket from "./components/TicketManagement/EditTicket"
 import { ThemeProvider } from "./contexts/ThemeContext"
 
 function App() {
