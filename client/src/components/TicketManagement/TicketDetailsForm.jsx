@@ -20,6 +20,9 @@ const TicketDetailsForm = ({
     <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{children}</h3>
   );
   const CardContent = ({ children, className = "" }) => <div className={className}>{children}</div>;
+
+  console.log('Select value (formData.stepCode):', formData.stepCode);
+console.log('Available options:', statusOptions.map(o => o.value));
   
   return (
     <div className="space-y-6">

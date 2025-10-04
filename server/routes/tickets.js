@@ -49,6 +49,75 @@ router.get("/:id/allowed-steps", (req, res) => {
   }
 });
 
+
+// POST update ticket status (workflow transition)
+router.post("/:id/transition", (req, res) => {
+  const { id } = req.params;
+  const { step_code } = req.body;
+  
+  if (!step_code) {
+    return res.status(400).json({ error: "step_code is required" });
+  }
+  
+  try {
+    const currentTicket = db.prepare(`
+      SELECT workflow_id, step_code, status FROM tickets WHERE id = ?
+    `).get(id);
+    
+    if (!currentTicket) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+    
+    if (step_code === currentTicket.step_code) {
+      return res.json({ success: true, message: "Already in this step" });
+    }
+    
+    const isValid = isValidTransition(
+      currentTicket.workflow_id,
+      currentTicket.step_code,
+      step_code
+    );
+    
+    if (!isValid) {
+      return res.status(400).json({
+        error: "Invalid workflow transition",
+        message: `Cannot transition from ${currentTicket.step_code} to ${step_code}`
+      });
+    }
+    
+    const newStep = db.prepare(`
+      SELECT step_name FROM workflow_steps WHERE step_code = ?
+    `).get(step_code);
+    
+    if (!newStep) {
+      return res.status(400).json({ error: "Invalid step_code" });
+    }
+    
+    db.prepare(`
+      UPDATE tickets
+      SET step_code = ?, status = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(step_code, newStep.step_name, id);
+    
+    const updatedTicket = db.prepare(`
+      SELECT t.*, ws.step_name as current_step_name
+      FROM tickets t
+      LEFT JOIN workflow_steps ws ON t.step_code = ws.step_code
+      WHERE t.id = ?
+    `).get(id);
+    
+    res.json({
+      success: true,
+      message: `Transitioned to ${newStep.step_name}`,
+      ticket: updatedTicket
+    });
+    
+  } catch (err) {
+    console.error("Failed to transition ticket:", err);
+    res.status(500).json({ error: "Failed to transition ticket" });
+  }
+});
+
 // Helper: fetch all comments for a ticket
 const fetchTicketComments = (ticketId) => {
   const commentsQuery = `
@@ -149,7 +218,8 @@ router.get("/:id", (req, res) => {
     const ticketQuery = `
       SELECT 
         t.id, t.title, t.description, t.status, t.priority, 
-        t.workflow_id AS workflowId, 
+        t.workflow_id AS workflowId,
+        t.step_code AS stepCode,
         t.workgroup_id AS workgroupId, w.name AS workgroup_name,
         t.module_id AS moduleId, m.name AS module_name, t.initiate_date AS initiateDate,
         t.responsible_employee_id AS responsibleEmployeeId, e.name AS responsible_name,
@@ -251,46 +321,6 @@ router.put("/:id", (req, res) => {
     moduleId, responsibleEmployeeId, dueDate, startDate, tags
   } = req.body;
 
-  // --- Status transition validation ---
-  if (status) {
-    try {
-      const currentTicket = db.prepare(
-        `SELECT status, workflow_id FROM tickets WHERE id = ?`
-      ).get(id);
-      if (!currentTicket) {
-        return res.status(404).json({ error: "Ticket not found" });
-      }
-
-      if (status.toUpperCase() !== "CANCELLED") {
-        const currentStep = db.prepare(`
-          SELECT step_order FROM workflow_steps 
-          WHERE workflow_id = ? AND step_code = ?
-        `).get(currentTicket.workflow_id, currentTicket.status);
-
-        const newStep = db.prepare(`
-          SELECT step_order FROM workflow_steps 
-          WHERE workflow_id = ? AND step_code = ?
-        `).get(currentTicket.workflow_id, status);
-
-        if (!currentStep || !newStep) {
-          return res.status(400).json({ error: "Invalid workflow step" });
-        }
-
-        const allowed = [
-          currentStep.step_order - 1,
-          currentStep.step_order,
-          currentStep.step_order + 1
-        ];
-        if (!allowed.includes(newStep.step_order)) {
-          return res.status(400).json({ error: "Invalid status transition" });
-        }
-      }
-    } catch (err) {
-      console.error("Error validating status transition:", err);
-      return res.status(500).json({ error: "Status validation failed" });
-    }
-  }
-
   const workflow_id = workflowId; // kept for clarity
   const workgroup_id = workgroupId;
   const module_id = moduleId;
@@ -312,7 +342,7 @@ router.put("/:id", (req, res) => {
       WHERE id = ?
     `);
 
-    updateTicket.run(title, description, status, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, timestamp, id);
+    // updateTicket.run(title, description, status, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, timestamp, id);
 
 
     const deleteExistingTags = db.prepare(`DELETE FROM ticket_tags WHERE ticket_id = ?`);
@@ -322,7 +352,7 @@ router.put("/:id", (req, res) => {
       const result = updateTicket.run(
         title, description, status, priority, 
         workflow_id, workgroup_id, module_id, 
-        responsible_employee_id, due_date, start_date, id
+        responsible_employee_id, due_date, start_date, timestamp, id
       );
 
       if (result.changes === 0) {
