@@ -5,10 +5,25 @@ const db = require("../db/db");
 const router = express.Router();
 const crypto = require("crypto");
 
-// Helper function to generate employee ID (e.g., EMP-xxxxxx)
-const generateEmployeeId = () => {
-  // Using a short random hex string for uniqueness
-  return `EMP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+// Helper function to generate sequential employee ID (e.g., EMP-001, EMP-002, ...)
+const generateEmployeeId = (db) => {
+  // Get the highest existing employee ID
+  const row = db.prepare(`
+    SELECT id 
+    FROM employees 
+    WHERE id LIKE 'EMP-%' 
+    ORDER BY CAST(SUBSTR(id, 5) AS INTEGER) DESC 
+    LIMIT 1
+  `).get();
+
+  let nextNumber = 1;
+  if (row && row.id) {
+    const lastNumber = parseInt(row.id.replace("EMP-", ""), 10);
+    nextNumber = lastNumber + 1;
+  }
+
+  // Pad with leading zeros (EMP-001, EMP-010, EMP-100)
+  return `EMP-${String(nextNumber).padStart(3, "0")}`;
 };
 
 // ----------------------------------------------------------------------
@@ -20,6 +35,7 @@ router.get("/", (req, res) => {
       SELECT 
         e.id, 
         e.name,
+        e.email,
         e.workgroup_code AS workgroupId,
         w.name AS workgroupName
       FROM employees e
@@ -80,7 +96,7 @@ router.post("/", (req, res) => {
   }
 
   try {
-    const newId = generateEmployeeId();
+    const newId = generateEmployeeId(db);
     
     // Check if employee with this email already exists
     const existing = db.prepare("SELECT id FROM employees WHERE email = ?").get(email);
@@ -113,10 +129,10 @@ router.post("/", (req, res) => {
 // ----------------------------------------------------------------------
 router.put("/:id", (req, res) => {
   const { id } = req.params;
-  const { name, email, active } = req.body;
+  const { name, email, active, workgroup_code } = req.body;
 
   if (!name || !email) {
-    return res.status(400).json({ error: "Name and email are required fields" });
+    return res.status(400).json({ error: "All details are required fields" });
   }
 
   try {
@@ -132,7 +148,7 @@ router.put("/:id", (req, res) => {
         name = ?, 
         email = ?, 
         workgroup_code = ?, 
-        active = ?, 
+        active = ?
       WHERE id = ?
     `);
     

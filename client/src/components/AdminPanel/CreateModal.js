@@ -52,15 +52,17 @@ const CreateModal = ({ activeTab, createForm, handleCreateInputChange, handleCre
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Workgroup</label>
                   <select
-                    value={createForm.workgroupCode || ''}
-                    onChange={(e) => handleCreateInputChange('workgroupCode', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
->
-                   <option value="">Select Workgroup</option>
-                    {workgroups && workgroups.map(wg => (
-                   <option key={wg.id} value={wg.id}>{wg.name}</option> // ✅ use id as value
-                  ))}
-                  </select>
+                   value={createForm.workgroup_code || ''}
+                     onChange={(e) => handleCreateInputChange('workgroup_code', e.target.value)}
+                     className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                   >
+                     <option value="">Select Workgroup</option>
+                     {workgroups && workgroups.map(wg => (
+                       <option key={wg.id} value={wg.id}>
+                         {wg.name}
+                       </option>
+                     ))}
+                   </select>
                 </div>
                 <div className="flex items-center space-x-2">
                   <input

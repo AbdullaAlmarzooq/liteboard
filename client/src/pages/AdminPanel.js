@@ -64,6 +64,9 @@ const AdminPanel = () => {
 
   const handleSave = async () => {
     const endpoint = `http://localhost:8000/api/${activeTab}/${editForm.id}`;
+
+    console.log('Updating employee with data:', editForm);
+
     try {
       await fetch(endpoint, {
         method: 'PUT',
@@ -129,7 +132,7 @@ const AdminPanel = () => {
       newItem = {
         name: '',
         email: '',
-        workgroupCode: '',
+        workgroup_code: '',
         active: true,
         joined_date: new Date().toISOString().split('T')[0]
       };
@@ -163,6 +166,8 @@ const AdminPanel = () => {
 
   const handleCreateSave = async () => {
     let newItem = { ...createForm };
+
+    console.log('Submitting new employee:', newItem);
 
     // Prevent duplicate tag creation and show modal instead of alert
     if (activeTab === 'tags') {

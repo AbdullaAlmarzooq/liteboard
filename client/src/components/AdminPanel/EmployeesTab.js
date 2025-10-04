@@ -66,8 +66,8 @@ const EmployeesTab = ({
                 placeholder="Email"
               />
               <select
-                value={editForm.workgroupCode || ''}
-                onChange={(e) => handleInputChange('workgroupCode', e.target.value)}
+                value={editForm.workgroup_code || ''}
+                onChange={(e) => handleInputChange('workgroup_code', e.target.value)}
                 className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
               >
                 <option value="" disabled>Select Workgroup</option>
