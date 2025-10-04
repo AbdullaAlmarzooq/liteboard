@@ -5,8 +5,10 @@ const router = express.Router();
 const crypto = require("crypto");
 
 // Helper to generate unique codes
-const generateStepCode = () => {
-  return `STEP-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+const generateStepCode = (workflowId, stepOrder) => {
+  // Format: WF-XXX-01, WF-XXX-02, etc.
+  const paddedOrder = String(stepOrder).padStart(2, '0');
+  return `${workflowId}-${paddedOrder}`;
 };
 
 const generateWorkflowId = () => {
@@ -91,7 +93,7 @@ router.post("/", (req, res) => {
 
     // Create steps with generated step codes
     steps.forEach((step, index) => {
-      const stepCode = generateStepCode();
+      const stepCode = generateStepCode(workflowId, index + 1); // Pass workflowId and order
       
       db.prepare(`
         INSERT INTO workflow_steps (
@@ -106,8 +108,8 @@ router.post("/", (req, res) => {
         step.categoryCode || 10,
         step.workgroupCode || null
       );
-
-      step.stepCode = stepCode; // Store for transition creation
+    
+      step.stepCode = stepCode;
     });
 
     // Create transitions based on allowed next/previous steps
@@ -198,7 +200,7 @@ router.patch("/:id", (req, res) => {
     steps.forEach((step, index) => {
       // Try to match by name to preserve step_code
       const existingStep = existingSteps.find(es => es.step_name === step.stepName);
-      const stepCode = step.stepCode || existingStep?.step_code || generateStepCode();
+      const stepCode = step.stepCode || existingStep?.step_code || generateStepCode(workflowId, index + 1);
 
       db.prepare(`
         INSERT INTO workflow_steps (

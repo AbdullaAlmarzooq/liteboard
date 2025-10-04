@@ -185,73 +185,108 @@ console.log('statusOptions:', statusOptions);
     }
   };
 
-  // Handle status change with workflow transition
-  const handleStatusChange = async (newStepCode) => {
-    if (!newStepCode || newStepCode === formData.stepCode) return;
+ // Handle status change with workflow transition
+const handleStatusChange = async (newStepCode) => {
+  if (!newStepCode || newStepCode === formData.stepCode) return;
 
-    setIsSubmitting(true);
-    setSubmitError('');
+  setIsSubmitting(true);
+  setSubmitError('');
 
-    try {
-      // Call the transition endpoint
-      const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step_code: newStepCode })
-      });
+  try {
+    // Call the transition endpoint
+    const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step_code: newStepCode })
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Invalid transition');
-      }
-
-      const result = await response.json();
-      
-      // Update local state with new status
-      setFormData(prev => ({
-        ...prev,
-        stepCode: newStepCode,
-        status: result.ticket?.status || result.ticket?.current_step_name || prev.status
-      }));
-
-      // Auto-assign workgroup based on new step
-      await autoAssignWorkgroup(newStepCode);
-
-      // Add activity log entry
-      await addActivityEntry('status', formData.status, result.ticket?.status || result.ticket?.current_step_name);
-
-    } catch (err) {
-      setSubmitError(err.message);
-      console.error('Transition error:', err);
-    } finally {
-      setIsSubmitting(false);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || errorData.error || 'Invalid transition');
     }
-  };
+
+    const result = await response.json();
+    
+    // Find the new step details to get its workgroup
+    const allSteps = workflows.flatMap(wf => wf.steps || []);
+    const newStep = allSteps.find(s => s.stepCode === newStepCode || s.step_code === newStepCode);
+    
+    // Get new workgroup info
+    let newWorkgroupId = formData.workgroupId;
+    let newWorkgroupName = formData.workGroup;
+    
+    if (newStep && newStep.workgroupCode) {
+      const newWorkgroup = workgroups?.find(wg => wg.id === newStep.workgroupCode);
+      if (newWorkgroup) {
+        newWorkgroupId = newWorkgroup.id;
+        newWorkgroupName = newWorkgroup.name;
+      }
+    }
+    
+    // Update local state with new status AND workgroup
+    setFormData(prev => ({
+      ...prev,
+      stepCode: newStepCode,
+      status: result.ticket?.status || result.ticket?.current_step_name || prev.status,
+      workgroupId: newWorkgroupId,
+      workGroup: newWorkgroupName,
+      // Clear responsible if workgroup changed
+      responsibleEmployeeId: newWorkgroupId !== prev.workgroupId ? '' : prev.responsibleEmployeeId,
+      responsible: newWorkgroupId !== prev.workgroupId ? '' : prev.responsible
+    }));
+
+    // Add activity log entry
+    await addActivityEntry('status', formData.status, result.ticket?.status || result.ticket?.current_step_name);
+
+  } catch (err) {
+    setSubmitError(err.message);
+    console.error('Transition error:', err);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
 // Update formData fields
 const handleInputChange = (e) => {
   const { name, value } = e.target;
   
   if (name === 'status') {
-    // Find the selected step to get its name
     const selectedStep = allowedSteps.find(step => step.step_code === value);
     const selectedStepName = selectedStep ? selectedStep.step_name : formData.status;
-    
-    // Update both stepCode AND status name
-    setFormData(prev => ({ 
-      ...prev, 
+  
+    // Find the workgroup for the new step
+    const allSteps = workflows.flatMap(wf => wf.steps || []);
+    const newStep = allSteps.find(s => s.step_code === value || s.stepCode === value);
+  
+    let newWorkgroupId = formData.workgroupId;
+    let newWorkgroupName = formData.workGroup;
+  
+    if (newStep && newStep.workgroupCode) {
+      const newWorkgroup = workgroups?.find(wg => wg.id === newStep.workgroupCode);
+      if (newWorkgroup) {
+        newWorkgroupId = newWorkgroup.id;
+        newWorkgroupName = newWorkgroup.name;
+      }
+    }
+  
+    setFormData(prev => ({
+      ...prev,
       stepCode: value,
-      status: selectedStepName  // Add this line
+      status: selectedStepName,
+      workgroupId: newWorkgroupId,
+      workGroup: newWorkgroupName,
+      responsibleEmployeeId: '',   // always clear
+      responsible: ''               // always clear
     }));
     return;
   }
   
-  if (name === 'responsible') {
-    const responsibleEmployee = employees?.find(emp => emp.name === value);
+  if (name === 'responsibleEmployeeId') {
+    const responsibleEmployee = employees?.find(emp => emp.id === value);
     setFormData(prev => ({
       ...prev,
-      responsible: value,
-      responsibleEmployeeId: responsibleEmployee ? responsibleEmployee.id : '',
+      responsibleEmployeeId: value,
+      responsible: responsibleEmployee ? responsibleEmployee.name : '',
     }));
     return;
   }
@@ -507,8 +542,6 @@ if (allowedSteps && allowedSteps.length > 0) {
     });
 }
 
-console.log('Current stepCode:', formData.stepCode);
-console.log('StatusOptions:', statusOptions);
 
   return (
     <div className="relative space-y-6">

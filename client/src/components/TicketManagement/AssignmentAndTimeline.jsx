@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "../Card";
 const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employees, moduleOptions }) => {
   // ✅ Filter employees by current workGroup (name)
   const eligibleEmployees = employees
-    ? employees.filter(emp => emp.workgroupCode === formData.workgroupId)
-    : [];
+  ? employees.filter(emp => String(emp.workgroupId) === String(formData.workgroupId))
+  : [];
 
   return (
     <Card className="bg-white h-fit">
@@ -42,32 +42,32 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
         </div>
 
         {/* Responsible dropdown */}
-        <div>
-          <label
-            htmlFor="responsible"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Person Responsible
-          </label>
-          <select
-            id="responsible"
-            name="responsible"
-            value={formData.responsible}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          >
-            <option value="">Select person</option>
-            {eligibleEmployees.length > 0 ? (
-              eligibleEmployees.map(employee => (
-                <option key={employee.id} value={employee.name}>
-                  {employee.name}
-                </option>
-              ))
-            ) : (
-              <option disabled>No employees available</option>
-            )}
-          </select>
-        </div>
+<div>
+  <label
+    htmlFor="responsible"
+    className="block text-sm font-medium text-gray-700 dark:text-gray-300"
+  >
+    Person Responsible
+        </label>
+        <select
+  id="responsible"
+  name="responsibleEmployeeId"
+  value={formData.responsibleEmployeeId || ""}
+  onChange={handleInputChange}
+  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+>
+  <option value="">Select person</option>
+  {eligibleEmployees.length > 0 ? (
+    eligibleEmployees.map(employee => (
+      <option key={employee.id} value={employee.id}>
+        {employee.name}
+      </option>
+    ))
+  ) : (
+    <option disabled>No employees available</option>
+  )}
+</select>
+</div>
 
         {/* Module dropdown */}
         <div>
