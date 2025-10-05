@@ -1,4 +1,33 @@
-// TicketDetailsForm.jsx - UPDATED FOR WORKFLOW INTEGRATION
+// TicketDetailsForm.jsx - UPDATED WITH REACTFLOW
+import ReactFlow, { Background } from 'reactflow'
+import 'reactflow/dist/style.css'
+
+if (typeof window !== 'undefined') {
+  const errorHandler = (event) => {
+    if (
+      event.message.includes('ResizeObserver loop') ||
+      event.message.includes('ResizeObserver loop completed with undelivered notifications')
+    ) {
+      event.stopImmediatePropagation();
+    }
+  };
+  window.addEventListener('error', errorHandler);
+}
+
+// Suppress ResizeObserver errors (harmless ReactFlow warning)
+const suppressResizeObserver = () => {
+  const resizeObserverErr = window.console.error;
+  window.console.error = (...args) => {
+    if (args[0]?.includes?.('ResizeObserver loop')) {
+      return;
+    }
+    resizeObserverErr(...args);
+  };
+};
+
+// Call it once
+suppressResizeObserver();
+
 const TicketDetailsForm = ({ 
   formData, 
   handleInputChange, 
@@ -6,7 +35,9 @@ const TicketDetailsForm = ({
   tags = [], 
   statusOptions = [], 
   priorityOptions = [],
-  loadingSteps = false
+  loadingSteps = false,
+  workflow = null,
+  ticket = null
 }) => {
 
   // Card Component Structure
@@ -21,8 +52,126 @@ const TicketDetailsForm = ({
   );
   const CardContent = ({ children, className = "" }) => <div className={className}>{children}</div>;
 
+const WorkflowDiagram = ({ steps = [], currentStepName = '', selectedStepName = '' }) => {
+  if (!steps || steps.length === 0) {
+    return (
+      <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
+        No workflow steps defined
+      </div>
+    );
+  }
+
+  const nodes = steps.map((step, i) => {
+    const stepName = step.stepName || step.step_name || step.name || '';
+    const isCurrent = stepName === currentStepName;
+    const isSelected = stepName === selectedStepName;
+    const isDifferent = selectedStepName && currentStepName !== selectedStepName;
+
+    let border, background, color, boxShadow, label;
+    
+    if (isCurrent && !isDifferent) {
+      // Current status (saved in DB) - BLUE
+      border = '2px solid var(--current-color)';
+      background = 'var(--current-bg)';
+      color = 'var(--current-text)';
+      boxShadow = '0 0 12px var(--current-shadow)';
+      label = `${stepName}\n(Current)`;
+    } else if (isSelected) {
+      // Selected status (preview, not saved yet) - GREEN
+      border = '2px solid var(--selected-color)';
+      background = 'var(--selected-bg)';
+      color = 'var(--selected-text)';
+      boxShadow = '0 0 12px var(--selected-shadow)';
+      label = isDifferent ? `${stepName}\n(Selected)` : stepName;
+    } else {
+      // Default inactive step
+      border = '1px solid var(--border-color)';
+      background = 'var(--node-bg)';
+      color = 'var(--text-color)';
+      boxShadow = 'none';
+      label = stepName;
+    }
+
+    return {
+      id: `step-${i}`,
+      position: { x: i * 200, y: 0 },
+      data: { label },
+      style: {
+        border,
+        borderRadius: '8px',
+        padding: '10px',
+        background,
+        color,
+        fontSize: '12px',
+        fontWeight: (isCurrent || isSelected) ? 'bold' : 'normal',
+        boxShadow,
+        whiteSpace: 'pre-line',
+        textAlign: 'center',
+      },
+      sourcePosition: 'right',
+      targetPosition: 'left',
+    };
+  });
+
+  const edges = steps.slice(0, -1).map((_, i) => ({
+    id: `edge-${i}`,
+    source: `step-${i}`,
+    target: `step-${i + 1}`,
+    type: 'smoothstep',
+    style: { stroke: 'var(--edge-color)' },
+  }));
+
+  return (
+  <div
+    style={{
+      height: 200,
+      // Current step (BLUE) - Light mode
+      '--current-color': '#3b82f6',
+      '--current-bg': '#93c5fd',  // Solid blue-300
+      '--current-text': '#1e3a8a',
+      '--current-shadow': 'rgba(59,130,246,0.5)',
+      // Selected step (GREEN) - Light mode
+      '--selected-color': '#10b981',
+      '--selected-bg': '#6ee7b7',  // Solid green-300
+      '--selected-text': '#065f46',
+      '--selected-shadow': 'rgba(16,185,129,0.5)',
+      // Default - Light mode
+      '--node-bg': '#ffffff',
+      '--border-color': '#d1d5db',
+      '--text-color': '#111827',
+      '--edge-color': '#9ca3af',
+    }}
+    className="border border-gray-300 rounded-md overflow-hidden dark:border-gray-600"
+  >
+    <style>{`
+      .dark [style*="--current-bg"] {
+        --current-color: #60a5fa !important;
+        --current-bg: #1e40af !important;
+        --current-text: #dbeafe !important;
+        --current-shadow: rgba(96,165,250,0.6) !important;
+      }
+      .dark [style*="--selected-bg"] {
+        --selected-color: #34d399 !important;
+        --selected-bg: #047857 !important;
+        --selected-text: #d1fae5 !important;
+        --selected-shadow: rgba(52,211,153,0.6) !important;
+      }
+      .dark [style*="--node-bg"] {
+        --node-bg: #1f2937 !important;
+        --border-color: #374151 !important;
+        --text-color: #f9fafb !important;
+        --edge-color: #6b7280 !important;
+      }
+    `}</style>
+    <ReactFlow nodes={nodes} edges={edges} fitView>
+      <Background />
+    </ReactFlow>
+  </div>
+  );
+};
+
   console.log('Select value (formData.stepCode):', formData.stepCode);
-console.log('Available options:', statusOptions.map(o => o.value));
+  console.log('Available options:', statusOptions.map(o => o.value));
   
   return (
     <div className="space-y-6">
@@ -61,7 +210,7 @@ console.log('Available options:', statusOptions.map(o => o.value));
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Status Dropdown - Now with workflow validation */}
+            {/* Status Dropdown */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Status
@@ -117,6 +266,30 @@ console.log('Available options:', statusOptions.map(o => o.value));
               </select>
             </div>
           </div>
+
+          {/* Workflow diagram with ReactFlow */}
+          {workflow && (
+            <div className="mt-6 p-4 bg-gradient-to-br  dark:from-gray-700 dark:to-gray-750 rounded-lg border border-gray-300 dark:border-gray-600">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-4 h-4 text-gray-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Workflow: {workflow.name}
+                </h4>
+              </div>
+              <WorkflowDiagram
+                steps={workflow.steps}
+                currentStepName={ticket?.status}
+                selectedStepName={formData.status}
+              />
+              {formData.status !== ticket?.status && (
+                <p className="text-xs text-gray-600 dark:text-blue-400 mt-2 font-medium">
+                  ⓘ Preview: Status will change from "{ticket?.status}" to "{formData.status}" when you save
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

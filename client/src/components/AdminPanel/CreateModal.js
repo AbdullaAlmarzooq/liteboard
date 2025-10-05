@@ -1,7 +1,30 @@
 import React from 'react';
 import { X } from 'lucide-react';
 
-const CreateModal = ({ activeTab, createForm, handleCreateInputChange, handleCreateSkillsChange, handleCreateSave, handleCreateCancel, workgroups }) => {
+const colorOptions = [
+  '#EF4444', // red
+  '#F97316', // orange
+  '#FACC15', // yellow
+  '#22C55E', // green
+  '#06B6D4', // cyan
+  '#3B82F6', // blue
+  '#6366F1', // indigo
+  '#8B5CF6', // violet
+  '#D946EF', // fuchsia
+  '#EC4899', // pink
+  '#A3A3A3', // gray
+  '#10B981'  // emerald
+];
+
+const CreateModal = ({
+  activeTab,
+  createForm,
+  handleCreateInputChange,
+  handleCreateSkillsChange,
+  handleCreateSave,
+  handleCreateCancel,
+  workgroups
+}) => {
   const getTitle = () => {
     switch (activeTab) {
       case 'employees': return 'Add New Employee';
@@ -16,6 +39,7 @@ const CreateModal = ({ activeTab, createForm, handleCreateInputChange, handleCre
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
+          {/* Header */}
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">{getTitle()}</h3>
             <button
@@ -26,6 +50,7 @@ const CreateModal = ({ activeTab, createForm, handleCreateInputChange, handleCre
             </button>
           </div>
 
+          {/* Form Fields */}
           <div className="space-y-4">
             {activeTab === 'employees' && (
               <>
@@ -52,17 +77,15 @@ const CreateModal = ({ activeTab, createForm, handleCreateInputChange, handleCre
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Workgroup</label>
                   <select
-                   value={createForm.workgroup_code || ''}
-                     onChange={(e) => handleCreateInputChange('workgroup_code', e.target.value)}
-                     className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
-                   >
-                     <option value="">Select Workgroup</option>
-                     {workgroups && workgroups.map(wg => (
-                       <option key={wg.id} value={wg.id}>
-                         {wg.name}
-                       </option>
-                     ))}
-                   </select>
+                    value={createForm.workgroupCode || ''}
+                    onChange={(e) => handleCreateInputChange('workgroupCode', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                  >
+                    <option value="">Select Workgroup</option>
+                    {workgroups && workgroups.map(wg => (
+                      <option key={wg.id} value={wg.id}>{wg.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center space-x-2">
                   <input
@@ -76,17 +99,39 @@ const CreateModal = ({ activeTab, createForm, handleCreateInputChange, handleCre
               </>
             )}
 
+            {/* ✅ Tag Creation Form */}
             {activeTab === 'tags' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Label</label>
-                <input
-                  type="text"
-                  value={createForm.label || ''}
-                  onChange={(e) => handleCreateInputChange('label', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
-                  placeholder="Enter tag label"
-                />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Label</label>
+                  <input
+                    type="text"
+                    value={createForm.label || ''}
+                    onChange={(e) => handleCreateInputChange('label', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                    placeholder="Enter tag label"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Select Color</label>
+                  <div className="flex flex-wrap gap-2">
+                    {colorOptions.map((color) => (
+                      <button
+                        key={color}
+                        type="button"
+                        onClick={() => handleCreateInputChange('color', color)}
+                        className={`w-6 h-6 rounded-full border-2 ${
+                          createForm.color === color
+                            ? 'border-blue-500 scale-110'
+                            : 'border-gray-300'
+                        } transition-transform`}
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
 
             {activeTab === 'workgroups' && (
@@ -140,6 +185,7 @@ const CreateModal = ({ activeTab, createForm, handleCreateInputChange, handleCre
             )}
           </div>
 
+          {/* Footer Buttons */}
           <div className="flex justify-end space-x-3 mt-6">
             <button
               onClick={handleCreateCancel}

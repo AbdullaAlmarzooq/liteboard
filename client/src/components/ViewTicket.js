@@ -1,3 +1,4 @@
+// client/src/components/ViewTicket.js
 import { Card, CardContent, CardHeader, CardTitle } from "./Card"
 import Badge from "./Badge"
 import Button from "./Button"
@@ -173,33 +174,32 @@ const ViewTicket = () => {
   // Fetch status history - this should work now with your actual table
   const { data: statusHistory, isPending: isHistoryPending, error: historyError } = useFetch(`http://localhost:8000/api/status_history?ticketId=${ticketId}`)
 
-  // Transform raw ticket data to match component expectations
-  const ticket = useMemo(() => {
-    if (!rawTicket) return null;
-    
-    return {
-      id: rawTicket.id,
-      title: rawTicket.title,
-      description: rawTicket.description,
-      status: rawTicket.status,
-      priority: rawTicket.priority,
-      // FIX 1: Read the new camelCase aliases from the server response
-      workflowId: rawTicket.workflowId, 
-      workgroupId: rawTicket.workgroupId,
-      workGroup: rawTicket.workgroup_name || 'Unassigned',
-      moduleId: rawTicket.moduleId,
-      module: rawTicket.module_name || 'No Module',
-      initiateDate: rawTicket.initiateDate,
-      responsibleEmployeeId: rawTicket.responsibleEmployeeId,
-      responsible: rawTicket.responsible_name || 'Unassigned',
-      tags: rawTicket.tags || [],
-      dueDate: rawTicket.dueDate, // Corrected from due_date
-      startDate: rawTicket.startDate, // Corrected from start_date
-      // Also read comments and attachments from the raw ticket response
-      comments: rawTicket.comments || [], 
-      attachments: rawTicket.attachments || [] 
-    };
-  }, [rawTicket]);
+// Transform raw ticket data to match component expectations
+const ticket = useMemo(() => {
+  if (!rawTicket) return null;
+  
+  return {
+    id: rawTicket.id,
+    title: rawTicket.title,
+    description: rawTicket.description,
+    status: rawTicket.status,
+    priority: rawTicket.priority,
+    workflowId: rawTicket.workflowId || rawTicket.workflow_id, 
+    workgroupId: rawTicket.workgroupId || rawTicket.workgroup_id,
+    workGroup: rawTicket.workgroup_name || rawTicket.workGroup || 'Unassigned',
+    moduleId: rawTicket.moduleId || rawTicket.module_id,
+    // FIX: Handle null from backend - check rawTicket.module (which can be null) and provide fallback
+    module: rawTicket.module || rawTicket.module_name || 'No Module',
+    initiateDate: rawTicket.initiateDate || rawTicket.initiate_date,
+    responsibleEmployeeId: rawTicket.responsibleEmployeeId || rawTicket.responsible_employee_id,
+    responsible: rawTicket.responsible_name || rawTicket.responsible || 'Unassigned',
+    tags: rawTicket.tags || [],
+    dueDate: rawTicket.dueDate || rawTicket.due_date,
+    startDate: rawTicket.startDate || rawTicket.start_date,
+    comments: rawTicket.comments || [], 
+    attachments: rawTicket.attachments || [] 
+  };
+}, [rawTicket]);
 
   // Cancel ticket modal state
   const [showCancelModal, setShowCancelModal] = useState(false)
@@ -323,15 +323,32 @@ const ViewTicket = () => {
   }, [ticket, statusHistory])
 
   // Helper function to render tags properly
-  const renderTag = (tag, index) => {
-    const tagName = typeof tag === 'object' && tag.name ? tag.name : 
-                   typeof tag === 'object' && tag.label ? tag.label :
-                   typeof tag === 'string' ? tag : 'Unknown Tag';
-    
-    return (
-      <Badge key={index} variant="secondary">{tagName}</Badge>
-    );
-  };
+const renderTag = (tag, index) => {
+  const tagName = typeof tag === "object" && (tag.name || tag.label)
+    ? tag.name || tag.label
+    : typeof tag === "string"
+    ? tag
+    : "Unknown Tag";
+
+  const tagColor =
+    typeof tag === "object" && tag.color
+      ? tag.color
+      : "#9CA3AF"; // default gray if missing
+
+  return (
+    <span
+      key={index}
+      className="px-3 py-1 rounded-full text-sm font-medium"
+      style={{
+        backgroundColor: tagColor,
+        color: "#fff",
+        boxShadow: "0 0 4px rgba(0,0,0,0.2)",
+      }}
+    >
+      {tagName}
+    </span>
+  );
+};
 
   // Check if ticket can be cancelled (not already closed or cancelled)
   const canCancelTicket = ticket && !['Closed', 'Cancelled'].includes(ticket.status)

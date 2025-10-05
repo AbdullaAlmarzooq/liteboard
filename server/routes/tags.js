@@ -1,16 +1,25 @@
-// server/routes/tags.js
 const express = require("express");
-const db = require("../db/db"); 
+const db = require("../db/db");
 const router = express.Router();
 
-// Helper function to generate a simple ID (e.g., TAG-001) - NOTE: This is simplistic client-side ID generation
-// In a production environment, use UUIDs or rely on the DB to generate IDs.
-const generateTagId = (label) => {
-    // Simple logic: TAG- first 3 letters of label (uppercase) - random number
-    const prefix = label.substring(0, 3).toUpperCase();
-    const uniquePart = Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `TAG-${prefix}-${uniquePart}`;
-}
+// Helper function to generate sequential tag ID (e.g., TAG-001, TAG-002, ...)
+const generateTagId = (db) => {
+  const row = db.prepare(`
+    SELECT id 
+    FROM tags 
+    WHERE id LIKE 'TAG-%'
+    ORDER BY CAST(SUBSTR(id, 5) AS INTEGER) DESC 
+    LIMIT 1
+  `).get();
+
+  let nextNumber = 1;
+  if (row && row.id) {
+    const lastNumber = parseInt(row.id.replace("TAG-", ""), 10);
+    nextNumber = lastNumber + 1;
+  }
+
+  return `TAG-${String(nextNumber).padStart(3, "0")}`;
+};
 
 // --- GET all tags ---
 router.get("/", (req, res) => {
@@ -32,33 +41,35 @@ router.get("/", (req, res) => {
 // --- POST create new tag ---
 router.post("/", (req, res) => {
   const { label, color } = req.body;
-  
+
   if (!label) {
     return res.status(400).json({ error: "Tag label is required." });
   }
-  
-  // Use user-provided ID or generate a simple one
-  const id = req.body.id || generateTagId(label);
 
   try {
+    // Check for duplicate tag (case-insensitive)
+    const existing = db.prepare("SELECT id FROM tags WHERE LOWER(label) = LOWER(?)").get(label);
+    if (existing) {
+      return res.status(409).json({ error: "Tag with this label already exists." });
+    }
+
+    // Always use auto-generated sequential ID
+    const id = generateTagId(db);
+
     const insertTag = db.prepare(`
       INSERT INTO tags (id, label, color, created_at, updated_at)
       VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `);
-    
-    // Attempt to insert
-    insertTag.run(id, label, color || '#666666'); // Provide a default color if missing
 
-    res.status(201).json({ 
-        message: "Tag created successfully",
-        id: id,
-        label: label,
-        color: color || '#666666'
+    insertTag.run(id, label, color || "#666666");
+
+    res.status(201).json({
+      message: "Tag created successfully",
+      id,
+      label,
+      color: color || "#666666",
     });
   } catch (err) {
-    if (err.message.includes('UNIQUE constraint failed: tags.label')) {
-         return res.status(409).json({ error: "Tag with this label already exists." });
-    }
     console.error("Error creating tag:", err);
     res.status(500).json({ error: "Failed to create tag" });
   }
@@ -70,18 +81,18 @@ router.put("/:id", (req, res) => {
   const { label, color } = req.body;
 
   if (!label && !color) {
-    return res.status(400).json({ error: "At least one field (label or color) is required for update." });
+    return res.status(400).json({
+      error: "At least one field (label or color) is required for update.",
+    });
   }
-  
+
   try {
-    // 1. Fetch current tag data to avoid setting null/undefined if a field is missing in the body
     const existingTag = db.prepare("SELECT label, color FROM tags WHERE id = ?").get(id);
-    
+
     if (!existingTag) {
       return res.status(404).json({ error: "Tag not found" });
     }
-    
-    // Use the values from the request body, falling back to existing values
+
     const newLabel = label !== undefined ? label : existingTag.label;
     const newColor = color !== undefined ? color : existingTag.color;
 
@@ -94,14 +105,15 @@ router.put("/:id", (req, res) => {
     const result = updateTag.run(newLabel, newColor, id);
 
     if (result.changes === 0) {
-      // Could mean tag was not found or no change was made
-      return res.status(200).json({ message: "Tag updated successfully (or no changes made)." });
+      return res.status(200).json({
+        message: "Tag updated successfully (or no changes made).",
+      });
     }
 
     res.json({ message: "Tag updated successfully" });
   } catch (err) {
-    if (err.message.includes('UNIQUE constraint failed: tags.label')) {
-         return res.status(409).json({ error: "Tag with this label already exists." });
+    if (err.message.includes("UNIQUE constraint failed: tags.label")) {
+      return res.status(409).json({ error: "Tag with this label already exists." });
     }
     console.error("Error updating tag:", err);
     res.status(500).json({ error: "Failed to update tag" });
@@ -113,8 +125,6 @@ router.delete("/:id", (req, res) => {
   const { id } = req.params;
 
   try {
-    // SQLite foreign keys are set to ON DELETE CASCADE on ticket_tags, 
-    // so deleting the tag will automatically remove all associated ticket_tags entries.
     const deleteTag = db.prepare("DELETE FROM tags WHERE id = ?");
     const result = deleteTag.run(id);
 
@@ -128,6 +138,5 @@ router.delete("/:id", (req, res) => {
     res.status(500).json({ error: "Failed to delete tag" });
   }
 });
-
 
 module.exports = router;

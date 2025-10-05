@@ -1,4 +1,4 @@
-// EditTicket.js - INTEGRATED WITH WORKFLOW APIs
+// EditTicket.js - FIXED WITH COMPLETE ACTIVITY LOGGING
 import { useState, useEffect } from 'react';
 import useFetch from "../../useFetch";
 import Button from "../Button";
@@ -17,6 +17,7 @@ const EditTicket = () => {
   const { data: tagsList } = useFetch('http://localhost:8000/api/tags'); 
   const { data: workgroups } = useFetch('http://localhost:8000/api/workgroups');
   const { data: workflows, isPending: workflowsPending } = useFetch('http://localhost:8000/api/workflows');
+  const { data: modules } = useFetch('http://localhost:8000/api/modules'); // Fetch modules from API
 
   // Form state
   const [formData, setFormData] = useState({
@@ -54,45 +55,34 @@ const EditTicket = () => {
   const [submitError, setSubmitError] = useState('');
   const [isAddingComment, setIsAddingComment] = useState(false);
 
-  // Workflow status options - NOW FETCHED FROM API
+  // Workflow status options
   const [allowedSteps, setAllowedSteps] = useState([]);
   const [loadingSteps, setLoadingSteps] = useState(false);
 
   // Populate form when ticket loads
   useEffect(() => {
     if (ticket) {
+      const currentStepCode = formData.stepCode || ticket?.stepCode || ticket?.step_code;
 
-      console.log('Ticket step_code:', ticket?.step_code);
-      console.log('Ticket stepCode:', ticket?.stepCode);
-      console.log('Full ticket object:', ticket);
-      
-// Build status options properly
-const currentStepCode = formData.stepCode || ticket?.stepCode || ticket?.step_code;
+      const statusOptions = [];
 
-const statusOptions = [];
+      if (currentStepCode && formData.status) {
+        statusOptions.push({ 
+          value: currentStepCode, 
+          label: formData.status 
+        });
+      }
 
-// Always add current step first
-if (currentStepCode && formData.status) {
-  statusOptions.push({ 
-    value: currentStepCode, 
-    label: formData.status 
-  });
-}
-
-// Add allowed next steps (excluding current)
-if (allowedSteps && allowedSteps.length > 0) {
-  allowedSteps
-    .filter(step => step.step_code !== currentStepCode)
-    .forEach(step => {
-      statusOptions.push({
-        value: step.step_code,
-        label: step.step_name
-      });
-    });
-}
-
-console.log('formData.stepCode:', formData.stepCode);
-console.log('statusOptions:', statusOptions);
+      if (allowedSteps && allowedSteps.length > 0) {
+        allowedSteps
+          .filter(step => step.step_code !== currentStepCode)
+          .forEach(step => {
+            statusOptions.push({
+              value: step.step_code,
+              label: step.step_name
+            });
+          });
+      }
 
       setFormData({
         title: ticket.title || '',
@@ -113,10 +103,6 @@ console.log('statusOptions:', statusOptions);
       });
       setComments(ticket.comments || []);
       setSavedAttachments(ticket.attachments || []);
-
-      console.log('Loaded ticket step_code:', currentStepCode);
-      console.log('Full ticket data:', ticket);
-
     }
   }, [ticket]);
 
@@ -150,7 +136,6 @@ console.log('statusOptions:', statusOptions);
   const autoAssignWorkgroup = async (newStepCode) => {
     if (!workflows || !newStepCode) return;
 
-    // Find the new step details
     const allSteps = workflows.flatMap(wf => wf.steps || []);
     const newStep = allSteps.find(s => s.stepCode === newStepCode || s.step_code === newStepCode);
 
@@ -158,21 +143,18 @@ console.log('statusOptions:', statusOptions);
       const workgroup = workgroups?.find(wg => wg.id === newStep.workgroupCode);
       
       if (workgroup) {
-        // Update workgroup in form
         setFormData(prev => ({
           ...prev,
           workgroupId: workgroup.id,
           workGroup: workgroup.name
         }));
 
-        // Try to auto-assign responsible employee from workgroup
         if (employees && employees.length > 0) {
           const eligibleEmployees = employees.filter(
             emp => emp.workgroupCode === workgroup.id
           );
 
           if (eligibleEmployees.length > 0) {
-            // Assign to first available employee
             const assignee = eligibleEmployees[0];
             setFormData(prev => ({
               ...prev,
@@ -185,119 +167,118 @@ console.log('statusOptions:', statusOptions);
     }
   };
 
- // Handle status change with workflow transition
-const handleStatusChange = async (newStepCode) => {
-  if (!newStepCode || newStepCode === formData.stepCode) return;
+  // Handle status change with workflow transition
+  const handleStatusChange = async (newStepCode) => {
+    if (!newStepCode || newStepCode === formData.stepCode) return;
 
-  setIsSubmitting(true);
-  setSubmitError('');
+    setIsSubmitting(true);
+    setSubmitError('');
 
-  try {
-    // Call the transition endpoint
-    const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ step_code: newStepCode })
-    });
+    try {
+      const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_code: newStepCode })
+      });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || errorData.error || 'Invalid transition');
-    }
-
-    const result = await response.json();
-    
-    // Find the new step details to get its workgroup
-    const allSteps = workflows.flatMap(wf => wf.steps || []);
-    const newStep = allSteps.find(s => s.stepCode === newStepCode || s.step_code === newStepCode);
-    
-    // Get new workgroup info
-    let newWorkgroupId = formData.workgroupId;
-    let newWorkgroupName = formData.workGroup;
-    
-    if (newStep && newStep.workgroupCode) {
-      const newWorkgroup = workgroups?.find(wg => wg.id === newStep.workgroupCode);
-      if (newWorkgroup) {
-        newWorkgroupId = newWorkgroup.id;
-        newWorkgroupName = newWorkgroup.name;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || errorData.error || 'Invalid transition');
       }
+
+      const result = await response.json();
+      
+      const allSteps = workflows.flatMap(wf => wf.steps || []);
+      const newStep = allSteps.find(s => s.stepCode === newStepCode || s.step_code === newStepCode);
+      
+      let newWorkgroupId = formData.workgroupId;
+      let newWorkgroupName = formData.workGroup;
+      
+      if (newStep && newStep.workgroupCode) {
+        const newWorkgroup = workgroups?.find(wg => wg.id === newStep.workgroupCode);
+        if (newWorkgroup) {
+          newWorkgroupId = newWorkgroup.id;
+          newWorkgroupName = newWorkgroup.name;
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        stepCode: newStepCode,
+        status: result.ticket?.status || result.ticket?.current_step_name || prev.status,
+        workgroupId: newWorkgroupId,
+        workGroup: newWorkgroupName,
+        responsibleEmployeeId: newWorkgroupId !== prev.workgroupId ? '' : prev.responsibleEmployeeId,
+        responsible: newWorkgroupId !== prev.workgroupId ? '' : prev.responsible
+      }));
+
+      await addActivityEntry('status', formData.status, result.ticket?.status || result.ticket?.current_step_name);
+
+    } catch (err) {
+      setSubmitError(err.message);
+      console.error('Transition error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Update formData fields
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    
+    if (name === 'status') {
+      const selectedStep = allowedSteps.find(step => step.step_code === value);
+      const selectedStepName = selectedStep ? selectedStep.step_name : formData.status;
+    
+      const allSteps = workflows.flatMap(wf => wf.steps || []);
+      const newStep = allSteps.find(s => s.step_code === value || s.stepCode === value);
+    
+      let newWorkgroupId = formData.workgroupId;
+      let newWorkgroupName = formData.workGroup;
+    
+      if (newStep && newStep.workgroupCode) {
+        const newWorkgroup = workgroups?.find(wg => wg.id === newStep.workgroupCode);
+        if (newWorkgroup) {
+          newWorkgroupId = newWorkgroup.id;
+          newWorkgroupName = newWorkgroup.name;
+        }
+      }
+    
+      setFormData(prev => ({
+        ...prev,
+        stepCode: value,
+        status: selectedStepName,
+        workgroupId: newWorkgroupId,
+        workGroup: newWorkgroupName,
+        responsibleEmployeeId: '',
+        responsible: ''
+      }));
+      return;
     }
     
-    // Update local state with new status AND workgroup
-    setFormData(prev => ({
-      ...prev,
-      stepCode: newStepCode,
-      status: result.ticket?.status || result.ticket?.current_step_name || prev.status,
-      workgroupId: newWorkgroupId,
-      workGroup: newWorkgroupName,
-      // Clear responsible if workgroup changed
-      responsibleEmployeeId: newWorkgroupId !== prev.workgroupId ? '' : prev.responsibleEmployeeId,
-      responsible: newWorkgroupId !== prev.workgroupId ? '' : prev.responsible
-    }));
-
-    // Add activity log entry
-    await addActivityEntry('status', formData.status, result.ticket?.status || result.ticket?.current_step_name);
-
-  } catch (err) {
-    setSubmitError(err.message);
-    console.error('Transition error:', err);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
-// Update formData fields
-const handleInputChange = (e) => {
-  const { name, value } = e.target;
-  
-  if (name === 'status') {
-    const selectedStep = allowedSteps.find(step => step.step_code === value);
-    const selectedStepName = selectedStep ? selectedStep.step_name : formData.status;
-  
-    // Find the workgroup for the new step
-    const allSteps = workflows.flatMap(wf => wf.steps || []);
-    const newStep = allSteps.find(s => s.step_code === value || s.stepCode === value);
-  
-    let newWorkgroupId = formData.workgroupId;
-    let newWorkgroupName = formData.workGroup;
-  
-    if (newStep && newStep.workgroupCode) {
-      const newWorkgroup = workgroups?.find(wg => wg.id === newStep.workgroupCode);
-      if (newWorkgroup) {
-        newWorkgroupId = newWorkgroup.id;
-        newWorkgroupName = newWorkgroup.name;
-      }
+    if (name === 'responsibleEmployeeId') {
+      const responsibleEmployee = employees?.find(emp => emp.id === value);
+      setFormData(prev => ({
+        ...prev,
+        responsibleEmployeeId: value,
+        responsible: responsibleEmployee ? responsibleEmployee.name : '',
+      }));
+      return;
     }
-  
-    setFormData(prev => ({
-      ...prev,
-      stepCode: value,
-      status: selectedStepName,
-      workgroupId: newWorkgroupId,
-      workGroup: newWorkgroupName,
-      responsibleEmployeeId: '',   // always clear
-      responsible: ''               // always clear
-    }));
-    return;
-  }
-  
-  if (name === 'responsibleEmployeeId') {
-    const responsibleEmployee = employees?.find(emp => emp.id === value);
-    setFormData(prev => ({
-      ...prev,
-      responsibleEmployeeId: value,
-      responsible: responsibleEmployee ? responsibleEmployee.name : '',
-    }));
-    return;
-  }
-  
-  if (name === 'module') {
-    setFormData(prev => ({ ...prev, module: value }));
-    return;
-  }
-  
-  setFormData(prev => ({ ...prev, [name]: value }));
-};
+    
+    // FIX: Handle module selection - set both moduleId and module name
+    if (name === 'module') {
+      const selectedModule = modules?.find(mod => mod.id === value);
+      setFormData(prev => ({ 
+        ...prev, 
+        moduleId: value,
+        module: selectedModule ? selectedModule.name : value 
+      }));
+      return;
+    }
+    
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
 
   // Tag toggle handler
   const handleTagToggle = (tagLabel) => {
@@ -399,7 +380,7 @@ const handleInputChange = (e) => {
     }
   };
 
-  // Status history entry
+  // Status history entry - FIXED: Now handles null values properly
   const addActivityEntry = async (fieldName, oldValue, newValue) => {
     try {
       await fetch(`http://localhost:8000/api/status_history`, {
@@ -409,8 +390,8 @@ const handleInputChange = (e) => {
           ticket_id: ticketId,
           activity_type: fieldName === 'status' ? 'status_change' : 'field_change',
           field_name: fieldName,
-          old_value: oldValue,
-          new_value: newValue,
+          old_value: oldValue || null,
+          new_value: newValue || null,
           changed_by: 'Current User',
         }),
       });
@@ -419,74 +400,123 @@ const handleInputChange = (e) => {
     }
   };
 
-  const hasStatusChanged = formData.stepCode !== (ticket?.step_code || ticket?.stepCode);
-
-
-// Submit main ticket form
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsSubmitting(true);
-  setSubmitError('');
-  
-  const finalAttachments = [...savedAttachments, ...newAttachments];
-  
-  try {
-    // Check if status/step changed
-    const originalStepCode = ticket.step_code || ticket.stepCode;
-    const hasStatusChanged = formData.stepCode && formData.stepCode !== originalStepCode;
+  // Submit main ticket form - FIXED WITH COMPLETE LOGGING
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitError('');
     
-    // If status changed, call transition endpoint first
-    if (hasStatusChanged) {
-      const transitionResponse = await fetch(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step_code: formData.stepCode })
-      });
+    const finalAttachments = [...savedAttachments, ...newAttachments];
+    
+    try {
+      // Check if status/step changed
+      const originalStepCode = ticket.step_code || ticket.stepCode;
+      const hasStatusChanged = formData.stepCode && formData.stepCode !== originalStepCode;
+      
+      // If status changed, call transition endpoint first
+      if (hasStatusChanged) {
+        const transitionResponse = await fetch(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ step_code: formData.stepCode })
+        });
 
-      if (!transitionResponse.ok) {
-        const errorData = await transitionResponse.json();
-        throw new Error(errorData.message || errorData.error || 'Invalid transition');
+        if (!transitionResponse.ok) {
+          const errorData = await transitionResponse.json();
+          throw new Error(errorData.message || errorData.error || 'Invalid transition');
+        }
+
+        // ✅ LOG THE STATUS CHANGE
+        await addActivityEntry('status', ticket.status, formData.status);
+
+        // Auto-assign workgroup based on new step
+        await autoAssignWorkgroup(formData.stepCode);
       }
-
-      // Auto-assign workgroup based on new step
-      await autoAssignWorkgroup(formData.stepCode);
+      
+      // Track other field changes BEFORE updating
+      const fieldChanges = [];
+      
+      if (formData.priority !== ticket.priority) {
+        fieldChanges.push({ field: 'priority', oldValue: ticket.priority, newValue: formData.priority });
+      }
+      
+      if (formData.workgroupId !== (ticket.workgroup_id || ticket.workgroupId)) {
+        fieldChanges.push({ field: 'workGroup', oldValue: ticket.workGroup, newValue: formData.workGroup });
+      }
+      
+      if (formData.responsibleEmployeeId !== (ticket.responsible_employee_id || ticket.responsibleEmployeeId)) {
+        fieldChanges.push({ field: 'responsible', oldValue: ticket.responsible, newValue: formData.responsible });
+      }
+      
+      if (formData.module !== ticket.module) {
+        fieldChanges.push({ field: 'module', oldValue: ticket.module, newValue: formData.module });
+      }
+      
+      if (formData.dueDate !== (ticket.due_date || ticket.dueDate)) {
+        fieldChanges.push({ field: 'dueDate', oldValue: ticket.due_date || ticket.dueDate, newValue: formData.dueDate });
+      }
+      
+      if (formData.startDate !== (ticket.start_date || ticket.startDate)) {
+        fieldChanges.push({ field: 'startDate', oldValue: ticket.start_date || ticket.startDate, newValue: formData.startDate });
+      }
+      
+      // Check tag changes
+      const originalTags = ticket.tags || [];
+      const newTags = formData.tags || [];
+      const originalTagNames = originalTags.map(t => t.name);
+      const newTagNames = newTags.map(t => t.name);
+      
+      const addedTags = newTagNames.filter(tag => !originalTagNames.includes(tag));
+      const removedTags = originalTagNames.filter(tag => !newTagNames.includes(tag));
+      
+      // Then update other fields via PUT
+      const res = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: formData.title,
+          description: formData.description,
+          status: formData.status,
+          priority: formData.priority,
+          workflowId: formData.workflowId,
+          workgroupId: formData.workgroupId,
+          moduleId: formData.moduleId,
+          responsibleEmployeeId: formData.responsibleEmployeeId,
+          dueDate: formData.dueDate,
+          startDate: formData.startDate,
+          tags: formData.tags,
+        }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to update ticket');
+      }
+      
+      // ✅ LOG ALL FIELD CHANGES
+      for (const change of fieldChanges) {
+        await addActivityEntry(change.field, change.oldValue, change.newValue);
+      }
+      
+      // ✅ LOG TAG CHANGES
+      for (const tag of addedTags) {
+        await addActivityEntry('tags_added', null, tag);
+      }
+      for (const tag of removedTags) {
+        await addActivityEntry('tags_removed', tag, null);
+      }
+      
+      // Success - navigate away
+      setNewAttachments([]);
+      navigate(`/view-ticket/${ticketId}`);
+      
+    } catch (err) {
+      setSubmitError(err.message || 'Error updating ticket');
+      console.error('Update error:', err);
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    // Then update other fields via PUT
-    const res = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: formData.title,
-        description: formData.description,
-        status: formData.status, // Keep current status name
-        priority: formData.priority,
-        workflowId: formData.workflowId,
-        workgroupId: formData.workgroupId,
-        moduleId: formData.moduleId,
-        responsibleEmployeeId: formData.responsibleEmployeeId,
-        dueDate: formData.dueDate,
-        startDate: formData.startDate,
-        tags: formData.tags,
-      }),
-    });
-    
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || 'Failed to update ticket');
-    }
-    
-    // Success - navigate away
-    setNewAttachments([]);
-    navigate(`/view-ticket/${ticketId}`);
-    
-  } catch (err) {
-    setSubmitError(err.message || 'Error updating ticket');
-    console.error('Update error:', err);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  };
 
   if (isPending || workflowsPending) {
     return (
@@ -513,39 +543,35 @@ const handleSubmit = async (e) => {
   }
 
   const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
-  const moduleOptions = ['Authentication', 'Reporting Engine', 'User Management', 'Notification Service', 'Dashboard', 'UI/UX'];
 
-// Build status options with clear indicator
-const currentStepCode = formData.stepCode || ticket?.stepCode || ticket?.step_code;
-const originalStepCode = ticket?.stepCode || ticket?.step_code;
-const hasChanged = currentStepCode !== originalStepCode;
+  const currentStepCode = formData.stepCode || ticket?.stepCode || ticket?.step_code;
+  const originalStepCode = ticket?.stepCode || ticket?.step_code;
+  const hasChanged = currentStepCode !== originalStepCode;
 
-const statusOptions = [];
+  const statusOptions = [];
 
-if (currentStepCode && formData.status) {
-  statusOptions.push({ 
-    value: currentStepCode, 
-    label: hasChanged 
-      ? `${formData.status} ← Selected (will save on Update)` 
-      : `${formData.status} (Current)`
-  });
-}
-
-if (allowedSteps && allowedSteps.length > 0) {
-  allowedSteps
-    .filter(step => step.step_code !== currentStepCode)
-    .forEach(step => {
-      statusOptions.push({
-        value: step.step_code,
-        label: step.step_name
-      });
+  if (currentStepCode && formData.status) {
+    statusOptions.push({ 
+      value: currentStepCode, 
+      label: hasChanged 
+        ? `${formData.status} ← Selected (will save on Update)` 
+        : `${formData.status} (Current)`
     });
-}
+  }
 
+  if (allowedSteps && allowedSteps.length > 0) {
+    allowedSteps
+      .filter(step => step.step_code !== currentStepCode)
+      .forEach(step => {
+        statusOptions.push({
+          value: step.step_code,
+          label: step.step_name
+        });
+      });
+  }
 
   return (
     <div className="relative space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
@@ -563,15 +589,8 @@ if (allowedSteps && allowedSteps.length > 0) {
         </div>
       </div>
 
-      {hasStatusChanged && (
-  <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-  </p>
-)}
-
-      {/* Main Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column */}
           <div className="lg:col-span-2 space-y-6">
             <TicketDetailsForm
               formData={formData}
@@ -581,6 +600,8 @@ if (allowedSteps && allowedSteps.length > 0) {
               statusOptions={statusOptions}
               priorityOptions={priorityOptions}
               loadingSteps={loadingSteps}
+              workflow={workflows?.find(wf => wf.id === formData.workflowId)}
+              ticket={ticket}
             />
 
             <AttachmentUploader onAttachmentsChange={handleNewAttachmentsChange} />
@@ -611,14 +632,13 @@ if (allowedSteps && allowedSteps.length > 0) {
             />
           </div>
 
-          {/* Right Column */}
           <div className="space-y-6">
             <AssignmentAndTimeline
               formData={formData}
               handleInputChange={handleInputChange}
               workgroups={workgroups || []}
               employees={employees || []}
-              moduleOptions={moduleOptions}
+              moduleOptions={modules || []} // Pass modules from API
             />
 
             {savedAttachments.length > 0 && (

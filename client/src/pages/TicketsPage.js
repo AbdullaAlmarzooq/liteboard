@@ -273,17 +273,25 @@ const TicketsPage = () => {
                         </td>
                         <td className="p-3">
                           <div className="flex flex-wrap gap-1">
-                            {ticket.tags?.length > 0 ? ticket.tags.map(tag => (
-                              <Badge
-                                key={tag.id}
-                                variant="outline"
-                                className="text-xs"
-                              >
-                                {tag.name}
-                              </Badge>
-                            )) : (
-                              <span className="text-gray-400 text-xs">No tags</span>
-                            )}
+                  {ticket.tags?.length > 0 ? (
+                    ticket.tags.map(tag => (
+                      <span
+                        key={tag.id}
+                        className="px-2 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: tag.color || '#E5E7EB',
+                          color: tag.color
+                            ? '#fff'
+                            : '#374151',
+                        }}
+                      >
+                        {tag.name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-400 text-xs">No tags</span>
+                  )}
+
                           </div>
                         </td>
                         <td className="p-3 text-sm text-gray-600 dark:text-gray-400">
@@ -393,13 +401,25 @@ const TicketsPage = () => {
                     Tags:
                   </span>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {ticket.tags?.length > 0 ? ticket.tags.map(tag => (
-                      <Badge key={tag.id} variant="outline" className="text-xs">
+                  {ticket.tags?.length > 0 ? (
+                    ticket.tags.map(tag => (
+                      <span
+                        key={tag.id}
+                        className="px-2 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: tag.color || '#E5E7EB',
+                          color: tag.color
+                            ? '#fff'
+                            : '#374151',
+                        }}
+                      >
                         {tag.name}
-                      </Badge>
-                    )) : (
-                      <span className="text-gray-400 text-xs">No tags</span>
-                    )}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-400 text-xs">No tags</span>
+                  )}
+
                   </div>
                 </div>
                 <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">

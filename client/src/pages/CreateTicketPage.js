@@ -694,20 +694,6 @@ const CreateTicketPage = () => {
                     )}
                   </div>
 
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Add custom tag"
-                      value={customTag}
-                      onChange={e => setCustomTag(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                    />
-                    <Button type="button" variant="outline" onClick={addCustomTag}>
-                      Add
-                    </Button>
-                  </div>
-
                   {selectedTags.length > 0 && (
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
