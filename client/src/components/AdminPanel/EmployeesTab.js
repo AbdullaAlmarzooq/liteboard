@@ -4,6 +4,7 @@ import { Edit2, Save, X } from 'lucide-react';
 const EmployeesTab = ({
   employees,
   workgroups,
+  roles, // NEW: Roles prop
   editingItem,
   editForm,
   handleEdit,
@@ -14,6 +15,20 @@ const EmployeesTab = ({
   if (employees.length === 0) {
     return <div className="text-center py-8 text-gray-500">No employees found</div>;
   }
+
+  // Helper function to get role badge color
+  const getRoleBadgeColor = (roleName) => {
+    switch (roleName) {
+      case 'Admin':
+        return 'bg-red-100 text-red-800';
+      case 'Editor':
+        return 'bg-blue-100 text-blue-800';
+      case 'Viewer':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <div className="grid gap-4">
@@ -30,6 +45,12 @@ const EmployeesTab = ({
                   Active
                 </span>
               )}
+              {/* NEW: Role Badge */}
+              {employee.roleName && (
+                <span className={`text-xs px-2 py-1 rounded-full ${getRoleBadgeColor(employee.roleName)}`}>
+                  {employee.roleName}
+                </span>
+              )}
             </div>
             <div className="flex space-x-2">
               {editingItem === employee.id ? (
@@ -37,7 +58,7 @@ const EmployeesTab = ({
                   <button onClick={handleSave} className="text-green-600 hover:text-green-800">
                     <Save size={16} />
                   </button>
-                  <button onClick={handleCancel} className="text-red-600 hover:text-red-800">
+                  <button onClick={handleCancel} className="text-gray-600 hover:text-gray-800">
                     <X size={16} />
                   </button>
                 </>
@@ -66,14 +87,27 @@ const EmployeesTab = ({
                 placeholder="Email"
               />
               <select
-                value={editForm.workgroup_code || ''}
+                value={editForm.workgroup_code || editForm.workgroupId || ''}
                 onChange={(e) => handleInputChange('workgroup_code', e.target.value)}
                 className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
               >
-                <option value="" disabled>Select Workgroup</option>
+                <option value="">Select Workgroup</option>
                 {workgroups.map(wg => (
                   <option key={wg.id} value={wg.id}>
                     {wg.name}
+                  </option>
+                ))}
+              </select>
+              {/* NEW: Role Dropdown */}
+              <select
+                value={editForm.role_id || editForm.roleId || 3}
+                onChange={(e) => handleInputChange('role_id', parseInt(e.target.value))}
+                className="w-full p-1 border border-gray-200 rounded-md dark:border-gray-700 bg-gray-100 dark:bg-gray-800 shadow-sm"
+              >
+                <option value="">Select Role</option>
+                {roles.map(role => (
+                  <option key={role.id} value={role.id}>
+                    {role.name}
                   </option>
                 ))}
               </select>

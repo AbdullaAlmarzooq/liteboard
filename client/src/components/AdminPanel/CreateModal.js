@@ -23,7 +23,8 @@ const CreateModal = ({
   handleCreateSkillsChange,
   handleCreateSave,
   handleCreateCancel,
-  workgroups
+  workgroups,
+  roles // NEW: Roles prop
 }) => {
   const getTitle = () => {
     switch (activeTab) {
@@ -77,13 +78,29 @@ const CreateModal = ({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Workgroup</label>
                   <select
-                    value={createForm.workgroupCode || ''}
-                    onChange={(e) => handleCreateInputChange('workgroupCode', e.target.value)}
+                    value={createForm.workgroup_code || ''}
+                    onChange={(e) => handleCreateInputChange('workgroup_code', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   >
                     <option value="">Select Workgroup</option>
                     {workgroups && workgroups.map(wg => (
                       <option key={wg.id} value={wg.id}>{wg.name}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* NEW: Role Dropdown */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Role</label>
+                  <select
+                    value={createForm.role_id || 3}
+                    onChange={(e) => handleCreateInputChange('role_id', parseInt(e.target.value))}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                  >
+                    <option value="">Select Role</option>
+                    {roles && roles.map(role => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
                     ))}
                   </select>
                 </div>

@@ -17,6 +17,7 @@ const AdminPanel = () => {
   const [modules, setModules] = useState([]);
   const [workgroups, setWorkgroups] = useState([]);
   const [workflows, setWorkflows] = useState([]);
+  const [roles, setRoles] = useState([]); // NEW: Store roles
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [loading, setLoading] = useState(false);
@@ -38,12 +39,13 @@ const AdminPanel = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [empRes, tagsRes, wgRes, modRes, wfRes] = await Promise.all([
+      const [empRes, tagsRes, wgRes, modRes, wfRes, rolesRes] = await Promise.all([
         fetch('http://localhost:8000/api/employees'),
         fetch('http://localhost:8000/api/tags'),
         fetch('http://localhost:8000/api/workgroups'),
         fetch('http://localhost:8000/api/modules'),
-        fetch('http://localhost:8000/api/workflows')
+        fetch('http://localhost:8000/api/workflows'),
+        fetch('http://localhost:8000/api/employees/roles') // NEW: Fetch roles
       ]);
 
       setEmployees(await empRes.json());
@@ -51,6 +53,7 @@ const AdminPanel = () => {
       setWorkgroups(await wgRes.json());
       setModules(await modRes.json());
       setWorkflows(await wfRes.json());
+      setRoles(await rolesRes.json()); // NEW: Set roles
     } catch (error) {
       console.error('Error fetching data:', error);
     }
@@ -133,6 +136,7 @@ const AdminPanel = () => {
         name: '',
         email: '',
         workgroup_code: '',
+        role_id: 3, // NEW: Default to Viewer
         active: true,
         joined_date: new Date().toISOString().split('T')[0]
       };
@@ -310,6 +314,7 @@ const AdminPanel = () => {
           <EmployeesTab
             employees={employees}
             workgroups={workgroups}
+            roles={roles} // NEW: Pass roles to EmployeesTab
             editingItem={editingItem}
             editForm={editForm}
             handleEdit={handleEdit}
@@ -426,6 +431,7 @@ const AdminPanel = () => {
             handleCreateSave={handleCreateSave}
             handleCreateCancel={handleCreateCancel}
             workgroups={workgroups}
+            roles={roles} // NEW: Pass roles to CreateModal
           />
         )}
 

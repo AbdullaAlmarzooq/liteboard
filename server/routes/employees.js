@@ -27,6 +27,24 @@ const generateEmployeeId = (db) => {
 };
 
 // ----------------------------------------------------------------------
+// GET all roles (for dropdowns in admin panel)
+// ----------------------------------------------------------------------
+router.get("/roles", (req, res) => {
+  try {
+    const rolesQuery = `
+      SELECT id, name, description
+      FROM roles
+      ORDER BY id ASC
+    `;
+    const roles = db.prepare(rolesQuery).all();
+    res.json(roles);
+  } catch (err) {
+    console.error("Error fetching roles:", err);
+    res.status(500).json({ error: "Failed to fetch roles" });
+  }
+});
+
+// ----------------------------------------------------------------------
 // GET all active employees (for dropdowns)
 // ----------------------------------------------------------------------
 router.get("/", (req, res) => {
@@ -37,9 +55,12 @@ router.get("/", (req, res) => {
         e.name,
         e.email,
         e.workgroup_code AS workgroupId,
-        w.name AS workgroupName
+        w.name AS workgroupName,
+        e.role_id AS roleId,
+        r.name AS roleName
       FROM employees e
       LEFT JOIN workgroups w ON e.workgroup_code = w.id
+      LEFT JOIN roles r ON e.role_id = r.id
       WHERE e.active = 1
       ORDER BY e.name ASC
     `;
@@ -65,11 +86,14 @@ router.get("/:id", (req, res) => {
         e.email,
         e.workgroup_code AS workgroupId,
         w.name AS workgroupName,
+        e.role_id AS roleId,
+        r.name AS roleName,
         e.active, 
         e.created_at, 
         e.updated_at
       FROM employees e
       LEFT JOIN workgroups w ON e.workgroup_code = w.id
+      LEFT JOIN roles r ON e.role_id = r.id
       WHERE e.id = ?
     `;
     const employee = db.prepare(employeeQuery).get(id);
@@ -89,7 +113,7 @@ router.get("/:id", (req, res) => {
 // POST create a new employee
 // ----------------------------------------------------------------------
 router.post("/", (req, res) => {
-  const { name, email, workgroup_code } = req.body;
+  const { name, email, workgroup_code, role_id } = req.body;
 
   if (!name || !email) {
     return res.status(400).json({ error: "Name and email are required fields" });
@@ -104,10 +128,18 @@ router.post("/", (req, res) => {
         return res.status(409).json({ error: "Employee with this email already exists" });
     }
 
+    // Validate role_id if provided
+    if (role_id) {
+      const roleExists = db.prepare("SELECT id FROM roles WHERE id = ?").get(role_id);
+      if (!roleExists) {
+        return res.status(400).json({ error: "Invalid role_id" });
+      }
+    }
+
     const insertEmployee = db.prepare(`
       INSERT INTO employees 
-        (id, name, email, workgroup_code)
-      VALUES (?, ?, ?, ?)
+        (id, name, email, workgroup_code, role_id)
+      VALUES (?, ?, ?, ?, ?)
     `);
 
     insertEmployee.run(
@@ -115,6 +147,7 @@ router.post("/", (req, res) => {
       name, 
       email, 
       workgroup_code || null,
+      role_id || 3  // Default to Viewer (role_id = 3)
     );
 
     res.status(201).json({ message: "Employee created successfully", id: newId });
@@ -129,7 +162,7 @@ router.post("/", (req, res) => {
 // ----------------------------------------------------------------------
 router.put("/:id", (req, res) => {
   const { id } = req.params;
-  const { name, email, active, workgroup_code } = req.body;
+  const { name, email, active, workgroup_code, role_id } = req.body;
 
   if (!name || !email) {
     return res.status(400).json({ error: "All details are required fields" });
@@ -142,12 +175,21 @@ router.put("/:id", (req, res) => {
         return res.status(409).json({ error: "This email address is already in use by another employee" });
     }
 
+    // Validate role_id if provided
+    if (role_id) {
+      const roleExists = db.prepare("SELECT id FROM roles WHERE id = ?").get(role_id);
+      if (!roleExists) {
+        return res.status(400).json({ error: "Invalid role_id" });
+      }
+    }
+
     const updateEmployee = db.prepare(`
       UPDATE employees
       SET 
         name = ?, 
         email = ?, 
         workgroup_code = ?, 
+        role_id = ?,
         active = ?
       WHERE id = ?
     `);
@@ -158,7 +200,8 @@ router.put("/:id", (req, res) => {
     const result = updateEmployee.run(
       name, 
       email, 
-      workgroup_code || null, 
+      workgroup_code || null,
+      role_id || 3,  // Default to Viewer if not provided
       activeValue, 
       id
     );

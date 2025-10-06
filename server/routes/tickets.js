@@ -332,7 +332,8 @@ router.put("/:id", (req, res) => {
   const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
   const timestamp = bahrainTime.toISOString().slice(0, 19).replace('T', ' ');
 
-  try {
+    try {
+    
     const updateTicket = db.prepare(`
       UPDATE tickets 
       SET 
@@ -341,9 +342,6 @@ router.put("/:id", (req, res) => {
         responsible_employee_id = ?, due_date = ?, start_date = ?, updated_at = ?
       WHERE id = ?
     `);
-
-    // updateTicket.run(title, description, status, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, timestamp, id);
-
 
     const deleteExistingTags = db.prepare(`DELETE FROM ticket_tags WHERE ticket_id = ?`);
     const insertTag = db.prepare(`INSERT INTO ticket_tags (ticket_id, tag_id, created_at) VALUES (?, ?, datetime('now'))`);

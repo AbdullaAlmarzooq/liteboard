@@ -6,4 +6,10 @@ const path = require("path");
 const dbPath = path.resolve(__dirname, "liteboard.db");
 const db = new Database(dbPath, { verbose: console.log });
 
+const ticketTriggers = db.prepare("SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name='tickets'").all();
+console.log('\n=== TICKETS TABLE TRIGGERS ===');
+console.log(ticketTriggers);
+console.log('================================\n');
+
+
 module.exports = db;
