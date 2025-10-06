@@ -4,6 +4,8 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
+
 
 // Helper function to generate sequential employee ID (e.g., EMP-001, EMP-002, ...)
 const generateEmployeeId = (db) => {
@@ -54,6 +56,7 @@ router.get("/", (req, res) => {
         e.id, 
         e.name,
         e.email,
+        e.active,
         e.workgroup_code AS workgroupId,
         w.name AS workgroupName,
         e.role_id AS roleId,
@@ -61,7 +64,6 @@ router.get("/", (req, res) => {
       FROM employees e
       LEFT JOIN workgroups w ON e.workgroup_code = w.id
       LEFT JOIN roles r ON e.role_id = r.id
-      WHERE e.active = 1
       ORDER BY e.name ASC
     `;
     const rows = db.prepare(employeesQuery).all();
@@ -113,10 +115,10 @@ router.get("/:id", (req, res) => {
 // POST create a new employee
 // ----------------------------------------------------------------------
 router.post("/", (req, res) => {
-  const { name, email, workgroup_code, role_id } = req.body;
+  const { name, email, workgroup_code, role_id, password } = req.body;
 
-  if (!name || !email) {
-    return res.status(400).json({ error: "Name and email are required fields" });
+  if (!name || !email || !password) {
+    return res.status(400).json({ error: "Name, email, and password are required fields" });
   }
 
   try {
@@ -138,9 +140,17 @@ router.post("/", (req, res) => {
 
     const insertEmployee = db.prepare(`
       INSERT INTO employees 
-        (id, name, email, workgroup_code, role_id)
-      VALUES (?, ?, ?, ?, ?)
+        (id, name, email, workgroup_code, role_id, password_hash)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
+
+    let passwordHash = null;
+
+if (password && password.trim() !== "") {
+  const salt = bcrypt.genSaltSync(10);
+  passwordHash = bcrypt.hashSync(password, salt);
+}
+
 
     insertEmployee.run(
       newId, 
@@ -160,66 +170,76 @@ router.post("/", (req, res) => {
 // ----------------------------------------------------------------------
 // PUT update an existing employee
 // ----------------------------------------------------------------------
-router.put("/:id", (req, res) => {
+router.put('/:id', (req, res) => {
   const { id } = req.params;
-  const { name, email, active, workgroup_code, role_id } = req.body;
-
-  if (!name || !email) {
-    return res.status(400).json({ error: "All details are required fields" });
-  }
+  const {
+    name,
+    email,
+    roleId,
+    workgroupId,
+    active,
+    password
+  } = req.body;
 
   try {
-    // Check if the new email belongs to another employee
-    const emailConflict = db.prepare("SELECT id FROM employees WHERE email = ? AND id != ?").get(email, id);
-    if (emailConflict) {
-        return res.status(409).json({ error: "This email address is already in use by another employee" });
+    const employee = db.prepare('SELECT * FROM employees WHERE id = ?').get(id);
+    if (!employee) return res.status(404).json({ error: 'Employee not found' });
+
+    // Hash password if provided
+    let passwordHash = employee.password_hash;
+    if (password && password.trim() !== '') {
+      const salt = bcrypt.genSaltSync(10);
+      passwordHash = bcrypt.hashSync(password, salt);
     }
 
-    // Validate role_id if provided
-    if (role_id) {
-      const roleExists = db.prepare("SELECT id FROM roles WHERE id = ?").get(role_id);
-      if (!roleExists) {
-        return res.status(400).json({ error: "Invalid role_id" });
-      }
-    }
+    // Final values
+    const finalWorkgroupCode = workgroupId || employee.workgroup_code;
+    const finalRoleId = roleId || employee.role_id;
+    const finalActive = active !== undefined ? (active ? 1 : 0) : employee.active;
 
-    const updateEmployee = db.prepare(`
+    db.prepare(`
       UPDATE employees
-      SET 
-        name = ?, 
-        email = ?, 
-        workgroup_code = ?, 
-        role_id = ?,
-        active = ?
+      SET name = ?,
+          email = ?,
+          role_id = ?,
+          workgroup_code = ?,
+          active = ?,
+          password_hash = ?
       WHERE id = ?
-    `);
-    
-    // Convert boolean-like 'active' to integer 1 or 0 for SQLite
-    const activeValue = typeof active === 'boolean' ? (active ? 1 : 0) : active;
-
-    const result = updateEmployee.run(
-      name, 
-      email, 
-      workgroup_code || null,
-      role_id || 3,  // Default to Viewer if not provided
-      activeValue, 
+    `).run(
+      name || employee.name,
+      email || employee.email,
+      finalRoleId,
+      finalWorkgroupCode,
+      finalActive,
+      passwordHash,
       id
     );
 
-    if (result.changes === 0) {
-      // Check if employee exists before assuming no changes were made
-      const checkExists = db.prepare("SELECT id FROM employees WHERE id = ?").get(id);
-      if (!checkExists) {
-        return res.status(404).json({ error: "Employee not found" });
-      }
-      return res.status(200).json({ message: "Employee updated successfully (or no changes made)" });
-    }
+    // Return updated employee with joined names
+    const updatedEmployee = db.prepare(`
+      SELECT 
+        e.id,
+        e.name,
+        e.email,
+        e.workgroup_code AS workgroupId,
+        w.name AS workgroupName,
+        e.role_id AS roleId,
+        r.name AS roleName,
+        e.active
+      FROM employees e
+      LEFT JOIN workgroups w ON e.workgroup_code = w.id
+      LEFT JOIN roles r ON e.role_id = r.id
+      WHERE e.id = ?
+    `).get(id);
 
-    res.json({ message: "Employee updated successfully" });
-  } catch (err) {
-    console.error("Error updating employee:", err);
-    res.status(500).json({ error: "Failed to update employee" });
+    res.json(updatedEmployee);
+
+  } catch (error) {
+    console.error('Error updating employee:', error);
+    res.status(500).json({ error: 'Failed to update employee' });
   }
 });
+
 
 module.exports = router;

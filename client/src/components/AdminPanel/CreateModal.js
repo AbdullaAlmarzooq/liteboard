@@ -2,18 +2,9 @@ import React from 'react';
 import { X } from 'lucide-react';
 
 const colorOptions = [
-  '#EF4444', // red
-  '#F97316', // orange
-  '#FACC15', // yellow
-  '#22C55E', // green
-  '#06B6D4', // cyan
-  '#3B82F6', // blue
-  '#6366F1', // indigo
-  '#8B5CF6', // violet
-  '#D946EF', // fuchsia
-  '#EC4899', // pink
-  '#A3A3A3', // gray
-  '#10B981'  // emerald
+  '#EF4444', '#F97316', '#FACC15', '#22C55E', '#06B6D4', 
+  '#3B82F6', '#6366F1', '#8B5CF6', '#D946EF', '#EC4899', 
+  '#A3A3A3', '#10B981'
 ];
 
 const CreateModal = ({
@@ -24,8 +15,9 @@ const CreateModal = ({
   handleCreateSave,
   handleCreateCancel,
   workgroups,
-  roles // NEW: Roles prop
+  roles // Roles prop
 }) => {
+
   const getTitle = () => {
     switch (activeTab) {
       case 'employees': return 'Add New Employee';
@@ -43,10 +35,7 @@ const CreateModal = ({
           {/* Header */}
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold">{getTitle()}</h3>
-            <button
-              onClick={handleCreateCancel}
-              className="text-gray-400 hover:text-gray-600"
-            >
+            <button onClick={handleCreateCancel} className="text-gray-400 hover:text-gray-600">
               <X size={24} />
             </button>
           </div>
@@ -61,8 +50,8 @@ const CreateModal = ({
                     type="text"
                     value={createForm.name || ''}
                     onChange={(e) => handleCreateInputChange('name', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                     placeholder="Enter name"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   />
                 </div>
                 <div>
@@ -71,15 +60,15 @@ const CreateModal = ({
                     type="email"
                     value={createForm.email || ''}
                     onChange={(e) => handleCreateInputChange('email', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                     placeholder="Enter email"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Workgroup</label>
                   <select
-                    value={createForm.workgroup_code || ''}
-                    onChange={(e) => handleCreateInputChange('workgroup_code', e.target.value)}
+                    value={createForm.workgroupId || ''}
+                    onChange={(e) => handleCreateInputChange('workgroupId', e.target.value)}
                     className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   >
                     <option value="">Select Workgroup</option>
@@ -88,19 +77,16 @@ const CreateModal = ({
                     ))}
                   </select>
                 </div>
-                {/* NEW: Role Dropdown */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Role</label>
                   <select
-                    value={createForm.role_id || 3}
-                    onChange={(e) => handleCreateInputChange('role_id', parseInt(e.target.value))}
+                    value={createForm.roleId || 3}
+                    onChange={(e) => handleCreateInputChange('roleId', parseInt(e.target.value))}
                     className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   >
                     <option value="">Select Role</option>
                     {roles && roles.map(role => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
+                      <option key={role.id} value={role.id}>{role.name}</option>
                     ))}
                   </select>
                 </div>
@@ -116,7 +102,6 @@ const CreateModal = ({
               </>
             )}
 
-            {/* ✅ Tag Creation Form */}
             {activeTab === 'tags' && (
               <>
                 <div>
@@ -125,23 +110,20 @@ const CreateModal = ({
                     type="text"
                     value={createForm.label || ''}
                     onChange={(e) => handleCreateInputChange('label', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                     placeholder="Enter tag label"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Select Color</label>
                   <div className="flex flex-wrap gap-2">
-                    {colorOptions.map((color) => (
+                    {colorOptions.map(color => (
                       <button
                         key={color}
                         type="button"
                         onClick={() => handleCreateInputChange('color', color)}
                         className={`w-6 h-6 rounded-full border-2 ${
-                          createForm.color === color
-                            ? 'border-blue-500 scale-110'
-                            : 'border-gray-300'
+                          createForm.color === color ? 'border-blue-500 scale-110' : 'border-gray-300'
                         } transition-transform`}
                         style={{ backgroundColor: color }}
                       />
@@ -159,8 +141,8 @@ const CreateModal = ({
                     type="text"
                     value={createForm.name || ''}
                     onChange={(e) => handleCreateInputChange('name', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                     placeholder="Enter workgroup name"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   />
                 </div>
                 <div>
@@ -168,9 +150,9 @@ const CreateModal = ({
                   <textarea
                     value={createForm.description || ''}
                     onChange={(e) => handleCreateInputChange('description', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                     placeholder="Enter description"
                     rows="3"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   />
                 </div>
               </>
@@ -184,8 +166,8 @@ const CreateModal = ({
                     type="text"
                     value={createForm.name || ''}
                     onChange={(e) => handleCreateInputChange('name', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                     placeholder="Enter module name"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   />
                 </div>
                 <div>
@@ -193,16 +175,16 @@ const CreateModal = ({
                   <textarea
                     value={createForm.description || ''}
                     onChange={(e) => handleCreateInputChange('description', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                     placeholder="Enter module description"
                     rows="3"
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   />
                 </div>
               </>
             )}
           </div>
 
-          {/* Footer Buttons */}
+          {/* Footer */}
           <div className="flex justify-end space-x-3 mt-6">
             <button
               onClick={handleCreateCancel}
