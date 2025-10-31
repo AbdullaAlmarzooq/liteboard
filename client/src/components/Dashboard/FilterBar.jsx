@@ -69,14 +69,14 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
 
   // Modules depend only on workgroup
   const modulesTickets = allTickets.filter(
-    (t) => !selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroup_id)
+    (t) => !selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)
   );
   const allModules = [...new Set(modulesTickets.map((t) => t.module_name).filter(Boolean))].sort();
 
   // Statuses depend on workgroup + module
   const statusesTickets = allTickets.filter(
     (t) =>
-      (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroup_id)) &&
+      (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)) &&
       (!selectedModules.length || selectedModules.includes(t.module_name))
   );
   const allStatuses = [...new Set(statusesTickets.map((t) => t.status).filter(Boolean))].sort();
@@ -84,7 +84,7 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
   // Final filtered tickets (all 3 filters applied)
   const filteredTickets = allTickets.filter(
     (t) =>
-      (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroup_id)) &&
+      (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)) &&
       (!selectedModules.length || selectedModules.includes(t.module_name)) &&
       (!selectedStatuses.length || selectedStatuses.includes(t.status))
   );

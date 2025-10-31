@@ -17,7 +17,7 @@ const PendingTicketsPieChart = ({ tickets = [], workgroups = [] }) => {
       const counts = {};
       activeTickets.forEach((ticket) => {
         const groupName =
-          workgroups.find((w) => w.id === ticket.workgroup_id)?.name || ticket.workgroup_name || "Unknown";
+          workgroups.find((w) => w.id === ticket.workgroupId)?.name || ticket.workgroup_name || "Unknown";
         counts[groupName] = (counts[groupName] || 0) + 1;
       });
   

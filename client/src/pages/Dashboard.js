@@ -50,7 +50,7 @@ const Dashboard = () => {
     let filtered = [...allTickets];
 
     if (selectedWorkGroups?.length) {
-      filtered = filtered.filter(ticket => selectedWorkGroups.includes(ticket.workgroup_id));
+      filtered = filtered.filter(ticket => selectedWorkGroups.includes(ticket.workgroupId));
     }
 
     if (selectedModules?.length) {
