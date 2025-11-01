@@ -154,7 +154,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
         >
           <span>{title}</span>
           {hasSelection && (
-            <Badge variant="destructive" className="text-xs min-w-5 h-5 p-0 flex items-center justify-center">
+            <Badge variant="default" className="text-xs min-w-5 h-5 p-0 flex items-center justify-center">
               {isSpecial ? '1' : filters[category].length}
             </Badge>
           )}
@@ -206,7 +206,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
           <SlidersHorizontal />
           Filter Tickets
           {hasActiveFilters && (
-            <Badge variant="destructive" className="text-xs min-w-5 h-5 p-0 flex items-center justify-center">
+            <Badge variant="default" className="text-xs min-w-5 h-5 p-0 flex items-center justify-center">
               {getActiveFilterCount()}
             </Badge>
           )}
