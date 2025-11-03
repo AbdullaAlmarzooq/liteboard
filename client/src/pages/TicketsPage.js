@@ -3,6 +3,7 @@ import Badge from "../components/Badge"
 import Button from "../components/Button"
 import TicketFilter from "../components/TicketsPage/TicketFilter"
 import useFetch from "../useFetch"
+import { useAuth } from "../components/hooks/useAuth"
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom'
 import SearchBar from "../components/TicketsPage/SearchBar";
@@ -12,6 +13,10 @@ import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
 
 
 const TicketsPage = () => {
+
+  const { user } = useAuth();
+  const canEdit = user && (user.role_id === 1 || user.role_id === 2);
+
   const navigate = useNavigate()
   // Fixed: Updated API endpoint to match server route
   const { data: ticketsData, isPending, error } = useFetch('http://localhost:8000/api/tickets');
@@ -310,12 +315,15 @@ const TicketsPage = () => {
                             >
                               <Eye className="w-3 h-3" />
                             </button>
+                            {canEdit && (
                             <button
                               onClick={() => navigate(`/edit-ticket/${ticket.id}`)}
                               className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Edit className="w-3 h-3" />
                             </button>
+                            )}
+                            {user?.role_id === 1 && (
                             <button
                               onClick={() => openDeleteModal(ticket)}
                               disabled={isDeleting === ticket.id}
@@ -324,6 +332,7 @@ const TicketsPage = () => {
                               <Trash2 className="w-3 h-3" />
                               {isDeleting === ticket.id ? 'Deleting...' : ''}
                             </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -430,6 +439,7 @@ const TicketsPage = () => {
                     <Eye className="w-3 h-3" />
                     View
                   </button>
+                  {canEdit && (
                   <button
                     onClick={() => handleEdit(ticket.id)}
                     className="flex-1 px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 disabled:opacity-50 flex items-center justify-center gap-1"
@@ -437,6 +447,8 @@ const TicketsPage = () => {
                     <Edit className="w-3 h-3" />
                     Edit
                   </button>
+                  )}
+                  {user?.role_id === 1 && (
                   <button
                     onClick={() => openDeleteModal(ticket)}
                     disabled={isDeleting === ticket.id}
@@ -445,6 +457,7 @@ const TicketsPage = () => {
                     <Trash2 className="w-3 h-3" />
                     {isDeleting === ticket.id ? 'Deleting...' : 'Delete'}
                   </button>
+                  )}
                 </div>
               </CardContent>
             </Card>

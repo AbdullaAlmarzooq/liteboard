@@ -14,8 +14,15 @@ const Navigation = () => {
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { path: "/tickets", label: "Tickets", icon: <ClipboardList className="w-5 h-5" /> },
-    { path: "/create-ticket", label: "Create Ticket", icon: <FilePlus className="w-5 h-5" /> },
   ]
+
+  if (user.role_id === 1 || user.role_id === 2) {
+  navItems.push({
+    path: "/create-ticket",
+    label: "Create Ticket",
+    icon: <FilePlus className="w-5 h-5" />,
+  })
+}
 
   if (user.role_id === 1) {
     navItems.push({

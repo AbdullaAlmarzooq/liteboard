@@ -9,9 +9,16 @@ const ProtectedRoute = ({ children, requiredRole }) => {
     return <Navigate to="/login" replace />
   }
 
-  // If route has a role restriction, check it
-  if (requiredRole && user.role_id !== requiredRole) {
-    return <Navigate to="/dashboard" replace />
+  // If route has specific role requirements
+  if (requiredRole) {
+    const userRole = user.role_id
+
+    // Support both single role (e.g. 1) and multiple roles ([1, 2])
+    const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole]
+
+    if (!allowedRoles.includes(userRole)) {
+      return <Navigate to="/dashboard" replace />
+    }
   }
 
   return children

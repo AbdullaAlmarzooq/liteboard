@@ -1,8 +1,7 @@
-// server/routes/tickets.js
 const express = require("express");
 const db = require("../db/db"); // SQLite connection
 const router = express.Router();
-
+const authenticateToken = require("../middleware/authMiddleware"); // ✅ added
 
 // Helper to validate workflow transition
 const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
@@ -10,7 +9,7 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
     SELECT id FROM workflow_transitions
     WHERE workflow_id = ? AND from_step_code = ? AND to_step_code = ?
   `).get(workflowId, fromStepCode, toStepCode);
-  
+
   return !!transition;
 };
 
@@ -19,9 +18,9 @@ const getAllowedNextSteps = (ticketId) => {
   const ticket = db.prepare(`
     SELECT workflow_id, step_code FROM tickets WHERE id = ?
   `).get(ticketId);
-  
+
   if (!ticket) return [];
-  
+
   const allowedSteps = db.prepare(`
     SELECT 
       ws.step_code,
@@ -32,14 +31,15 @@ const getAllowedNextSteps = (ticketId) => {
     JOIN workflow_steps ws ON wt.to_step_code = ws.step_code
     WHERE wt.workflow_id = ? AND wt.from_step_code = ?
   `).all(ticket.workflow_id, ticket.step_code);
-  
+
   return allowedSteps;
 };
 
-// Get allowed next steps for a ticket
-router.get("/:id/allowed-steps", (req, res) => {
+// ----------------------------------------------------------------------
+// GET allowed next steps for a ticket (any logged-in user)
+// ----------------------------------------------------------------------
+router.get("/:id/allowed-steps", authenticateToken(), (req, res) => {
   const { id } = req.params;
-  
   try {
     const allowedSteps = getAllowedNextSteps(id);
     res.json(allowedSteps);
@@ -49,112 +49,82 @@ router.get("/:id/allowed-steps", (req, res) => {
   }
 });
 
-
+// ----------------------------------------------------------------------
 // POST update ticket status (workflow transition)
-router.post("/:id/transition", (req, res) => {
+// (Admins + Editors only)
+// ----------------------------------------------------------------------
+router.post("/:id/transition", authenticateToken([1, 2]), (req, res) => {
   const { id } = req.params;
   const { step_code } = req.body;
-  
+
   if (!step_code) {
     return res.status(400).json({ error: "step_code is required" });
   }
-  
+
   try {
-    const currentTicket = db.prepare(`
-      SELECT workflow_id, step_code, status FROM tickets WHERE id = ?
-    `).get(id);
-    
+    const currentTicket = db
+      .prepare(`SELECT workflow_id, step_code, status FROM tickets WHERE id = ?`)
+      .get(id);
+
     if (!currentTicket) {
       return res.status(404).json({ error: "Ticket not found" });
     }
-    
+
     if (step_code === currentTicket.step_code) {
       return res.json({ success: true, message: "Already in this step" });
     }
-    
+
     const isValid = isValidTransition(
       currentTicket.workflow_id,
       currentTicket.step_code,
       step_code
     );
-    
+
     if (!isValid) {
       return res.status(400).json({
         error: "Invalid workflow transition",
-        message: `Cannot transition from ${currentTicket.step_code} to ${step_code}`
+        message: `Cannot transition from ${currentTicket.step_code} to ${step_code}`,
       });
     }
-    
-    const newStep = db.prepare(`
-      SELECT step_name FROM workflow_steps WHERE step_code = ?
-    `).get(step_code);
-    
+
+    const newStep = db
+      .prepare(`SELECT step_name FROM workflow_steps WHERE step_code = ?`)
+      .get(step_code);
+
     if (!newStep) {
       return res.status(400).json({ error: "Invalid step_code" });
     }
-    
+
     db.prepare(`
       UPDATE tickets
       SET step_code = ?, status = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(step_code, newStep.step_name, id);
-    
-    const updatedTicket = db.prepare(`
-      SELECT t.*, ws.step_name as current_step_name
-      FROM tickets t
-      LEFT JOIN workflow_steps ws ON t.step_code = ws.step_code
-      WHERE t.id = ?
-    `).get(id);
-    
+
+    const updatedTicket = db
+      .prepare(
+        `SELECT t.*, ws.step_name as current_step_name
+         FROM tickets t
+         LEFT JOIN workflow_steps ws ON t.step_code = ws.step_code
+         WHERE t.id = ?`
+      )
+      .get(id);
+
     res.json({
       success: true,
       message: `Transitioned to ${newStep.step_name}`,
-      ticket: updatedTicket
+      ticket: updatedTicket,
     });
-    
   } catch (err) {
     console.error("Failed to transition ticket:", err);
     res.status(500).json({ error: "Failed to transition ticket" });
   }
 });
 
-// Helper: fetch all comments for a ticket
-const fetchTicketComments = (ticketId) => {
-  const commentsQuery = `
-    SELECT 
-      id, ticket_id, text, 
-      author AS created_by, 
-      timestamp AS created_at
-    FROM comments 
-    WHERE ticket_id = ? 
-    ORDER BY timestamp ASC
-  `;
-  return db.prepare(commentsQuery).all(ticketId);
-};
-
-
-// Helper: fetch all attachments for a ticket
-const fetchTicketAttachments = (ticketId) => {
-  const attachmentsQuery = `
-    SELECT 
-      id, ticket_id, 
-      filename AS name,
-      file_type AS type,
-      file_size AS size,
-      file_data AS data,
-      uploaded_at AS created_at,
-      uploaded_by AS created_by
-    FROM attachments 
-    WHERE ticket_id = ? 
-    ORDER BY uploaded_at ASC
-  `;
-  return db.prepare(attachmentsQuery).all(ticketId);
-};
-
 // ----------------------------------------------------------------------
-// GET all tickets (for list view, snake_case dates)
+// GET all tickets (any logged-in user)
 // ----------------------------------------------------------------------
-router.get("/", (req, res) => {
+router.get("/", authenticateToken(), (req, res) => {
   try {
     const ticketsQuery = `
       SELECT 
@@ -172,7 +142,6 @@ router.get("/", (req, res) => {
     `;
     const tickets = db.prepare(ticketsQuery).all();
 
-    // Collect tags in one query
     const tagsQuery = `
       SELECT tt.ticket_id, tg.id as tag_id, tg.label as tag_name, tg.color as tag_color 
       FROM ticket_tags tt 
@@ -209,9 +178,9 @@ router.get("/", (req, res) => {
 });
 
 // ----------------------------------------------------------------------
-// GET single ticket (for view/edit pages, camelCase fields)
+// GET single ticket (any logged-in user)
 // ----------------------------------------------------------------------
-router.get("/:id", (req, res) => {
+router.get("/:id", authenticateToken(), (req, res) => {
   const { id } = req.params;
 
   try {
@@ -245,8 +214,20 @@ router.get("/:id", (req, res) => {
     `;
     const tags = db.prepare(tagsQuery).all(id);
 
-    const comments = fetchTicketComments(id);
-    const attachments = fetchTicketAttachments(id);
+    const comments = db
+      .prepare(
+        `SELECT id, ticket_id, text, author AS created_by, timestamp AS created_at
+         FROM comments WHERE ticket_id = ? ORDER BY timestamp ASC`
+      )
+      .all(id);
+
+    const attachments = db
+      .prepare(
+        `SELECT id, ticket_id, filename AS name, file_type AS type, file_size AS size, file_data AS data,
+                uploaded_at AS created_at, uploaded_by AS created_by
+         FROM attachments WHERE ticket_id = ? ORDER BY uploaded_at ASC`
+      )
+      .all(id);
 
     const fullTicket = {
       ...ticket,
@@ -270,16 +251,15 @@ router.get("/:id", (req, res) => {
 });
 
 // ----------------------------------------------------------------------
-// CREATE ticket
+// CREATE ticket (Admins + Editors only)
 // ----------------------------------------------------------------------
-router.post("/", (req, res) => {
+router.post("/", authenticateToken([1, 2]), (req, res) => {
   const { id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, tag_ids } = req.body;
 
   try {
-    // Get current time in Bahrain timezone
     const now = new Date();
     const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
-    const timestamp = bahrainTime.toISOString().slice(0, 19).replace('T', ' '); // Format: YYYY-MM-DD HH:MM:SS
+    const timestamp = bahrainTime.toISOString().slice(0, 19).replace('T', ' ');
 
     const insertTicket = db.prepare(`
       INSERT INTO tickets 
@@ -311,29 +291,28 @@ router.post("/", (req, res) => {
 });
 
 // ----------------------------------------------------------------------
-// UPDATE ticket (fields + tags only)
+// UPDATE ticket (Admins + Editors only)
 // ----------------------------------------------------------------------
-router.put("/:id", (req, res) => {
+router.put("/:id", authenticateToken([1, 2]), (req, res) => {
   const { id } = req.params;
-
   const { 
     title, description, status, priority, workflowId, workgroupId, 
     moduleId, responsibleEmployeeId, dueDate, startDate, tags
   } = req.body;
 
-  const workflow_id = workflowId; // kept for clarity
+  const workflow_id = workflowId;
   const workgroup_id = workgroupId;
   const module_id = moduleId;
   const responsible_employee_id = responsibleEmployeeId;
   const due_date = dueDate;
   const start_date = startDate;
-  const tag_ids = tags ? tags.map(tag => tag.id) : []; 
+  const tag_ids = tags ? tags.map(tag => tag.id) : [];
+
   const now = new Date();
   const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
   const timestamp = bahrainTime.toISOString().slice(0, 19).replace('T', ' ');
 
-    try {
-    
+  try {
     const updateTicket = db.prepare(`
       UPDATE tickets 
       SET 
@@ -360,9 +339,7 @@ router.put("/:id", (req, res) => {
       if (tag_ids !== undefined) {
         deleteExistingTags.run(id);
         if (Array.isArray(tag_ids)) {
-          tag_ids.forEach(tag_id => {
-            insertTag.run(id, tag_id);
-          });
+          tag_ids.forEach(tag_id => insertTag.run(id, tag_id));
         }
       }
     });
@@ -379,9 +356,9 @@ router.put("/:id", (req, res) => {
 });
 
 // ----------------------------------------------------------------------
-// DELETE ticket
+// DELETE ticket (Admins only)
 // ----------------------------------------------------------------------
-router.delete("/:id", (req, res) => {
+router.delete("/:id", authenticateToken([1]), (req, res) => {
   const { id } = req.params;
 
   try {
@@ -396,9 +373,7 @@ router.delete("/:id", (req, res) => {
       deleteTicketTags.run(id);
 
       const result = deleteTicket.run(id);
-      if (result.changes === 0) {
-        throw new Error("Ticket not found");
-      }
+      if (result.changes === 0) throw new Error("Ticket not found");
     });
 
     transaction();

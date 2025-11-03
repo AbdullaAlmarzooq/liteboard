@@ -49,7 +49,7 @@ function AppLayout() {
           <Route
             path="/create-ticket"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requiredRole={[1, 2]}>
                 <CreateTicketPage />
               </ProtectedRoute>
             }

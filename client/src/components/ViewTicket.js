@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./Card"
 import Badge from "./Badge"
 import Button from "./Button"
 import useFetch from "../useFetch"
+import { useAuth } from "./hooks/useAuth"
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
 import ReactFlow, { Background } from 'reactflow'
@@ -10,11 +11,14 @@ import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3, Edit, X } from "luci
 import 'reactflow/dist/style.css'
 
 
+
 const WorkflowDiagram = ({ steps, currentStepName }) => {
   if (!steps || steps.length === 0) return null;
 
   const nodes = steps.map((step, i) => {
-    const isCurrent = step.stepName === currentStepName;
+  const isCurrent = step.stepName === currentStepName;
+
+
     return {
       id: `step-${i}`,
       position: { x: i * 200, y: 0 },
@@ -50,6 +54,7 @@ const WorkflowDiagram = ({ steps, currentStepName }) => {
     style: { stroke: 'var(--edge-color)' },
   }));
 
+
   return (
     <div
       style={{
@@ -80,6 +85,7 @@ const WorkflowDiagram = ({ steps, currentStepName }) => {
   );
 };
 
+
 // Cancel Ticket Modal Component
 const CancelTicketModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
   const [comment, setComment] = useState('')
@@ -100,6 +106,7 @@ const CancelTicketModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
     onClose()
   }
 
+
   useEffect(() => {
     if (comment.trim()) {
       setError('')
@@ -107,6 +114,7 @@ const CancelTicketModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
   }, [comment])
 
   if (!isOpen) return null
+
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -167,6 +175,8 @@ const CancelTicketModal = ({ isOpen, onClose, onConfirm, isLoading }) => {
 const ViewTicket = () => {
   const { ticketId } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth();
+  const canEdit = user && (user.role_id === 1 || user.role_id === 2);
   
   // Fetch ticket data with correct API endpoint
   const { data: rawTicket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}`)
@@ -351,7 +361,7 @@ const renderTag = (tag, index) => {
 };
 
   // Check if ticket can be cancelled (not already closed or cancelled)
-  const canCancelTicket = ticket && !['Closed', 'Cancelled'].includes(ticket.status)
+  const canCancelTicket = ticket && canEdit && !['Closed', 'Cancelled'].includes(ticket.status)
 
   if (isPending || isHistoryPending) {
     return <div className="flex items-center justify-center min-h-64 text-gray-500">Loading ticket details...</div>
@@ -369,13 +379,15 @@ const renderTag = (tag, index) => {
         <Button variant="outline" size="sm" onClick={() => navigate("/tickets")}>← Back to Tickets</Button>
         <h1 className="text-3xl font-bold">Ticket Details</h1>
         <div className="flex space-x-2">
-          <Button className = "bg-gray-400 hover:bg-gray-600 text-white dark:bg-gray-600 dark:hover:bg-gray-500"
-           onClick={() => navigate(`/edit-ticket/${ticketId}`)}>
-            <Edit />
-          </Button>
+          {canEdit && (
+            <Button className="bg-gray-400 hover:bg-gray-600 text-white dark:bg-gray-600 dark:hover:bg-gray-500"
+              onClick={() => navigate(`/edit-ticket/${ticketId}`)}>
+              <Edit />
+            </Button>
+          )}
           {canCancelTicket && (
             <Button 
-              className = "bg-red-400 hover:bg-red-600 text-white dark:bg-red-600 dark:hover:bg-red-500"
+              className="bg-red-400 hover:bg-red-600 text-white dark:bg-red-600 dark:hover:bg-red-500"
               onClick={() => setShowCancelModal(true)}
               disabled={isCancelling}
             >
