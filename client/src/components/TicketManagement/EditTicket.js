@@ -9,6 +9,8 @@ import CommentSection from './CommentSection';
 import AttachmentUploader from './AttachmentUploader';
 import { useAuth } from "../hooks/useAuth";
 import fetchWithAuth from "../../utils/fetchWithAuth";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 
 
@@ -416,6 +418,23 @@ const EditTicket = () => {
     e.preventDefault();
     setIsSubmitting(true);
     setSubmitError('');
+
+
+  const userWorkgroup = user?.workgroup_code || user?.workgroupCode;
+  const ticketWorkgroup = formData.workgroupId || ticket.workgroupId || ticket.workgroup_id;
+
+  if (
+    user.role_id !== 1 && // allow admin (role_id 1)
+    userWorkgroup &&
+    ticketWorkgroup &&
+    userWorkgroup !== ticketWorkgroup
+  ) {
+    toast.error("You are not part of this workgroup. You cannot edit this ticket.", {
+      position: "top-center",
+    });
+    setIsSubmitting(false);
+    return; 
+  }
     
     const finalAttachments = [...savedAttachments, ...newAttachments];
     

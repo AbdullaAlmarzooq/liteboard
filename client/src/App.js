@@ -10,6 +10,8 @@ import EditTicket from "./components/TicketManagement/EditTicket"
 import { ThemeProvider } from "./contexts/ThemeContext"
 import ProtectedRoute from "./components/Auth/ProtectedRoute"
 import LoginPage from "./pages/LoginPage"
+import { ToastContainer } from "react-toastify";
+
 
 function AppLayout() {
   const location = useLocation()
@@ -80,6 +82,7 @@ function AppLayout() {
           />
         </Routes>
       </main>
+        <ToastContainer position="top-center" autoClose={4000} />
     </div>
   )
 }

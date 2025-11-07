@@ -296,10 +296,12 @@ router.post("/", authenticateToken([1, 2]), (req, res) => {
 });
 
 // ----------------------------------------------------------------------
-// UPDATE ticket (Admins + Editors only)
+// UPDATE ticket (Admins + Editors only), must be same workgroup unless Admin)
 // ----------------------------------------------------------------------
-// ✅ Fixed: Using authenticateToken([1, 2])
-router.put("/:id", authenticateToken([1, 2]), (req, res) => {
+const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
+
+router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, (req, res) => {
+
   const { id } = req.params;
   const { 
     title, description, status, priority, workflowId, workgroupId, 
