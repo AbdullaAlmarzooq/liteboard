@@ -1,7 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Badge from '../Badge';
 
-const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
+const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
+  // --- FIX: Safely ensure 'tickets' is an array before attempting .filter() ---
+  const tickets = Array.isArray(allTickets) ? allTickets : [];
+
   const [selectedWorkGroups, setSelectedWorkGroups] = useState([]);
   const [selectedModules, setSelectedModules] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
@@ -69,13 +72,15 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
   const allWorkGroups = workgroups;
 
   // Modules depend only on workgroup
-  const modulesTickets = allTickets.filter(
+  // Note: Using the sanitized 'tickets' array now
+  const modulesTickets = tickets.filter(
     (t) => !selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)
   );
   const allModules = [...new Set(modulesTickets.map((t) => t.module_name).filter(Boolean))].sort();
 
   // Statuses depend on workgroup + module
-  const statusesTickets = allTickets.filter(
+  // Note: Using the sanitized 'tickets' array now
+  const statusesTickets = tickets.filter(
     (t) =>
       (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)) &&
       (!selectedModules.length || selectedModules.includes(t.module_name))
@@ -83,7 +88,8 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
   const allStatuses = [...new Set(statusesTickets.map((t) => t.status).filter(Boolean))].sort();
 
   // Final filtered tickets (all 3 filters applied)
-  const filteredTickets = allTickets.filter(
+  // Note: Using the sanitized 'tickets' array now
+  const filteredTickets = tickets.filter(
     (t) =>
       (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)) &&
       (!selectedModules.length || selectedModules.includes(t.module_name)) &&
@@ -152,94 +158,94 @@ const FilterBar = ({ onFilterChange, allTickets = [], workgroups = [] }) => {
     return group ? group.name : id;
   };
 
-// Helper array to combine all active filters into a display list
-const activeFilters = [
-  ...selectedWorkGroups.map(id => ({ // Changed 'value' to 'id' for clarity
-    category: 'WorkGroup',
-    // **********************************************
-    // NEW: Use the helper to get the NAME for the badge value
-    value: getWorkGroupName(id),
-    // **********************************************
-    // The remove function must still pass the ID back to the handler for state update
-    remove: () => handleWorkGroupChange({ target: { value: id, checked: false } })
-  })),
-  ...selectedModules.map(value => ({
-    category: 'Module',
-    value,
-    remove: () => handleModuleChange({ target: { value, checked: false } })
-  })),
-  ...selectedStatuses.map(value => ({
-    category: 'Status',
-    value,
-    remove: () => handleStatusChange({ target: { value, checked: false } })
-  })),
-];
+  // Helper array to combine all active filters into a display list
+  const activeFilters = [
+    ...selectedWorkGroups.map(id => ({ // Changed 'value' to 'id' for clarity
+      category: 'WorkGroup',
+      // **********************************************
+      // NEW: Use the helper to get the NAME for the badge value
+      value: getWorkGroupName(id),
+      // **********************************************
+      // The remove function must still pass the ID back to the handler for state update
+      remove: () => handleWorkGroupChange({ target: { value: id, checked: false } })
+    })),
+    ...selectedModules.map(value => ({
+      category: 'Module',
+      value,
+      remove: () => handleModuleChange({ target: { value, checked: false } })
+    })),
+    ...selectedStatuses.map(value => ({
+      category: 'Status',
+      value,
+      remove: () => handleStatusChange({ target: { value, checked: false } })
+    })),
+  ];
 
 
   const hasActiveFilters =
     selectedWorkGroups.length > 0 || selectedModules.length > 0 || selectedStatuses.length > 0;
 
-return (
-  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 flex flex-col gap-4 justify-start transition-colors duration-200">
-    {/* Filter Dropdowns Section */}
-    <div className="flex flex-wrap gap-3">
-      <FilterDropdownButton
-        category="workGroup"
-        title="WorkGroup"
-        options={allWorkGroups}
-        selectedValues={selectedWorkGroups}
-        onChange={handleWorkGroupChange}
-      />
-      <FilterDropdownButton
-        category="module"
-        title="Module"
-        options={allModules}
-        selectedValues={selectedModules}
-        onChange={handleModuleChange}
-      />
-      <FilterDropdownButton
-        category="status"
-        title="Status"
-        options={allStatuses}
-        selectedValues={selectedStatuses}
-        onChange={handleStatusChange}
-      />
-    </div>
-
-    {/* Active Filters and Clear Button Section */}
-    {hasActiveFilters && (
-      <div className="flex flex-wrap justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex flex-wrap gap-2">
-          {activeFilters.map((filter) => (
-            <Badge
-              key={`${filter.category}-${filter.value}`}
-              variant="outline"
-              className="text-xs flex items-center space-x-1"
-            >
-              <span className="font-semibold">{filter.category}:</span>
-              <span>{filter.value}</span>
-              <button
-                onClick={filter.remove}
-                className="ml-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                aria-label={`Remove ${filter.category}: ${filter.value} filter`}
-              >
-                &times;
-              </button>
-            </Badge>
-          ))}
-        </div>
-
-        {/* Clear all filters button, now positioned on the right of the badges */}
-        <button
-          onClick={clearAllFilters}
-          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline flex-shrink-0 mt-2 md:mt-0"
-        >
-          Clear all filters
-        </button>
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 flex flex-col gap-4 justify-start transition-colors duration-200">
+      {/* Filter Dropdowns Section */}
+      <div className="flex flex-wrap gap-3">
+        <FilterDropdownButton
+          category="workGroup"
+          title="WorkGroup"
+          options={allWorkGroups}
+          selectedValues={selectedWorkGroups}
+          onChange={handleWorkGroupChange}
+        />
+        <FilterDropdownButton
+          category="module"
+          title="Module"
+          options={allModules}
+          selectedValues={selectedModules}
+          onChange={handleModuleChange}
+        />
+        <FilterDropdownButton
+          category="status"
+          title="Status"
+          options={allStatuses}
+          selectedValues={selectedStatuses}
+          onChange={handleStatusChange}
+        />
       </div>
-    )}
-  </div>
-);
+
+      {/* Active Filters and Clear Button Section */}
+      {hasActiveFilters && (
+        <div className="flex flex-wrap justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="flex flex-wrap gap-2">
+            {activeFilters.map((filter) => (
+              <Badge
+                key={`${filter.category}-${filter.value}`}
+                variant="outline"
+                className="text-xs flex items-center space-x-1"
+              >
+                <span className="font-semibold">{filter.category}:</span>
+                <span>{filter.value}</span>
+                <button
+                  onClick={filter.remove}
+                  className="ml-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                  aria-label={`Remove ${filter.category}: ${filter.value} filter`}
+                >
+                  &times;
+                </button>
+              </Badge>
+            ))}
+          </div>
+
+          {/* Clear all filters button, now positioned on the right of the badges */}
+          <button
+            onClick={clearAllFilters}
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline flex-shrink-0 mt-2 md:mt-0"
+          >
+            Clear all filters
+          </button>
+        </div>
+      )}
+    </div>
+  );
 };
 
 export default FilterBar;

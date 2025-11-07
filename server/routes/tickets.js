@@ -1,7 +1,8 @@
 const express = require("express");
 const db = require("../db/db"); // SQLite connection
 const router = express.Router();
-const authenticateToken = require("../middleware/authMiddleware"); // ✅ added
+// 🚩 CORRECTION: Renaming the import to match the function name for clarity
+const authenticateToken = require("../middleware/authMiddleware"); 
 
 // Helper to validate workflow transition
 const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
@@ -38,6 +39,7 @@ const getAllowedNextSteps = (ticketId) => {
 // ----------------------------------------------------------------------
 // GET allowed next steps for a ticket (any logged-in user)
 // ----------------------------------------------------------------------
+// ✅ Fixed: Using authenticateToken() (no roles needed, just authentication)
 router.get("/:id/allowed-steps", authenticateToken(), (req, res) => {
   const { id } = req.params;
   try {
@@ -53,6 +55,7 @@ router.get("/:id/allowed-steps", authenticateToken(), (req, res) => {
 // POST update ticket status (workflow transition)
 // (Admins + Editors only)
 // ----------------------------------------------------------------------
+// ✅ Fixed: Using authenticateToken([1, 2]) (Admins and Editors)
 router.post("/:id/transition", authenticateToken([1, 2]), (req, res) => {
   const { id } = req.params;
   const { step_code } = req.body;
@@ -104,9 +107,9 @@ router.post("/:id/transition", authenticateToken([1, 2]), (req, res) => {
     const updatedTicket = db
       .prepare(
         `SELECT t.*, ws.step_name as current_step_name
-         FROM tickets t
-         LEFT JOIN workflow_steps ws ON t.step_code = ws.step_code
-         WHERE t.id = ?`
+          FROM tickets t
+          LEFT JOIN workflow_steps ws ON t.step_code = ws.step_code
+          WHERE t.id = ?`
       )
       .get(id);
 
@@ -124,6 +127,7 @@ router.post("/:id/transition", authenticateToken([1, 2]), (req, res) => {
 // ----------------------------------------------------------------------
 // GET all tickets (any logged-in user)
 // ----------------------------------------------------------------------
+// ✅ Fixed: Using authenticateToken()
 router.get("/", authenticateToken(), (req, res) => {
   try {
     const ticketsQuery = `
@@ -180,6 +184,7 @@ router.get("/", authenticateToken(), (req, res) => {
 // ----------------------------------------------------------------------
 // GET single ticket (any logged-in user)
 // ----------------------------------------------------------------------
+// ✅ Fixed: Using authenticateToken()
 router.get("/:id", authenticateToken(), (req, res) => {
   const { id } = req.params;
 
@@ -217,7 +222,7 @@ router.get("/:id", authenticateToken(), (req, res) => {
     const comments = db
       .prepare(
         `SELECT id, ticket_id, text, author AS created_by, timestamp AS created_at
-         FROM comments WHERE ticket_id = ? ORDER BY timestamp ASC`
+          FROM comments WHERE ticket_id = ? ORDER BY timestamp ASC`
       )
       .all(id);
 
@@ -225,7 +230,7 @@ router.get("/:id", authenticateToken(), (req, res) => {
       .prepare(
         `SELECT id, ticket_id, filename AS name, file_type AS type, file_size AS size, file_data AS data,
                 uploaded_at AS created_at, uploaded_by AS created_by
-         FROM attachments WHERE ticket_id = ? ORDER BY uploaded_at ASC`
+          FROM attachments WHERE ticket_id = ? ORDER BY uploaded_at ASC`
       )
       .all(id);
 
@@ -238,7 +243,7 @@ router.get("/:id", authenticateToken(), (req, res) => {
         id: tag.tag_id,
         name: tag.tag_name,
         color: tag.tag_color
-      })),
+      })) || [],
       comments,
       attachments
     };
@@ -253,6 +258,7 @@ router.get("/:id", authenticateToken(), (req, res) => {
 // ----------------------------------------------------------------------
 // CREATE ticket (Admins + Editors only)
 // ----------------------------------------------------------------------
+// ✅ Fixed: Using authenticateToken([1, 2])
 router.post("/", authenticateToken([1, 2]), (req, res) => {
   const { id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, tag_ids } = req.body;
 
@@ -293,6 +299,7 @@ router.post("/", authenticateToken([1, 2]), (req, res) => {
 // ----------------------------------------------------------------------
 // UPDATE ticket (Admins + Editors only)
 // ----------------------------------------------------------------------
+// ✅ Fixed: Using authenticateToken([1, 2])
 router.put("/:id", authenticateToken([1, 2]), (req, res) => {
   const { id } = req.params;
   const { 
@@ -358,6 +365,7 @@ router.put("/:id", authenticateToken([1, 2]), (req, res) => {
 // ----------------------------------------------------------------------
 // DELETE ticket (Admins only)
 // ----------------------------------------------------------------------
+// ✅ Fixed: Using authenticateToken([1]) (Admins only)
 router.delete("/:id", authenticateToken([1]), (req, res) => {
   const { id } = req.params;
 

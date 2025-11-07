@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { SlidersHorizontal } from 'lucide-react';
-import FilterBar from "../components/Dashboard/FilterBar";
+// 🚩 FIX: Reverting to the most common React structure:
+// Dashboard.jsx (in /pages) -> needs to go UP one level (..) 
+// -> then DOWN into 'components'
+import useFetch from "../useFetch"; // Still keeping this as ../useFetch, as it's the most logical path
+import FilterBar from "../components/Dashboard/FilterBar"; 
 import TotalPendingTickets from "../components/Dashboard/TotalPendingTickets";
 import OpenTicketsPieChart from "../components/Dashboard/PendingTicketsPieChart";
 import TicketPriorityChart from "../components/Dashboard/TicketPriorityChart";
@@ -9,43 +13,45 @@ import TicketModuleStackedChart from "../components/Dashboard/TicketModuleStacke
 import TicketsCreatedLineChart from "../components/Dashboard/TicketsCreatedLineChart";
 
 const Dashboard = () => {
+  // Local state for filtered tickets
   const [allTickets, setAllTickets] = useState([]);
   const [filteredTickets, setFilteredTickets] = useState([]);
   const [workgroups, setWorkgroups] = useState([]);
   const [areFiltersVisible, setAreFiltersVisible] = useState(true);
 
-  // Fetch tickets
-  useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        const res = await fetch("http://localhost:8000/api/tickets");
-        const data = await res.json();
-        setAllTickets(data || []);
-        setFilteredTickets(data || []);
-      } catch (err) {
-        console.error("Failed to fetch tickets:", err);
-      }
-    };
-    fetchTickets();
-  }, []);
+  // 1. Fetch tickets using the authenticated hook
+  const { 
+    data: ticketsData, 
+    isPending: ticketsPending, 
+    error: ticketsError 
+  } = useFetch("http://localhost:8000/api/tickets");
 
-  // Fetch workgroups
+  // 2. Fetch workgroups using the authenticated hook
+  const { 
+    data: workgroupsData, 
+    isPending: workgroupsPending, 
+    error: workgroupsError 
+  } = useFetch("http://localhost:8000/api/workgroups");
+
+
+  // Effect to synchronize fetched ticket data with local state for filtering
   useEffect(() => {
-    const fetchWorkgroups = async () => {
-      try {
-        const res = await fetch("http://localhost:8000/api/workgroups");
-        const data = await res.json();
-        setWorkgroups(data || []);
-      } catch (err) {
-        console.error("Failed to fetch workgroups:", err);
-      }
-    };
-    fetchWorkgroups();
-  }, []);
+    if (ticketsData) {
+      setAllTickets(ticketsData);
+      setFilteredTickets(ticketsData);
+    }
+  }, [ticketsData]);
+
+  // Effect to synchronize fetched workgroup data with local state
+  useEffect(() => {
+    if (workgroupsData) {
+      setWorkgroups(workgroupsData);
+    }
+  }, [workgroupsData]);
 
   const toggleFilterVisibility = () => setAreFiltersVisible(prev => !prev);
 
-  // Stable handleFilterChange
+  // Stable handleFilterChange (unchanged)
   const handleFilterChange = ({ selectedWorkGroups, selectedModules, selectedStatuses }) => {
     let filtered = [...allTickets];
 
@@ -64,14 +70,32 @@ const Dashboard = () => {
     setFilteredTickets(filtered);
   };
 
+  // 3. Handle Loading and Error States
+  if (ticketsPending || workgroupsPending) {
+    return <p className="p-8 text-center text-lg text-blue-600 dark:text-blue-400">Loading Dashboard data...</p>;
+  }
+
+  // Combine errors for display
+  const error = ticketsError || workgroupsError;
+  if (error) {
+    return (
+        <div className="p-8 text-center bg-red-100 border border-red-400 text-red-700 rounded-lg mx-auto max-w-lg mt-10">
+            <h2 className="text-xl font-bold mb-2">Data Loading Error</h2>
+            <p className="text-sm">{error.toString()}</p>
+            <p className="text-xs mt-2">Check the console for specific authentication failures.</p>
+        </div>
+    );
+  }
+
   return (
     <div className="p-8 space-y-8">
       <div className="flex justify-start mb-4">
         <button
           onClick={toggleFilterVisibility}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-150"
         >
           <SlidersHorizontal className="w-5 h-5" />
+          {areFiltersVisible ? 'Hide Filters' : 'Show Filters'}
         </button>
       </div>
 
