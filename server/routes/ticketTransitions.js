@@ -3,10 +3,6 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 
-// YOUR EXISTING ROUTES HERE (GET, POST, PUT, DELETE)
-// ...
-
-// ========== ADD THESE NEW ROUTES BELOW ==========
 
 // Helper: Validate workflow transition
 const isValidTransition = (workflowId, fromStepCode, toStepCode) => {

@@ -1,7 +1,6 @@
 const express = require("express");
-const db = require("../db/db"); // SQLite connection
+const db = require("../db/db"); 
 const router = express.Router();
-// 🚩 CORRECTION: Renaming the import to match the function name for clarity
 const authenticateToken = require("../middleware/authMiddleware"); 
 
 // Helper to validate workflow transition
@@ -310,7 +309,10 @@ router.put("/:id", authenticateToken([1, 2]), (req, res) => {
   const workflow_id = workflowId;
   const workgroup_id = workgroupId;
   const module_id = moduleId;
-  const responsible_employee_id = responsibleEmployeeId;
+  const responsible_employee_id = responsibleEmployeeId || null;
+    if (responsible_employee_id === '') {
+    responsible_employee_id = null;
+  }
   const due_date = dueDate;
   const start_date = startDate;
   const tag_ids = tags ? tags.map(tag => tag.id) : [];
@@ -355,6 +357,9 @@ router.put("/:id", authenticateToken([1, 2]), (req, res) => {
     res.json({ message: "Ticket updated successfully" });
   } catch (err) {
     console.error("Error updating ticket:", err);
+    if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
+      return res.status(400).json({ error: "Invalid Employee, Workgroup, or Module ID provided." });
+    }
     if (err.message === "Ticket not found") {
       return res.status(404).json({ error: "Ticket not found" });
     }

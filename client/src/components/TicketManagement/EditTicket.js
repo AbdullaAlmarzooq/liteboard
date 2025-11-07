@@ -1,4 +1,4 @@
-// EditTicket.js - FIXED WITH COMPLETE ACTIVITY LOGGING
+// EditTicket.js
 import { useState, useEffect } from 'react';
 import useFetch from "../../useFetch";
 import Button from "../Button";
@@ -7,11 +7,15 @@ import TicketDetailsForm from './TicketDetailsForm';
 import AssignmentAndTimeline from './AssignmentAndTimeline';
 import CommentSection from './CommentSection';
 import AttachmentUploader from './AttachmentUploader';
+import { useAuth } from "../hooks/useAuth";
+import fetchWithAuth from "../../utils/fetchWithAuth";
+
+
 
 const EditTicket = () => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
-
+  const { user } = useAuth();
   const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}`);
   const { data: employees } = useFetch('http://localhost:8000/api/employees'); 
   const { data: tagsList } = useFetch('http://localhost:8000/api/tags'); 
@@ -113,7 +117,14 @@ const EditTicket = () => {
       
       setLoadingSteps(true);
       try {
-        const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}/allowed-steps`);
+        const token = localStorage.getItem("token");
+        const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}/allowed-steps`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token ? `Bearer ${token}` : ""
+          }
+        });
         if (response.ok) {
           const steps = await response.json();
           setAllowedSteps(steps);
@@ -321,7 +332,7 @@ const EditTicket = () => {
         body: JSON.stringify({
           ticket_id: ticketId,
           text: newCommentText,
-          author: 'Current User',
+          author: user?.id || 'Unknown',
         }),
       });
       if (res.ok) {
@@ -392,7 +403,7 @@ const EditTicket = () => {
           field_name: fieldName,
           old_value: oldValue || null,
           new_value: newValue || null,
-          changed_by: 'Current User',
+          changed_by: user?.id || 'Unknown',
         }),
       });
     } catch (err) {
@@ -415,11 +426,11 @@ const EditTicket = () => {
       
       // If status changed, call transition endpoint first
       if (hasStatusChanged) {
-        const transitionResponse = await fetch(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
+        const transitionResponse = await fetchWithAuth(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ step_code: formData.stepCode })
         });
+
 
         if (!transitionResponse.ok) {
           const errorData = await transitionResponse.json();
@@ -470,9 +481,8 @@ const EditTicket = () => {
       const removedTags = originalTagNames.filter(tag => !newTagNames.includes(tag));
       
       // Then update other fields via PUT
-      const res = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
+      const res = await fetchWithAuth(`http://localhost:8000/api/tickets/${ticketId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: formData.title,
           description: formData.description,
