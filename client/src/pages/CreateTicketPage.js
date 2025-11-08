@@ -265,28 +265,44 @@ const CreateTicketPage = () => {
     }
   }
 
-  const generateTicketId = async () => {
-    try {
-      const response = await fetch('http://localhost:8000/api/tickets')
-      const tickets = await response.json()
-      
-      const existingNumbers = tickets
-        .map(ticket => {
-          const match = ticket.id.match(/TCK-(\d+)/)
-          return match ? parseInt(match[1]) : 0
-        })
-        .filter(num => !isNaN(num))
-      
-      const highestNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 1000
-      const nextNumber = highestNumber + 1
-      
-      return `TCK-${nextNumber}`
-    } catch (error) {
-      console.error('Error generating ticket ID:', error)
-      const randomId = Math.floor(Math.random() * 9000) + 1000
-      return `TCK-${randomId}`
+const generateTicketId = async () => {
+  try {
+    const token = localStorage.getItem("token"); // 👈 read token
+
+    const response = await fetch('http://localhost:8000/api/tickets', {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch tickets: ${response.status}`);
     }
+
+    const tickets = await response.json();
+
+    if (!Array.isArray(tickets)) {
+      throw new Error("Tickets response is not an array");
+    }
+
+    const existingNumbers = tickets
+      .map(ticket => {
+        const match = ticket.id.match(/TCK-(\d+)/);
+        return match ? parseInt(match[1]) : 0;
+      })
+      .filter(num => !isNaN(num));
+
+    const highestNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 1000;
+    const nextNumber = highestNumber + 1;
+
+    return `TCK-${nextNumber}`;
+  } catch (error) {
+    console.error('Error generating ticket ID:', error);
+    const randomId = Math.floor(Math.random() * 9000) + 1000;
+    return `TCK-${randomId}`;
   }
+};
+
 
   const formatDate = (dateString) => {
     if (!dateString) return ""
@@ -374,6 +390,7 @@ const CreateTicketPage = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify(ticketData)
       })

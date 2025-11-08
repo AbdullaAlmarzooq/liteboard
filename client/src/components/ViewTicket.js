@@ -198,11 +198,15 @@ const ticket = useMemo(() => {
     workgroupId: rawTicket.workgroupId || rawTicket.workgroup_id,
     workGroup: rawTicket.workgroup_name || rawTicket.workGroup || 'Unassigned',
     moduleId: rawTicket.moduleId || rawTicket.module_id,
-    // FIX: Handle null from backend - check rawTicket.module (which can be null) and provide fallback
     module: rawTicket.module || rawTicket.module_name || 'No Module',
     initiateDate: rawTicket.initiateDate || rawTicket.initiate_date,
     responsibleEmployeeId: rawTicket.responsibleEmployeeId || rawTicket.responsible_employee_id,
     responsible: rawTicket.responsible_name || rawTicket.responsible || 'Unassigned',
+    createdBy: rawTicket.created_by || 'Unknown',
+    createdByName: rawTicket.created_by_name || 'Unknown',
+    createdByDisplay: rawTicket.created_by_name
+  ? `${rawTicket.created_by_name}${rawTicket.created_by ? ` (${rawTicket.created_by})` : ""}`
+  : "Unknown",
     tags: rawTicket.tags || [],
     dueDate: rawTicket.dueDate || rawTicket.due_date,
     startDate: rawTicket.startDate || rawTicket.start_date,
@@ -546,6 +550,7 @@ const renderTag = (tag, index) => {
           <Card className = "bg-white">
             <CardHeader><CardTitle className="text-xl">Ticket Information</CardTitle></CardHeader>
             <CardContent className="space-y-4">
+              <div><label className="text-sm font-medium">Created By</label><div>{ticket.createdByDisplay}</div></div>
               <div><label className="text-sm font-medium">Priority</label>
                 <Badge variant={getPriorityVariant(ticket.priority)}>{ticket.priority}</Badge></div>
               <div><label className="text-sm font-medium">Workgroup</label><div>{ticket.workGroup}</div></div>

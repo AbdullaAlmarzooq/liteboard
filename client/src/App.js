@@ -11,6 +11,7 @@ import { ThemeProvider } from "./contexts/ThemeContext"
 import ProtectedRoute from "./components/Auth/ProtectedRoute"
 import LoginPage from "./pages/LoginPage"
 import { ToastContainer } from "react-toastify";
+import ProfileActivity from "./pages/ProfileActivity"
 
 
 function AppLayout() {
@@ -53,6 +54,14 @@ function AppLayout() {
             element={
               <ProtectedRoute requiredRole={[1, 2]}>
                 <CreateTicketPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfileActivity />
               </ProtectedRoute>
             }
           />

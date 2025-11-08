@@ -1,7 +1,7 @@
 "use client"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useTheme } from "../contexts/ThemeContext"
-import { LayoutDashboard, FilePlus, ClipboardList, Settings, LogOut } from "lucide-react"
+import { LayoutDashboard, FilePlus, ClipboardList, Settings, LogOut, UserCircle } from "lucide-react"
 
 const Navigation = () => {
   const { theme, toggleTheme } = useTheme()
@@ -14,6 +14,7 @@ const Navigation = () => {
   const navItems = [
     { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-5 h-5" /> },
     { path: "/tickets", label: "Tickets", icon: <ClipboardList className="w-5 h-5" /> },
+    { path: "/profile", label: "Profile", icon: <UserCircle className="w-5 h-5" /> },
   ]
 
   if (user.role_id === 1 || user.role_id === 2) {

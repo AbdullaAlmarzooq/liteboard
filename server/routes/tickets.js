@@ -199,11 +199,15 @@ router.get("/:id", authenticateToken(), (req, res) => {
         t.workgroup_id AS workgroupId, w.name AS workgroup_name,
         t.module_id AS moduleId, m.name AS module_name, t.initiate_date AS initiateDate,
         t.responsible_employee_id AS responsibleEmployeeId, e.name AS responsible_name,
-        t.due_date AS dueDate, t.start_date AS startDate
+        t.due_date AS dueDate, t.start_date AS startDate,
+        creator.name AS created_by_name
+
       FROM tickets t
       LEFT JOIN workgroups w ON t.workgroup_id = w.id
       LEFT JOIN modules m ON t.module_id = m.id
       LEFT JOIN employees e ON t.responsible_employee_id = e.id
+      LEFT JOIN employees creator ON t.created_by = creator.id
+
       WHERE t.id = ?
     `;
     const ticket = db.prepare(ticketQuery).get(id);
@@ -241,6 +245,8 @@ router.get("/:id", authenticateToken(), (req, res) => {
       workGroup: ticket.workgroup_name,
       responsible: ticket.responsible_name,
       module: ticket.module_name,
+      created_by: ticket.created_by,
+      created_by_name: ticket.created_by_name,
       tags: tags.map(tag => ({
         id: tag.tag_id,
         name: tag.tag_name,
@@ -260,8 +266,9 @@ router.get("/:id", authenticateToken(), (req, res) => {
 // ----------------------------------------------------------------------
 // CREATE ticket (Admins + Editors only)
 // ----------------------------------------------------------------------
-// ✅ Fixed: Using authenticateToken([1, 2])
+
 router.post("/", authenticateToken([1, 2]), (req, res) => {
+  const userId = req.user.id;
   const { id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, tag_ids } = req.body;
 
   try {
@@ -271,8 +278,8 @@ router.post("/", authenticateToken([1, 2]), (req, res) => {
 
     const insertTicket = db.prepare(`
       INSERT INTO tickets 
-        (id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, initiate_date, created_at, updated_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, initiate_date, created_at, updated_at, created_by) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertTag = db.prepare(`
@@ -281,7 +288,7 @@ router.post("/", authenticateToken([1, 2]), (req, res) => {
     `);
 
     const transaction = db.transaction(() => {
-      insertTicket.run(id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, timestamp, timestamp, timestamp);
+      insertTicket.run(id, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, timestamp, timestamp, timestamp, userId);
 
       if (tag_ids && Array.isArray(tag_ids)) {
         tag_ids.forEach(tag_id => {
