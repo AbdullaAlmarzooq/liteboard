@@ -17,6 +17,8 @@ const ticketTagsRouter = require("./routes/tickets_tags");
 const workflowTransitionsRouter = require('./routes/workflow_transitions');
 const workflowManagementRouter = require('./routes/workflowManagement');
 const authRouter = require("./routes/auth");
+const profileStats = require("./routes/profile/stats");
+
 
 const app = express();
 const PORT = 8000;
@@ -40,6 +42,7 @@ app.use("/api/ticket_tags", ticketTagsRouter);
 app.use("/api/workflow_transitions", workflowTransitionsRouter);
 app.use("/api/workflow_management", workflowManagementRouter);
 app.use("/api/auth", authRouter);
+app.use("/api/profile", profileStats);
 
 
 

@@ -1,7 +1,10 @@
+//server/routes/tickets.js
+
 const express = require("express");
 const db = require("../db/db"); 
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware"); 
+const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
 
 // Helper to validate workflow transition
 const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
@@ -55,7 +58,7 @@ router.get("/:id/allowed-steps", authenticateToken(), (req, res) => {
 // (Admins + Editors only)
 // ----------------------------------------------------------------------
 // ✅ Fixed: Using authenticateToken([1, 2]) (Admins and Editors)
-router.post("/:id/transition", authenticateToken([1, 2]), (req, res) => {
+router.post("/:id/transition", authenticateToken([1, 2]), ensureSameWorkgroup, (req, res) => {
   const { id } = req.params;
   const { step_code } = req.body;
 
@@ -298,7 +301,6 @@ router.post("/", authenticateToken([1, 2]), (req, res) => {
 // ----------------------------------------------------------------------
 // UPDATE ticket (Admins + Editors only), must be same workgroup unless Admin)
 // ----------------------------------------------------------------------
-const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
 
 router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, (req, res) => {
 
