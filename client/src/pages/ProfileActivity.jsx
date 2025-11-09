@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import useFetch from "../useFetch";
 import { UserCircle, Ticket, Users, ClipboardList } from "lucide-react";
+import RecentActivity from "../components/Profile/RecentActivity.jsx";
+import MyTickets from "../components/Profile/MyTickets";
+
 
 /**
  * Profile & Activity Page
@@ -92,15 +95,13 @@ const ProfileActivity = () => {
         />
       </div>
 
-      {/* === Placeholder for upcoming sections === */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm text-center text-gray-500 dark:text-gray-400">
-          📋 My Tickets section (Coming soon)
+        {/* === Recent Activity + My Tickets === */}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+          <MyTickets />
+          <RecentActivity />
         </div>
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm text-center text-gray-500 dark:text-gray-400">
-          🔔 Recent Activity section (Coming soon)
-        </div>
-      </div>
+
     </div>
   );
 };

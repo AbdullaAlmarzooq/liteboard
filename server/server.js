@@ -18,6 +18,9 @@ const workflowTransitionsRouter = require('./routes/workflow_transitions');
 const workflowManagementRouter = require('./routes/workflowManagement');
 const authRouter = require("./routes/auth");
 const profileStats = require("./routes/profile/stats");
+const profileActivityRoutes = require("./routes/profile/activity");
+const myTicketsRoutes = require("./routes/profile/myTickets");
+
 
 
 const app = express();
@@ -43,6 +46,9 @@ app.use("/api/workflow_transitions", workflowTransitionsRouter);
 app.use("/api/workflow_management", workflowManagementRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/profile", profileStats);
+app.use("/api/profile", profileActivityRoutes);
+app.use("/api/profile", myTicketsRoutes);
+
 
 
 
