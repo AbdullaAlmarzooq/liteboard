@@ -5,13 +5,6 @@ import RecentActivity from "../components/Profile/RecentActivity.jsx";
 import MyTickets from "../components/Profile/MyTickets";
 
 
-/**
- * Profile & Activity Page
- * Sections:
- * 1. User Info Header
- * 2. Quick Stats Cards (Raised by Me, Assigned to Me, Workgroup)
- * 3. (Placeholder) Recent Activity / My Tickets section
- */
 const ProfileActivity = () => {
   const [stats, setStats] = useState({
     raised_by_me: 0,
@@ -76,7 +69,7 @@ const ProfileActivity = () => {
       {/* === Quick Stats === */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <StatCard
-          title="Tickets Raised by Me"
+          title="Tickets Created by Me"
           value={stats.raised_by_me}
           icon={<ClipboardList className="w-6 h-6 text-blue-500" />}
           color="text-blue-600 dark:text-blue-400"

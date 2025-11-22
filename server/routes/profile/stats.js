@@ -13,16 +13,26 @@ router.get("/stats", authenticateToken(), (req, res) => {
     const raisedByMeStmt = db.prepare(
       "SELECT COUNT(*) AS count FROM tickets WHERE created_by = ?"
     );
-    const assignedToMeStmt = db.prepare(
-      "SELECT COUNT(*) AS count FROM tickets WHERE responsible_employee_id = ?"
-    );
+    const assignedToMeStmt = db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM tickets t
+      JOIN workflow_steps ws ON ws.step_code = t.step_code
+      WHERE t.responsible_employee_id = ?
+      AND ws.category_code != 30
+    `);
+
+
     const workgroupTicketsStmt = db.prepare(`
       SELECT COUNT(*) AS count
-      FROM tickets
-      WHERE workgroup_id = (
+      FROM tickets t
+      JOIN workflow_steps ws ON ws.step_code = t.step_code
+      WHERE t.workgroup_id = (
         SELECT workgroup_code FROM employees WHERE id = ?
       )
+      AND ws.category_code != 30
     `);
+
+
 
     // Execute queries synchronously
     const raisedByMe = raisedByMeStmt.get(userId);

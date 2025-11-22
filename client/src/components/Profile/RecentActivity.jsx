@@ -49,18 +49,18 @@ const RecentActivity = () => {
       </CardHeader>
       <CardContent>
         {currentItems.length === 0 ? (
-          <p className="text-gray-500 dark:text-gray-400 text-center">No recent activity found.</p>
+          <p className="text-gray-500 dark:text-gray-400 text-center py-4">No recent activity found.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-            <table className="w-full text-sm text-left">
+            <table className="min-w-full text-sm">
               <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                 <tr>
-                  <th className="px-4 py-2">Ticket ID</th>
-                  <th className="px-4 py-2">Activity</th>
-                  <th className="px-4 py-2">Field</th>
-                  <th className="px-4 py-2">New Value</th>
-                  <th className="px-4 py-2">Changed By</th>
-                  <th className="px-4 py-2">Timestamp</th>
+                  <th className="px-4 py-2 text-left">Ticket ID</th>
+                  <th className="px-4 py-2 text-left">Activity</th>
+                  <th className="px-4 py-2 text-left">Field</th>
+                  <th className="px-4 py-2 text-left">New Value</th>
+                  <th className="px-4 py-2 text-left">Changed By</th>
+                  <th className="px-4 py-2 text-left">Timestamp</th>
                 </tr>
               </thead>
               <tbody>

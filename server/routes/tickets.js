@@ -310,24 +310,31 @@ router.post("/", authenticateToken([1, 2]), (req, res) => {
 // ----------------------------------------------------------------------
 
 router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, (req, res) => {
-
   const { id } = req.params;
+
   const { 
-    title, description, status, priority, workflowId, workgroupId, 
-    moduleId, responsibleEmployeeId, dueDate, startDate, tags
+    title, description, priority,
+    workflowId, workgroupId, moduleId,
+    responsibleEmployeeId, dueDate, startDate, tags, stepCode
   } = req.body;
 
-  const workflow_id = workflowId;
-  const workgroup_id = workgroupId;
-  const module_id = moduleId;
-  const responsible_employee_id = responsibleEmployeeId || null;
-    if (responsible_employee_id === '') {
-    responsible_employee_id = null;
-  }
-  const due_date = dueDate;
-  const start_date = startDate;
-  const tag_ids = tags ? tags.map(tag => tag.id) : [];
+  let step_code = stepCode || null;
 
+  // Get workflow step info
+  let stepInfo = null;
+  if (step_code) {
+    stepInfo = db.prepare(`
+      SELECT step_name, category_code 
+      FROM workflow_steps 
+      WHERE step_code = ?
+    `).get(step_code);
+
+    if (!stepInfo) {
+      return res.status(400).json({ error: "Invalid workflow step selected." });
+    }
+  }
+
+  // Bahrain-friendly timestamp
   const now = new Date();
   const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
   const timestamp = bahrainTime.toISOString().slice(0, 19).replace('T', ' ');
@@ -336,9 +343,18 @@ router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, (req, res) =>
     const updateTicket = db.prepare(`
       UPDATE tickets 
       SET 
-        title = ?, description = ?, status = ?, priority = ?, 
-        workflow_id = ?, workgroup_id = ?, module_id = ?, 
-        responsible_employee_id = ?, due_date = ?, start_date = ?, updated_at = ?
+        title = ?, 
+        description = ?, 
+        status = COALESCE(?, status),     -- Status comes from workflow, not free text
+        priority = ?, 
+        workflow_id = ?, 
+        workgroup_id = ?, 
+        module_id = ?, 
+        responsible_employee_id = ?, 
+        due_date = ?, 
+        start_date = ?, 
+        step_code = COALESCE(?, step_code),   -- Update step_code
+        updated_at = ?
       WHERE id = ?
     `);
 
@@ -346,31 +362,40 @@ router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, (req, res) =>
     const insertTag = db.prepare(`INSERT INTO ticket_tags (ticket_id, tag_id, created_at) VALUES (?, ?, datetime('now'))`);
 
     const transaction = db.transaction(() => {
-      const result = updateTicket.run(
-        title, description, status, priority, 
-        workflow_id, workgroup_id, module_id, 
-        responsible_employee_id, due_date, start_date, timestamp, id
+      updateTicket.run(
+        title,
+        description,
+        stepInfo ? stepInfo.step_name : null,      // ← status comes from workflow step
+        priority,
+        workflowId,
+        workgroupId,
+        moduleId,
+        responsibleEmployeeId || null,
+        dueDate,
+        startDate,
+        step_code,                                 // ← new workflow step
+        timestamp,
+        id
       );
 
-      if (result.changes === 0) {
-        throw new Error("Ticket not found");
-      }
-
-      if (tag_ids !== undefined) {
-        deleteExistingTags.run(id);
-        if (Array.isArray(tag_ids)) {
-          tag_ids.forEach(tag_id => insertTag.run(id, tag_id));
-        }
+      // Tags
+      deleteExistingTags.run(id);
+      if (tags && Array.isArray(tags)) {
+        tags.forEach(tag => insertTag.run(id, tag.id));
       }
     });
 
     transaction();
-    res.json({ message: "Ticket updated successfully" });
+
+    res.json({ 
+      message: "Ticket updated successfully",
+      step_code,
+      status: stepInfo ? stepInfo.step_name : undefined,
+      category_code: stepInfo ? stepInfo.category_code : undefined
+    });
+
   } catch (err) {
     console.error("Error updating ticket:", err);
-    if (err.code === 'SQLITE_CONSTRAINT_FOREIGNKEY') {
-      return res.status(400).json({ error: "Invalid Employee, Workgroup, or Module ID provided." });
-    }
     if (err.message === "Ticket not found") {
       return res.status(404).json({ error: "Ticket not found" });
     }

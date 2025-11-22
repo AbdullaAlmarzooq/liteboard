@@ -389,15 +389,6 @@ const renderTag = (tag, index) => {
               <Edit />
             </Button>
           )}
-          {canCancelTicket && (
-            <Button 
-              className="bg-red-400 hover:bg-red-600 text-white dark:bg-red-600 dark:hover:bg-red-500"
-              onClick={() => setShowCancelModal(true)}
-              disabled={isCancelling}
-            >
-              <X />
-            </Button>
-          )}
         </div>
       </div>
 

@@ -59,24 +59,24 @@ const MyTickets = () => {
   return (
     <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
       <CardHeader>
-        <CardTitle className="text-lg font-semibold">My Workgroup Tickets</CardTitle>
+        <CardTitle className="text-lg font-semibold text-left">Pending Workgroup Tickets</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="text-left">
         {tickets.length === 0 ? (
-          <div className="text-gray-500 dark:text-gray-400 text-center py-4">
+          <div className="text-gray-500 dark:text-gray-400 text-left py-4">
             No tickets found for your workgroup.
           </div>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
-            <table className="min-w-full text-sm border border-gray-200 dark:border-gray-700">
+            <table className="min-w-full text-sm text-left">
               <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                 <tr>
-                  <th className="px-4 py-2">Ticket ID</th>
-                  <th className="px-4 py-2">Title</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">Priority</th>
-                  <th className="px-4 py-2">Responsible</th>
-                  <th className="px-4 py-2">Created By</th>
+                  <th className="px-4 py-2 text-left">Ticket ID</th>
+                  <th className="px-4 py-2 text-left">Title</th>
+                  <th className="px-4 py-2 text-left">Status</th>
+                  <th className="px-4 py-2 text-left">Priority</th>
+                  <th className="px-4 py-2 text-left">Responsible</th>
+                  <th className="px-4 py-2 text-left">Created By</th>
                 </tr>
               </thead>
               <tbody>
@@ -85,7 +85,7 @@ const MyTickets = () => {
                     key={ticket.id}
                     className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                   >
-                    <td className="px-4 py-2 font-medium text-blue-600 dark:text-blue-400">
+                    <td className="px-4 py-2 font-medium text-blue-600 dark:text-blue-400 hover:underline">
                       <Link to={`/view-ticket/${ticket.id}`}>{ticket.id}</Link>
                     </td>
                     <td className="px-4 py-2">{ticket.title}</td>
