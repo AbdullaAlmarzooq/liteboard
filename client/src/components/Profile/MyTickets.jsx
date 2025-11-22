@@ -57,9 +57,9 @@ const MyTickets = () => {
   }
 
   return (
-    <Card className="bg-white dark:bg-gray-800">
+    <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
       <CardHeader>
-        <CardTitle className="text-xl">My Workgroup Tickets</CardTitle>
+        <CardTitle className="text-lg font-semibold">My Workgroup Tickets</CardTitle>
       </CardHeader>
       <CardContent>
         {tickets.length === 0 ? (
@@ -67,16 +67,16 @@ const MyTickets = () => {
             No tickets found for your workgroup.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
             <table className="min-w-full text-sm border border-gray-200 dark:border-gray-700">
               <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                 <tr>
-                  <th className="px-4 py-2 text-left">Ticket ID</th>
-                  <th className="px-4 py-2 text-left">Title</th>
-                  <th className="px-4 py-2 text-left">Status</th>
-                  <th className="px-4 py-2 text-left">Priority</th>
-                  <th className="px-4 py-2 text-left">Responsible</th>
-                  <th className="px-4 py-2 text-left">Created By</th>
+                  <th className="px-4 py-2">Ticket ID</th>
+                  <th className="px-4 py-2">Title</th>
+                  <th className="px-4 py-2">Status</th>
+                  <th className="px-4 py-2">Priority</th>
+                  <th className="px-4 py-2">Responsible</th>
+                  <th className="px-4 py-2">Created By</th>
                 </tr>
               </thead>
               <tbody>
