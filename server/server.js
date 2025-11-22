@@ -20,6 +20,7 @@ const authRouter = require("./routes/auth");
 const profileStats = require("./routes/profile/stats");
 const profileActivityRoutes = require("./routes/profile/activity");
 const myTicketsRoutes = require("./routes/profile/myTickets");
+const myPasswordRoutes = require("./routes/profile/myPassword");
 
 
 
@@ -48,6 +49,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/profile", profileStats);
 app.use("/api/profile", profileActivityRoutes);
 app.use("/api/profile", myTicketsRoutes);
+app.use("/api/profile", myPasswordRoutes);
 
 
 
