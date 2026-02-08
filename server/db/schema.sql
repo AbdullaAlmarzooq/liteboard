@@ -80,31 +80,7 @@ CREATE TABLE employees (
 );
 
 -- =====================================================================
--- 4. EMPLOYEE SKILLS TABLE
--- =====================================================================
--- Many-to-many relationship for employee competencies
-CREATE TABLE employee_skills (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    employee_id UUID NOT NULL,
-    skill TEXT NOT NULL,
-    proficiency_level TEXT,  -- e.g., 'Beginner', 'Intermediate', 'Expert'
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ,
-    
-    CONSTRAINT fk_employee_skills_employee FOREIGN KEY (employee_id) 
-        REFERENCES employees(id) ON DELETE CASCADE,
-    
-    -- Prevent duplicate active skills per employee
-    CONSTRAINT uq_employee_skills UNIQUE NULLS NOT DISTINCT (employee_id, skill, deleted_at),
-    
-    CONSTRAINT chk_employee_skills_proficiency CHECK (
-        proficiency_level IS NULL OR 
-        proficiency_level IN ('Beginner', 'Intermediate', 'Advanced', 'Expert')
-    )
-);
-
--- =====================================================================
--- 5. WORKFLOWS TABLE
+-- 4. WORKFLOWS TABLE
 -- =====================================================================
 -- Defines multi-step approval processes
 CREATE TABLE workflows (
@@ -171,10 +147,10 @@ CREATE TABLE workflow_transitions (
     
     CONSTRAINT fk_workflow_transitions_workflow FOREIGN KEY (workflow_id)
         REFERENCES workflows(id) ON DELETE CASCADE,
-    CONSTRAINT fk_workflow_transitions_from FOREIGN KEY (from_step_code)
-        REFERENCES workflow_steps(step_code) ON DELETE CASCADE,
-    CONSTRAINT fk_workflow_transitions_to FOREIGN KEY (to_step_code)
-        REFERENCES workflow_steps(step_code) ON DELETE CASCADE,
+    CONSTRAINT fk_workflow_transitions_from FOREIGN KEY (workflow_id, from_step_code)
+        REFERENCES workflow_steps(workflow_id, step_code) ON DELETE CASCADE,
+    CONSTRAINT fk_workflow_transitions_to FOREIGN KEY (workflow_id, to_step_code)
+        REFERENCES workflow_steps(workflow_id, step_code) ON DELETE CASCADE,
     
     -- Prevent duplicate transitions
     CONSTRAINT uq_workflow_transitions UNIQUE NULLS NOT DISTINCT (
@@ -222,6 +198,7 @@ CREATE TABLE tags (
 -- Main ticket entity with workflow tracking
 CREATE TABLE tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_code TEXT NOT NULL,  -- Human-friendly code (e.g., TCK-1012)
     title TEXT NOT NULL,
     description TEXT,
     status TEXT NOT NULL DEFAULT 'Open',
@@ -253,15 +230,13 @@ CREATE TABLE tickets (
     
     CONSTRAINT fk_tickets_workflow FOREIGN KEY (workflow_id)
         REFERENCES workflows(id) ON DELETE SET NULL,
-    CONSTRAINT fk_tickets_step FOREIGN KEY (step_code)
-        REFERENCES workflow_steps(step_code) ON DELETE SET NULL,
     CONSTRAINT fk_tickets_workgroup FOREIGN KEY (workgroup_id)
         REFERENCES workgroups(id) ON DELETE SET NULL,
     CONSTRAINT fk_tickets_responsible FOREIGN KEY (responsible_employee_id)
         REFERENCES employees(id) ON DELETE SET NULL,
     CONSTRAINT fk_tickets_created_by FOREIGN KEY (created_by)
         REFERENCES employees(id) ON DELETE SET NULL,
-     CONSTRAINT fk_tickets_step FOREIGN KEY (workflow_id, step_code)
+     CONSTRAINT fk_tickets_workflow_step FOREIGN KEY (workflow_id, step_code)
         REFERENCES workflow_steps(workflow_id, step_code) ON DELETE SET NULL,
     CONSTRAINT fk_tickets_module FOREIGN KEY (module_id)
         REFERENCES modules(id) ON DELETE SET NULL,
@@ -274,7 +249,8 @@ CREATE TABLE tickets (
     ),
     CONSTRAINT chk_tickets_dates CHECK (
         due_date IS NULL OR start_date IS NULL OR due_date >= start_date
-    )
+    ),
+    CONSTRAINT uq_tickets_ticket_code UNIQUE (ticket_code)
 );
 
 -- =====================================================================
@@ -400,10 +376,6 @@ CREATE INDEX idx_employees_email ON employees(email) WHERE deleted_at IS NULL;
 CREATE INDEX idx_employees_role ON employees(role_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_employees_active ON employees(active) WHERE deleted_at IS NULL AND active = true;
 
--- Employee Skills
-CREATE INDEX idx_employee_skills_employee ON employee_skills(employee_id) WHERE deleted_at IS NULL;
-CREATE INDEX idx_employee_skills_skill ON employee_skills(skill) WHERE deleted_at IS NULL;
-
 -- Workflows
 CREATE INDEX idx_workflows_active ON workflows(active) WHERE deleted_at IS NULL AND active = true;
 
@@ -418,6 +390,7 @@ CREATE INDEX idx_workflow_transitions_from ON workflow_transitions(from_step_cod
 CREATE INDEX idx_workflow_transitions_to ON workflow_transitions(to_step_code) WHERE deleted_at IS NULL;
 
 -- Tickets (performance-critical for dashboard queries)
+CREATE INDEX idx_tickets_ticket_code ON tickets(ticket_code) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tickets_status ON tickets(status) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tickets_priority ON tickets(priority) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tickets_workgroup ON tickets(workgroup_id) WHERE deleted_at IS NULL;
@@ -580,6 +553,7 @@ CREATE TRIGGER audit_ticket_changes
 CREATE VIEW v_active_tickets AS
 SELECT 
     t.id,
+    t.ticket_code,
     t.title,
     t.description,
     t.status,
@@ -595,7 +569,7 @@ SELECT
     creator.name AS created_by_name
 FROM tickets t
 LEFT JOIN workflows w ON t.workflow_id = w.id
-LEFT JOIN workflow_steps ws ON t.step_code = ws.step_code
+LEFT JOIN workflow_steps ws ON t.workflow_id = ws.workflow_id AND t.step_code = ws.step_code
 LEFT JOIN workgroups wg ON t.workgroup_id = wg.id
 LEFT JOIN employees e ON t.responsible_employee_id = e.id
 LEFT JOIN employees creator ON t.created_by = creator.id
@@ -652,7 +626,6 @@ GROUP BY e.id, e.name, e.email, wg.name;
 COMMENT ON TABLE roles IS 'User permission levels (Admin, Editor, Viewer)';
 COMMENT ON TABLE workgroups IS 'Organizational units for ticket isolation';
 COMMENT ON TABLE employees IS 'User accounts with authentication and workgroup assignment';
-COMMENT ON TABLE employee_skills IS 'Employee competencies and skill levels';
 COMMENT ON TABLE workflows IS 'Multi-step approval processes';
 COMMENT ON TABLE workflow_steps IS 'Individual steps within workflows';
 COMMENT ON TABLE workflow_transitions IS 'Valid state transitions between workflow steps';
@@ -669,6 +642,7 @@ COMMENT ON COLUMN attachments.storage_key IS 'Object storage path (e.g., tickets
 COMMENT ON COLUMN attachments.storage_bucket IS 'S3/R2 bucket name';
 COMMENT ON COLUMN workflow_steps.category_code IS '10=normal workflow step, 90=cancelled/rejected terminal state';
 COMMENT ON COLUMN tickets.step_code IS 'Current position in workflow (FK to workflow_steps)';
+COMMENT ON COLUMN tickets.ticket_code IS 'Human-friendly ticket identifier (e.g., TCK-1012)';
 COMMENT ON COLUMN employees.password_hash IS 'bcrypt hash with cost factor 10';
 
 -- =====================================================================

@@ -88,8 +88,6 @@ const stats = {
   status_history: { exported: 0, imported: 0 }
 };
 
-
-
 // Helper functions
 function generateUUID() {
   return uuidv4();
@@ -104,6 +102,24 @@ function convertTimestamp(value) {
   return new Date(value).toISOString();
 }
 
+function normalizeDate(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
+  return value;
+}
+
+function normalizeTicketStatus(status) {
+  if (!status) return 'Open';
+  const normalized = status.trim();
+  const mapping = {
+    'Pending confirmation': 'Pending',
+    'To be review': 'Pending',
+    'IGA': 'Pending',
+    'RT': 'Pending'
+  };
+  return mapping[normalized] || normalized;
+}
+
 // Export functions
 async function exportWorkgroups() {
   console.log('\n📦 Exporting workgroups...');
@@ -116,6 +132,7 @@ async function exportWorkgroups() {
     
     return {
       id: newId,
+      ticket_code: row.id,
       name: row.name,
       description: row.description,
       active: true,  // Add missing field
@@ -154,7 +171,6 @@ async function exportEmployees() {
   });
 }
 
-
 async function exportWorkflows() {
   console.log('\n📦 Exporting workflows...');
   const rows = sqlite.prepare('SELECT * FROM workflows').all();
@@ -184,14 +200,16 @@ async function exportWorkflowSteps() {
   return rows.map(row => {
     const newId = generateUUID();
     idMappings.workflow_steps[row.id] = newId;
-    
+    const normalizedCategory =
+      row.category_code === 90 ? 90 : 10;
+
     return {
       id: newId,
       workflow_id: idMappings.workflows[row.workflow_id],
       step_code: row.step_code,  // Keep as TEXT
       step_name: row.step_name,
       step_order: row.step_order,
-      category_code: [10, 90].includes(row.category_code) ? row.category_code : 10,
+      category_code: normalizedCategory,
       workgroup_id: row.workgroup_code ? idMappings.workgroups[row.workgroup_code] : null,
       description: null,  // New field
       created_at: convertTimestamp(row.created_at) || new Date().toISOString(),
@@ -203,22 +221,34 @@ async function exportWorkflowSteps() {
 
 async function exportWorkflowTransitions() {
   console.log('\n📦 Exporting workflow transitions...');
+  
+  // Check if table exists
+  const tableExists = sqlite.prepare(`
+    SELECT name FROM sqlite_master 
+    WHERE type='table' AND name='workflow_transitions'
+  `).get();
+  
+  if (!tableExists) {
+    console.log('   ⚠️  workflow_transitions table not found - skipping');
+    stats.workflow_transitions = { exported: 0, imported: 0 };
+    return [];
+  }
+  
   const rows = sqlite.prepare('SELECT * FROM workflow_transitions').all();
   stats.workflow_transitions = { exported: rows.length, imported: 0 };
-
+  
   return rows.map(row => ({
     id: generateUUID(),
     workflow_id: idMappings.workflows[row.workflow_id],
-    from_step_code: row.from_step_code,
+    from_step_code: row.from_step_code,  // Keep as TEXT (FK to workflow_steps.step_code)
     to_step_code: row.to_step_code,
-    transition_name: row.transition_name,
-    requires_comment: convertBoolean(row.requires_comment),
+    transition_name: null,  // Not in current schema
+    requires_comment: false,  // Not in current schema
     cancel_allowed: convertBoolean(row.cancel_allowed),
     created_at: convertTimestamp(row.created_at) || new Date().toISOString(),
     deleted_at: null
   }));
 }
-
 
 async function exportModules() {
   console.log('\n📦 Exporting modules...');
@@ -275,23 +305,26 @@ async function exportTickets() {
       ? idMappings.employees[row.responsible_employee_id] 
       : null;
     
+    const workflowId = row.workflow_id ? idMappings.workflows[row.workflow_id] : null;
+    const stepCode = workflowId ? row.step_code : null;
+
     return {
       // NO id field - let PostgreSQL generate UUID
       ticket_code: originalTicketId,  // Store original ID as ticket_code
       title: row.title,
       description: row.description,
-      status: row.status || 'Open',
+      status: normalizeTicketStatus(row.status),
       priority: row.priority || 'Medium',
-      workflow_id: row.workflow_id ? idMappings.workflows[row.workflow_id] : null,
-      step_code: row.step_code,  // Keep as TEXT (FK to workflow_steps)
+      workflow_id: workflowId,
+      step_code: stepCode,  // Only set when workflow_id is present
       workgroup_id: row.workgroup_id ? idMappings.workgroups[row.workgroup_id] : null,
       responsible_employee_id: row.responsible_employee_id 
         ? idMappings.employees[row.responsible_employee_id] 
         : null,
       created_by: row.created_by ? idMappings.employees[row.created_by] : createdBy,
       module_id: row.module_id ? idMappings.modules[row.module_id] : null,
-      start_date: row.start_date,
-      due_date: row.due_date,
+      start_date: normalizeDate(row.start_date),
+      due_date: normalizeDate(row.due_date),
       initiate_date: convertTimestamp(row.initiate_date) || convertTimestamp(row.created_at) || new Date().toISOString(),
       completed_at: null,  // New field - can be updated based on status
       created_at: convertTimestamp(row.created_at) || new Date().toISOString(),
@@ -325,12 +358,15 @@ async function exportComments(employeesList) {
     const employee = employeesList.find(e => e.name === name);
     return employee ? employee.id : null;
   };
+
+  const fallbackEmployeeId =
+    employeesList.find(e => e.role_id === 1)?.id || employeesList[0]?.id || null;
   
   return rows.map(row => ({
     id: generateUUID(),
     ticket_code: row.ticket_id,  // Store original ticket_id, will map to UUID later
     text: row.text,
-    author_id: findEmployeeByName(row.author),  // Map name to UUID
+    author_id: findEmployeeByName(row.author) || fallbackEmployeeId,
     comment_type: row.comment_type || 'comment',
     created_at: convertTimestamp(row.timestamp) || convertTimestamp(row.created_at) || new Date().toISOString(),
     updated_at: convertTimestamp(row.timestamp) || convertTimestamp(row.created_at) || new Date().toISOString(),
@@ -384,6 +420,9 @@ async function exportStatusHistory(employeesList) {
     const employee = employeesList.find(e => e.name === name);
     return employee ? employee.id : null;
   };
+
+  const fallbackEmployeeId =
+    employeesList.find(e => e.role_id === 1)?.id || employeesList[0]?.id || null;
   
   return rows.map(row => ({
     id: generateUUID(),
@@ -392,89 +431,42 @@ async function exportStatusHistory(employeesList) {
     field_name: row.field_name,
     old_value: row.old_value,
     new_value: row.new_value,
-    changed_by: findEmployeeByName(row.changed_by),
+    changed_by: findEmployeeByName(row.changed_by) || fallbackEmployeeId,
     created_at: convertTimestamp(row.timestamp) || new Date().toISOString()
   }));
 }
 
-// Import function 
+// Import function
 async function importData(table, data) {
   if (DRY_RUN) {
     console.log(`   [DRY RUN] Would import ${data.length} rows into ${table}`);
     stats[table].imported = data.length;
     return;
   }
-
+  
   const client = await pool.connect();
-
+  
   try {
     await client.query('BEGIN');
-
+    
     for (const row of data) {
       const columns = Object.keys(row).join(', ');
       const placeholders = Object.keys(row).map((_, i) => `$${i + 1}`).join(', ');
       const values = Object.values(row);
-
-      // Define a table-specific check for unique constraints
-      let existsQuery = null;
-      let existsValues = [];
-
-      switch (table) {
-        case 'workgroups':
-          existsQuery = `SELECT 1 FROM workgroups WHERE name = $1 AND active = $2`;
-          existsValues = [row.name, row.active];
-          break;
-
-        case 'employees':
-          existsQuery = `SELECT 1 FROM employees WHERE email = $1`;
-          existsValues = [row.email];
-          break;
-
-        case 'workflows':
-          existsQuery = `SELECT 1 FROM workflows WHERE name = $1`;
-          existsValues = [row.name];
-          break;
-
-        case 'workflow_steps':
-          existsQuery = `SELECT 1 FROM workflow_steps WHERE workflow_id = $1 AND step_code = $2`;
-          existsValues = [row.workflow_id, row.step_code];
-          break;
-
-        case 'modules':
-          existsQuery = `SELECT 1 FROM modules WHERE name = $1`;
-          existsValues = [row.name];
-          break;
-
-        case 'tags':
-          existsQuery = `SELECT 1 FROM tags WHERE label = $1`;
-          existsValues = [row.label];
-          break;
-
-        case 'tickets':
-          existsQuery = `SELECT 1 FROM tickets WHERE title = $1 AND workflow_id = $2`;
-          existsValues = [row.title, row.workflow_id];
-          break;
-
-        default:
-          existsQuery = null; // No check for other tables
+      
+      try {
+        await client.query(
+          `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`,
+          values
+        );
+        stats[table].imported++;
+      } catch (error) {
+        console.error(`   ❌ Error inserting into ${table}:`, error.message);
+        console.error('   Row:', row);
+        throw error;
       }
-
-      if (existsQuery) {
-        const checkResult = await client.query(existsQuery, existsValues);
-        if (checkResult.rowCount > 0) {
-          console.log(`   ⚠️  Skipping existing row in ${table}: ${JSON.stringify(row)}`);
-          continue; // Skip inserting this row
-        }
-      }
-
-      // Insert row
-      await client.query(
-        `INSERT INTO ${table} (${columns}) VALUES (${placeholders})`,
-        values
-      );
-      stats[table].imported++;
     }
-
+    
     await client.query('COMMIT');
     console.log(`   ✅ Imported ${stats[table].imported} rows into ${table}`);
   } catch (error) {
@@ -483,7 +475,7 @@ async function importData(table, data) {
   } finally {
     client.release();
   }
-
+}
 
 // Build ticket_code to UUID mapping from PostgreSQL
 async function buildTicketCodeMapping() {
@@ -612,6 +604,7 @@ async function migrate() {
     const employees = await exportEmployees();
     const workflows = await exportWorkflows();
     const workflowSteps = await exportWorkflowSteps();
+    const workflowTransitions = await exportWorkflowTransitions();
     const modules = await exportModules();
     const tags = await exportTags();
     const tickets = await exportTickets();
@@ -619,8 +612,6 @@ async function migrate() {
     const comments = await exportComments(employees);
     const attachments = await exportAttachments(employees);
     const statusHistory = await exportStatusHistory(employees);
-    const workflowTransitions = await exportWorkflowTransitions();
-
     
     console.log('\n✅ Export complete\n');
     
@@ -709,12 +700,5 @@ async function migrate() {
   }
 }
 
-// Run migration inside async wrapper to allow top-level await
-(async () => {
-  try {
-    await migrate();
-  } catch (err) {
-    console.error('Migration failed:', err);
-    process.exit(1);
-  }
-})();
+// Run migration
+migrate();
