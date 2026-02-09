@@ -4,6 +4,8 @@ import { UserCircle, Ticket, Users, ClipboardList, Lock } from "lucide-react";
 import RecentActivity from "../components/Profile/RecentActivity.jsx";
 import MyTickets from "../components/Profile/MyTickets";
 import ChangePasswordModal from "../components/Profile/ChangePasswordModal";
+import AssignedWorkflowBarChart from "../components/Profile/AssignedWorkflowBarChart";
+import WorkgroupStatusPieChart from "../components/Profile/WorkgroupStatusPieChart";
 
 const ProfileActivity = () => {
   const [stats, setStats] = useState({
@@ -20,6 +22,12 @@ const ProfileActivity = () => {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   const token = localStorage.getItem("token");
+
+  const {
+    data: ticketsData,
+    isPending: ticketsPending,
+    error: ticketsError,
+  } = useFetch("http://localhost:8000/api/tickets");
 
   // Fetch quick stats
   useEffect(() => {
@@ -42,6 +50,33 @@ const ProfileActivity = () => {
     if (token) fetchStats();
   }, [token]);
 
+  // Refresh user details (role/workgroup names) from API
+  useEffect(() => {
+    const fetchUserDetails = async () => {
+      if (!user?.id || !token) return;
+      try {
+        const response = await fetch(`http://localhost:8000/api/employees/${user.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const merged = {
+          ...user,
+          role_name: data.roleName,
+          workgroup_name: data.workgroupName,
+          workgroup_id: data.workgroupId,
+          role_id: data.roleId,
+        };
+        setUser(merged);
+        localStorage.setItem("user", JSON.stringify(merged));
+      } catch (err) {
+        console.error("Error fetching user details:", err);
+      }
+    };
+
+    fetchUserDetails();
+  }, [token, user?.id]);
+
   if (!user) {
     return (
       <div className="p-10 text-center text-gray-600 dark:text-gray-300">
@@ -49,6 +84,14 @@ const ProfileActivity = () => {
       </div>
     );
   }
+
+  const myAssignedTickets = Array.isArray(ticketsData)
+    ? ticketsData.filter(t => t.responsible_employee_id === user.id)
+    : [];
+
+  const myWorkgroupTickets = Array.isArray(ticketsData)
+    ? ticketsData.filter(t => t.workgroup_id === user.workgroup_id)
+    : [];
 
   return (
     <div className="p-8 space-y-8">
@@ -65,7 +108,7 @@ const ProfileActivity = () => {
                 {user.email}
               </p>
               <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
-                Role ID: {user.role_id} | Employee ID: {user.id}
+                Role: {user.role_name || user.role || "Unknown"} | Workgroup: {user.workgroup_name || "Unknown"}
               </p>
             </div>
           </div>
@@ -101,6 +144,24 @@ const ProfileActivity = () => {
           icon={<Users className="w-6 h-6 text-green-500" />}
           color="text-green-600 dark:text-green-400"
         />
+      </div>
+
+      {/* === Profile Charts === */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {ticketsPending ? (
+          <div className="col-span-1 md:col-span-2 text-center text-sm text-gray-500 dark:text-gray-400">
+            Loading ticket charts...
+          </div>
+        ) : ticketsError ? (
+          <div className="col-span-1 md:col-span-2 text-center text-sm text-red-600 dark:text-red-400">
+            Failed to load ticket data for charts.
+          </div>
+        ) : (
+          <>
+            <AssignedWorkflowBarChart tickets={myAssignedTickets} />
+            <WorkgroupStatusPieChart tickets={myWorkgroupTickets} />
+          </>
+        )}
       </div>
 
       {/* === Recent Activity + My Tickets === */}

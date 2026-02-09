@@ -4,15 +4,17 @@ const router = express.Router();
 const crypto = require("crypto");
 
 // Helper to generate sequential MOD-xxx ID
-const generateModuleId = () => {
+const generateModuleId = async () => {
   try {
-
-    const result = db.prepare(`
-      SELECT id FROM modules 
-      WHERE id LIKE 'MOD-%' 
-      ORDER BY id DESC 
-      LIMIT 1
-    `).get();
+    const { rows } = await db.query(
+      `
+        SELECT id FROM modules
+        WHERE id LIKE 'MOD-%'
+        ORDER BY id DESC
+        LIMIT 1
+      `
+    );
+    const result = rows[0];
 
     if (result) {
 
@@ -38,7 +40,7 @@ const generateModuleId = () => {
 // ----------------------------------------------------------------------
 // GET all active modules (for dropdowns/lists)
 // ----------------------------------------------------------------------
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const modulesQuery = `
       SELECT 
@@ -49,10 +51,10 @@ router.get("/", (req, res) => {
         created_at, 
         updated_at
       FROM modules
-      WHERE active = 1
+      WHERE active = true
       ORDER BY name ASC
     `;
-    const rows = db.prepare(modulesQuery).all();
+    const { rows } = await db.query(modulesQuery);
 
     res.json(Array.isArray(rows) ? rows : []);
   } catch (err) {
@@ -64,16 +66,17 @@ router.get("/", (req, res) => {
 // ----------------------------------------------------------------------
 // GET module by ID (useful for editing)
 // ----------------------------------------------------------------------
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
     const moduleQuery = `
       SELECT 
         id, name, description, active, created_at, updated_at
       FROM modules
-      WHERE id = ?
+      WHERE id = $1
     `;
-    const module = db.prepare(moduleQuery).get(id);
+    const { rows } = await db.query(moduleQuery, [id]);
+    const module = rows[0];
 
     if (!module) {
       return res.status(404).json({ error: "Module not found" });
@@ -89,7 +92,7 @@ router.get("/:id", (req, res) => {
 // ----------------------------------------------------------------------
 // POST create a new module
 // ----------------------------------------------------------------------
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { name, description } = req.body;
 
   if (!name) {
@@ -97,24 +100,24 @@ router.post("/", (req, res) => {
   }
 
   try {
-    const newId = generateModuleId();
+    const newId = await generateModuleId();
     
     // Optional: Check if module with this name already exists (assuming name should be unique)
-    const existing = db.prepare("SELECT id FROM modules WHERE name = ? COLLATE NOCASE").get(name);
+    const existingResult = await db.query(
+      "SELECT id FROM modules WHERE name ILIKE $1",
+      [name]
+    );
+    const existing = existingResult.rows[0];
     if (existing) {
         return res.status(409).json({ error: "A module with this name already exists" });
     }
 
-    const insertModule = db.prepare(`
-      INSERT INTO modules 
-        (id, name, description)
-      VALUES (?, ?, ?)
-    `);
-
-    insertModule.run(
-      newId, 
-      name, 
-      description || null
+    await db.query(
+      `
+        INSERT INTO modules (id, name, description)
+        VALUES ($1, $2, $3)
+      `,
+      [newId, name, description || null]
     );
 
     res.status(201).json({ message: "Module created successfully", id: newId });
@@ -127,7 +130,7 @@ router.post("/", (req, res) => {
 // ----------------------------------------------------------------------
 // PUT update an existing module
 // ----------------------------------------------------------------------
-router.put("/:id", (req, res) => {
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, description, active } = req.body;
 
@@ -137,35 +140,30 @@ router.put("/:id", (req, res) => {
 
   try {
     // Check if the new name belongs to another module
-    const nameConflict = db.prepare("SELECT id FROM modules WHERE name = ? COLLATE NOCASE AND id != ?").get(name, id);
+    const conflictResult = await db.query(
+      "SELECT id FROM modules WHERE name ILIKE $1 AND id != $2",
+      [name, id]
+    );
+    const nameConflict = conflictResult.rows[0];
     if (nameConflict) {
         return res.status(409).json({ error: "This module name is already in use by another module" });
     }
 
-    const updateModule = db.prepare(`
-      UPDATE modules
-      SET 
-        name = ?, 
-        description = ?, 
-        active = ?
-      WHERE id = ?
-    `);
-    
+    const activeValue =
+      typeof active === "boolean" ? active : active === undefined || active === null ? true : active;
 
-    const activeValue = typeof active === 'boolean' ? (active ? 1 : 0) : active;
-
-    const result = updateModule.run(
-      name, 
-      description || null, 
-
-      active === undefined || active === null ? 1 : activeValue,
-      id
+    const result = await db.query(
+      `
+        UPDATE modules
+        SET name = $1, description = $2, active = $3
+        WHERE id = $4
+      `,
+      [name, description || null, activeValue, id]
     );
 
-    if (result.changes === 0) {
-
-      const checkExists = db.prepare("SELECT id FROM modules WHERE id = ?").get(id);
-      if (!checkExists) {
+    if (result.rowCount === 0) {
+      const existsResult = await db.query("SELECT id FROM modules WHERE id = $1", [id]);
+      if (!existsResult.rows[0]) {
         return res.status(404).json({ error: "Module not found" });
       }
       return res.status(200).json({ message: "Module updated successfully (or no changes made)" });

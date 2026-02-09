@@ -178,8 +178,8 @@ const ViewTicket = () => {
   const { user } = useAuth();
   const canEdit = user && (user.role_id === 1 || user.role_id === 2);
   
-  // Fetch ticket data with correct API endpoint
-  const { data: rawTicket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}`)
+  // Fetch ticket data with metadata-only attachments
+  const { data: rawTicket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}?include_blobs=false`)
   
   // Fetch status history - this should work now with your actual table
   const { data: statusHistory, isPending: isHistoryPending, error: historyError } = useFetch(`http://localhost:8000/api/status_history?ticketId=${ticketId}`)
@@ -190,6 +190,7 @@ const ticket = useMemo(() => {
   
   return {
     id: rawTicket.id,
+    ticketCode: rawTicket.ticket_code || rawTicket.ticketCode,
     title: rawTicket.title,
     description: rawTicket.description,
     status: rawTicket.status,
@@ -215,6 +216,7 @@ const ticket = useMemo(() => {
   };
 }, [rawTicket]);
 
+  const [attachmentBlobs, setAttachmentBlobs] = useState({});
   // Cancel ticket modal state
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -236,8 +238,41 @@ const ticket = useMemo(() => {
     }
   }, [ticket])
 
+  const fetchAttachmentBlob = async (attachmentId) => {
+    if (attachmentBlobs[attachmentId]) return attachmentBlobs[attachmentId];
+    const res = await fetch(`http://localhost:8000/api/attachments/${attachmentId}/blob`);
+    if (!res.ok) throw new Error("Failed to fetch attachment blob");
+    const data = await res.json();
+    const base64 = data.base64_data;
+    setAttachmentBlobs(prev => ({ ...prev, [attachmentId]: base64 }));
+    return base64;
+  };
+
+  const handleDownloadAttachment = async (file) => {
+    try {
+      const base64 = await fetchAttachmentBlob(file.id);
+      if (!base64) return;
+      const link = document.createElement("a");
+      link.href = base64;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Failed to download attachment:", err);
+    }
+  };
+
+  const handleLoadPreview = async (file) => {
+    try {
+      await fetchAttachmentBlob(file.id);
+    } catch (err) {
+      console.error("Failed to load attachment preview:", err);
+    }
+  };
+
   // Handle cancel ticket
-  const handleCancelTicket = async (comment) => {
+  const handleCancelTicket = async (comment) => {
     setIsCancelling(true)
     try {
       // FIX 2: Use camelCase keys for the PUT request body,
@@ -256,7 +291,7 @@ const ticket = useMemo(() => {
         tags: ticket.tags, // Send full array for server to process
         comments: ticket.comments, // Send existing comments to prevent deletion
         attachments: ticket.attachments, // Send existing attachments to prevent deletion
-      }
+  }
 
       const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}`, {
         method: 'PUT',
@@ -401,6 +436,9 @@ const renderTag = (tag, index) => {
               <Badge variant={getStatusVariant(ticket.status)}>{ticket.status}</Badge>
             </CardHeader>
             <CardContent>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
+                Ticket Code: {ticket.ticketCode || ticket.id}
+              </p>
               <p className="text-gray-600 dark:text-gray-300">{ticket.description}</p>
               <div className="flex flex-wrap gap-2 mt-4">
                 {ticket.tags?.map((tag, index) => renderTag(tag, index))}
@@ -560,11 +598,12 @@ const renderTag = (tag, index) => {
                 <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                   {ticket.attachments.map((file, index) => {
                     const isImage = file.type.startsWith('image/');
+                    const blobData = attachmentBlobs[file.id];
                     return (
                       <li key={index} className="flex items-center justify-between py-2">
                         <div className="flex items-center gap-3">
-                          {isImage && (
-                            <img src={file.data} alt="Attachment preview" className="w-10 h-10 object-cover rounded-md" />
+                          {isImage && blobData && (
+                            <img src={blobData} alt="Attachment preview" className="w-10 h-10 object-cover rounded-md" />
                           )}
                           <div>
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{file.name}</p>
@@ -572,13 +611,22 @@ const renderTag = (tag, index) => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <a
-                            href={file.data}
-                            download={file.name}
+                          {isImage && !blobData && (
+                            <button
+                              type="button"
+                              onClick={() => handleLoadPreview(file)}
+                              className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                            >
+                              Load Preview
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadAttachment(file)}
                             className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                           >
                             Download
-                          </a>
+                          </button>
                         </div>
                       </li>
                     );

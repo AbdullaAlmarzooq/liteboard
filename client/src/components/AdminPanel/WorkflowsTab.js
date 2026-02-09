@@ -1,6 +1,6 @@
 // WorkflowsTab.js
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2 } from 'lucide-react';
 import ReactFlow, { Background } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { getCategoryByCode } from '../../constants/statuses';
@@ -10,11 +10,13 @@ const WorkflowDiagram = ({ steps }) => {
   if (!steps || steps.length === 0) return null;
 
   const nodes = steps.map((step, i) => {
-    const category = getCategoryByCode(step.categoryCode) || { name: 'Unknown', color: 'bg-gray-400' };
+    const categoryCode = step.categoryCode ?? step.category_code;
+    const category = getCategoryByCode(categoryCode) || { name: 'Unknown', color: 'bg-gray-400' };
+    const stepLabel = step.stepName || step.step_name || 'Unnamed';
     return {
       id: `step-${i}`,
       position: { x: i * 200, y: 50 },
-      data: { label: step.stepName },
+      data: { label: stepLabel },
       style: {
         border: '1px solid #777',
         borderRadius: '8px',
@@ -44,10 +46,31 @@ const WorkflowDiagram = ({ steps }) => {
   );
 };
 
-const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onDelete, onEdit: parentOnEdit }) => {
+const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentOnEdit }) => {
   const [workflows, setWorkflows] = useState(initialWorkflows);
   const [modalOpen, setModalOpen] = useState(false);
   const [workflowToEdit, setWorkflowToEdit] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  useEffect(() => {
+    setWorkflows(initialWorkflows);
+  }, [initialWorkflows]);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const refreshWorkflows = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/workflow_management');
+      if (!res.ok) throw new Error('Failed to refresh workflows');
+      const data = await res.json();
+      setWorkflows(data);
+    } catch (err) {
+      console.error('Failed to refresh workflows:', err);
+    }
+  };
 
   const handleCreateClick = () => {
     setWorkflowToEdit(null); // Creating new
@@ -64,27 +87,74 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onDelete, onEdi
     setWorkflowToEdit(null);
   };
 
-  const handleSaveWorkflow = (workflow) => {
-    if (!workflow.id) {
-      // New workflow: generate temporary id for frontend
-      workflow.id = `WF-${workflows.length + 1}`;
-      setWorkflows(prev => [...prev, workflow]);
-    } else {
-      // Existing workflow
-      setWorkflows(prev => prev.map(wf => wf.id === workflow.id ? workflow : wf));
-    }
-    setModalOpen(false);
-    setWorkflowToEdit(null);
+  const handleSaveWorkflow = async (workflow) => {
+    try {
+      if (!workflow?.name || !Array.isArray(workflow.steps) || workflow.steps.length === 0) {
+        showToast('Workflow name and steps are required', 'error');
+        return;
+      }
 
-    // Call parent edit if needed
-    parentOnEdit && parentOnEdit(workflow);
+      const payload = {
+        name: workflow.name,
+        steps: workflow.steps.map(step => ({
+          stepName: step.stepName || step.step_name,
+          stepCode: step.stepCode || step.step_code,
+          categoryCode: step.categoryCode || step.category_code,
+          workgroupCode: step.workgroupCode || step.workgroup_code,
+          allowedNextSteps: step.allowedNextSteps || [],
+          allowedPreviousSteps: step.allowedPreviousSteps || []
+        }))
+      };
+
+      if (!workflow.id) {
+        const res = await fetch('http://localhost:8000/api/workflow_management', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        console.log('[Workflows] create response status:', res.status);
+        if (!res.ok) throw new Error('Failed to create workflow');
+        showToast('Workflow created successfully');
+      } else {
+        const res = await fetch(`http://localhost:8000/api/workflow_management/${workflow.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: workflow.id, ...payload })
+        });
+        console.log('[Workflows] update response status:', res.status);
+        if (!res.ok) throw new Error('Failed to update workflow');
+        showToast('Workflow updated successfully');
+      }
+
+      await refreshWorkflows();
+      setModalOpen(false);
+      setWorkflowToEdit(null);
+      parentOnEdit && parentOnEdit(workflow);
+    } catch (err) {
+      console.error('Failed to save workflow:', err);
+      showToast('Failed to save workflow', 'error');
+    }
   };
 
-  const handleDelete = async (id) => {
-    if (onDelete) {
-      await onDelete(id); // Parent handles DB deletion
+  const handleToggleActive = async (workflow) => {
+    if (!workflow) return;
+    const nextActive = !workflow.active;
+    try {
+      const res = await fetch(`http://localhost:8000/api/workflow_management/${workflow.id}/active`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: nextActive })
+      });
+      console.log('[Workflows] toggle active payload:', { id: workflow.id, active: nextActive });
+      console.log('[Workflows] toggle active response status:', res.status);
+      if (!res.ok) throw new Error('Failed to toggle workflow');
+      setWorkflows(prev =>
+        prev.map(wf => (wf.id === workflow.id ? { ...wf, active: nextActive } : wf))
+      );
+    } catch (err) {
+      console.error('Failed to toggle workflow:', err);
+      showToast('Failed to toggle workflow', 'error');
     }
-    setWorkflows(prev => prev.filter(wf => wf.id !== id));
   };
 
   if (!workflows.length) {
@@ -112,20 +182,45 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onDelete, onEdi
 
   return (
     <div className="grid gap-4">
+      {toast && (
+        <div
+          className={`px-4 py-2 rounded-md text-sm ${
+            toast.type === 'error'
+              ? 'bg-red-100 text-red-800 border border-red-200'
+              : 'bg-green-100 text-green-800 border border-green-200'
+          }`}
+        >
+          {toast.message}
+        </div>
+      )}
       {workflows.map(workflow => (
         <div key={workflow.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
           <div className="flex justify-between items-start mb-3">
             <div className="flex flex-col">
               <h3 className="font-semibold text-lg">{workflow.name}</h3>
-              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{workflow.id}</span>
             </div>
             <div className="flex space-x-2">
               <button onClick={() => handleEditClick(workflow)} className="text-blue-600 hover:text-blue-800">
                 <Edit2 size={16} />
               </button>
-              <button onClick={() => handleDelete(workflow.id)} className="text-red-600 hover:text-red-800">
-                <Trash2 size={16} />
+              <button
+                onClick={() => handleToggleActive(workflow)}
+                className="relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                style={{
+                  backgroundColor: workflow.active ? '#2563eb' : '#e5e7eb',
+                  cursor: workflow.active ? 'pointer' : 'not-allowed'
+                }}
+                title={workflow.active ? 'Set inactive' : 'Set active'}
+                aria-label={workflow.active ? 'Active' : 'Inactive'}
+              >
+                <span
+                  className="inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200"
+                  style={{ transform: workflow.active ? 'translateX(1.6rem)' : 'translateX(0.1rem)' }}
+                />
               </button>
+              <span className="text-xs text-gray-600 dark:text-gray-300">
+                {workflow.active ? 'Active' : 'Inactive'}
+              </span>
             </div>
           </div>
 

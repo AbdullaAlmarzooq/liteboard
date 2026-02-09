@@ -39,7 +39,7 @@ const TagsTab = ({
         >
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium text-gray-500">{tag.id}</span>
+              <span className="text-sm font-medium text-gray-700">{tag.label}</span>
             </div>
             <div className="flex space-x-2">
               {editingItem === tag.id ? (

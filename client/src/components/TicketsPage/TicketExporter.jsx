@@ -38,14 +38,15 @@ const TicketExporter = ({ ticketsToExport = [] }) => {
     if (!data || data.length === 0) return "";
 
     const headers = [
-      "ID", "Title", "Description", "Status", "Priority", "WorkGroup",
-      "Responsible", "Module", "Tags", "Due Date", "Initiate Date"
+      "Ticket Code", "UUID", "Title", "Description", "Status", "Priority", "WorkGroup",
+      "Responsible", "Module", "Tags", "Due Date", "Created At"
     ];
 
     const csvHeader = headers.join(',');
 
     const csvRows = data.map(ticket => {
       const row = [
+        ticket.ticketCode || ticket.ticket_code || ticket.id || '',
         ticket.id || '',
         ticket.title || '',
         ticket.description || '',
@@ -56,7 +57,12 @@ const TicketExporter = ({ ticketsToExport = [] }) => {
         ticket.module || 'No Module',
         extractTagNames(ticket.tags), // Handle normalized tags
         formatDate(ticket.dueDate),
-        formatDate(ticket.initiateDate)
+        formatDate(
+          ticket.initiateDate ||
+          ticket.initiate_date ||
+          ticket.created_at ||
+          ticket.createdAt
+        )
       ];
 
       // Escape CSV values that contain commas, quotes, or newlines

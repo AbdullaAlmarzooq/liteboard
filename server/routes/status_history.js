@@ -4,99 +4,95 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 
-// Helper to generate ACT-xxx ID (FIXED WHITESPACE)
-const generateActivityId = () => {
-  try {
-    // 🚩 FIX: Left-aligning the SQL query content
-    const result = db.prepare(`
-SELECT id FROM status_history 
-WHERE id LIKE 'ACT-%' 
-ORDER BY id DESC 
-LIMIT 1
-`).get();
-
-    if (result) {
-      const currentNum = parseInt(result.id.split('-')[1]);
-      const nextNum = currentNum + 1;
-      return `ACT-${String(nextNum).padStart(3, '0')}`;
-    }
-    return 'ACT-001';
-  } catch (err) {
-    console.error('Error generating activity ID:', err);
-    return `ACT-${String(Date.now()).slice(-3)}`; // fallback
-  }
-};
-
 // --- GET history for a ticket (Previously fixed) ---
-router.get("/", (req, res) => {
-  const { ticketId } = req.query;
-  if (!ticketId) {
-    return res.status(400).json({ error: "ticketId query parameter is required" });
-  }
+router.get("/", async (req, res) => {
+  const { ticketId } = req.query;
+  if (!ticketId) {
+    return res.status(400).json({ error: "ticketId query parameter is required" });
+  }
 
-  try {
-    // This query was fixed in the previous iteration
-    const historyQuery = `
-SELECT 
-  sh.id, sh.ticket_id, sh.activity_type, sh.field_name, sh.old_value, sh.new_value, 
-  sh.timestamp, 
-  COALESCE(e.name, sh.changed_by) AS changed_by_name
-FROM status_history sh
-LEFT JOIN employees e ON sh.changed_by = e.id
-WHERE sh.ticket_id = ?
-ORDER BY sh.timestamp ASC
-`;
-     
-    const historyRecords = db.prepare(historyQuery).all(ticketId);
+  try {
+    const ticketResult = await db.query(
+      "SELECT id FROM tickets WHERE (id::text = $1 OR ticket_code = $1) AND deleted_at IS NULL",
+      [ticketId]
+    );
+    const resolvedTicketId = ticketResult.rows[0]?.id;
+    if (!resolvedTicketId) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
 
-    const transformed = historyRecords.map(r => ({
-      id: r.id,
-      ticket_id: r.ticket_id,
-      type: r.activity_type,
-      fieldName: r.field_name,
-      oldValue: r.old_value,
-      newValue: r.new_value,
-      timestamp: r.timestamp,
-      // Access the result using the SQL alias
-      changedBy: r.changed_by_name 
-    }));
+    const historyQuery = `
+      SELECT
+        sh.id,
+        sh.ticket_id,
+        sh.activity_type,
+        sh.field_name,
+        sh.old_value,
+        sh.new_value,
+        sh.created_at,
+        COALESCE(e.name, sh.changed_by::TEXT) AS changed_by_name
+      FROM status_history sh
+      LEFT JOIN employees e ON sh.changed_by = e.id
+      WHERE sh.ticket_id = $1
+      ORDER BY sh.created_at ASC
+    `;
 
-    res.json(transformed);
-  } catch (err) {
-    console.error("Error fetching status history:", err);
-    res.status(500).json({ error: "Failed to fetch status history" });
-  }
+    const { rows } = await db.query(historyQuery, [resolvedTicketId]);
+
+    const transformed = rows.map(r => ({
+      id: r.id,
+      ticket_id: r.ticket_id,
+      type: r.activity_type,
+      fieldName: r.field_name,
+      oldValue: r.old_value,
+      newValue: r.new_value,
+      timestamp: r.created_at,
+      changedBy: r.changed_by_name,
+    }));
+
+    res.json(transformed);
+  } catch (err) {
+    console.error("Error fetching status history:", err);
+    res.status(500).json({ error: "Failed to fetch status history" });
+  }
 });
 
 // --- POST new history record (FIXED WHITESPACE) ---
-router.post("/", (req, res) => {
-  const { ticket_id, activity_type, field_name, old_value, new_value, changed_by } = req.body;
+router.post("/", async (req, res) => {
+  const { ticket_id, activity_type, field_name, old_value, new_value, changed_by } = req.body;
 
-  if (!ticket_id || !activity_type || !changed_by) {
-    return res.status(400).json({ error: "ticket_id, activity_type, and changed_by are required" });
-  }
+  if (!ticket_id || !activity_type || !changed_by) {
+    return res.status(400).json({ error: "ticket_id, activity_type, and changed_by are required" });
+  }
 
-  try {
-    const newId = generateActivityId();
+  try {
+    const ticketResult = await db.query(
+      "SELECT id FROM tickets WHERE (id::text = $1 OR ticket_code = $1) AND deleted_at IS NULL",
+      [ticket_id]
+    );
+    const resolvedTicketId = ticketResult.rows[0]?.id;
+    if (!resolvedTicketId) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
 
-    // 🚩 FIX: Left-aligning the SQL query content
-    const insertHistory = db.prepare(`
-INSERT INTO status_history 
-(id, ticket_id, activity_type, field_name, old_value, new_value, timestamp, changed_by)
-VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)
-`);
+    const result = await db.query(
+      `
+        INSERT INTO status_history
+          (ticket_id, activity_type, field_name, old_value, new_value, changed_by, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW())
+        RETURNING id
+      `,
+      [resolvedTicketId, activity_type, field_name || null, old_value, new_value, changed_by]
+    );
 
-    // Note: changed_by should be the employee ID (e.g., EMP-001) for this to work correctly
-    insertHistory.run(newId, ticket_id, activity_type, field_name, old_value, new_value, changed_by);
-
-    res.status(201).json({
-      message: "History record created",
-      id: newId
-    });
-  } catch (err) {
-    console.error("Error creating history record:", err);
-    res.status(500).json({ error: "Failed to create history record" });
-  }
+    res.status(201).json({
+      message: "History record created",
+      id: result.rows[0].id,
+    });
+  } catch (err) {
+    console.error("Error creating history record:", err);
+    res.status(500).json({ error: "Failed to create history record" });
+  }
 });
 
 module.exports = router;

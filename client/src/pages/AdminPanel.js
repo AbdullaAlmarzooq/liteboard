@@ -29,6 +29,7 @@ const AdminPanel = () => {
   const [itemToDelete, setItemToDelete] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     fetchData();
@@ -42,7 +43,7 @@ const AdminPanel = () => {
         fetch('http://localhost:8000/api/tags'),
         fetch('http://localhost:8000/api/workgroups'),
         fetch('http://localhost:8000/api/modules'),
-        fetch('http://localhost:8000/api/workflows'),
+        fetch('http://localhost:8000/api/workflow_management'),
         fetch('http://localhost:8000/api/employees/roles')
       ]);
 
@@ -58,6 +59,65 @@ const AdminPanel = () => {
     setLoading(false);
   };
 
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const refreshWorkflows = async () => {
+    try {
+      const wfRes = await fetch('http://localhost:8000/api/workflow_management');
+      const data = await wfRes.json();
+      setWorkflows(data);
+    } catch (error) {
+      console.error('Error refreshing workflows:', error);
+    }
+  };
+
+  const saveWorkflow = async (wf) => {
+    try {
+      const payload = {
+        name: wf.name,
+        steps: wf.steps.map(step => ({
+          stepName: step.stepName || step.step_name,
+          stepCode: step.stepCode || step.step_code,
+          categoryCode: step.categoryCode || step.category_code,
+          workgroupCode: step.workgroupCode || step.workgroup_code,
+          allowedNextSteps: step.allowedNextSteps || [],
+          allowedPreviousSteps: step.allowedPreviousSteps || []
+        }))
+      };
+
+      if (!wf.id) {
+        console.log('[AdminPanel] workflow create payload:', payload);
+        const res = await fetch('http://localhost:8000/api/workflow_management', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        console.log('[AdminPanel] workflow create status:', res.status);
+        if (!res.ok) throw new Error('Failed to create workflow');
+        showToast('Workflow created successfully');
+      } else {
+        const res = await fetch(`http://localhost:8000/api/workflow_management/${wf.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: wf.id, ...payload })
+        });
+        console.log('[AdminPanel] workflow update status:', res.status);
+        if (!res.ok) throw new Error('Failed to update workflow');
+        showToast('Workflow updated successfully');
+      }
+
+      await refreshWorkflows();
+      setShowCreateWorkflowModal(false);
+      setWorkflowToEdit(null);
+    } catch (error) {
+      console.error('Error saving workflow:', error);
+      showToast('Failed to save workflow', 'error');
+    }
+  };
+
   // ---------- Editing Handlers ----------
   const handleEdit = (item) => {
     setEditingItem(item.id);
@@ -67,7 +127,8 @@ const AdminPanel = () => {
       email: item.email,
       workgroup_code: item.workgroupId || '',
       role_id: item.roleId || 3,
-      active: item.active === 1 ? 1 : 0
+      active: item.active === 1 ? 1 : 0,
+      description: item.description || '',
     });
   };
 
@@ -244,7 +305,6 @@ const AdminPanel = () => {
             workflows={workflows}
             workgroups={workgroups}
             onEdit={setWorkflowToEdit}
-            onDelete={(id) => setWorkflows(prev => prev.filter(wf => wf.id !== id))}
             onCreateClick={() => setShowCreateWorkflowModal(true)}
           />
         );
@@ -256,6 +316,17 @@ const AdminPanel = () => {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-6xl mx-auto">
+        {toast && (
+          <div
+            className={`mb-4 px-4 py-2 rounded-md text-sm ${
+              toast.type === 'error'
+                ? 'bg-red-100 text-red-800 border border-red-200'
+                : 'bg-green-100 text-green-800 border border-green-200'
+            }`}
+          >
+            {toast.message}
+          </div>
+        )}
         <div className="px-6 py-4 border-b border-gray-200">
           <h1 className="text-2xl font-bold">Admin Panel</h1>
           <p className="mt-1">Manage employees, tags, workgroups, modules, and workflows</p>
@@ -313,14 +384,7 @@ const AdminPanel = () => {
           <CreateWorkflowModal
             workflowToEdit={workflowToEdit}
             onClose={() => setShowCreateWorkflowModal(false)}
-            onSave={(wf) => {
-              if (!wf.id) {
-                wf.id = `WF-${String(workflows.length + 1).padStart(3, '0')}`;
-                setWorkflows(prev => [...prev, wf]);
-              } else {
-                setWorkflows(prev => prev.map(w => w.id === wf.id ? wf : w));
-              }
-            }}
+            onSave={saveWorkflow}
             workgroups={workgroups}
           />
         )}

@@ -33,6 +33,7 @@ const TicketsPage = () => {
     
     return ticketsData.map(ticket => ({
       id: ticket.id,
+      ticketCode: ticket.ticket_code || ticket.ticketCode,
       title: ticket.title,
       description: ticket.description,
       status: ticket.status,
@@ -42,13 +43,16 @@ const TicketsPage = () => {
       workGroup: ticket.workgroup_name || 'Unassigned',
       moduleId: ticket.module_id,
       module: ticket.module_name || 'No Module',
-      initiateDate: ticket.initiateDate,
+      initiateDate: ticket.initiate_date || ticket.initiateDate || ticket.created_at || ticket.createdAt,
+      createdAt: ticket.created_at || ticket.createdAt,
       responsibleEmployeeId: ticket.responsible_employee_id,
       responsible: ticket.responsible_name || 'Unassigned', // Now from employees table
       tags: ticket.tags || [], // Now from ticket_tags join
       dueDate: ticket.due_date, // Now from tickets.due_date
     }));
   }, [ticketsData]);
+
+  const getDisplayTicketCode = (ticket) => ticket.ticketCode || ticket.id;
 
   // Sort tickets by extracting numeric part from ID in descending order (newest first)
   const sortedTickets = useMemo(() => {
@@ -60,8 +64,8 @@ const TicketsPage = () => {
         return match ? parseInt(match[1]) : 0;
       };
       
-      const aNum = extractNumber(a.id);
-      const bNum = extractNumber(b.id);
+      const aNum = extractNumber(getDisplayTicketCode(a));
+      const bNum = extractNumber(getDisplayTicketCode(b));
       return bNum - aNum;
     });
   }, [tickets]);
@@ -136,7 +140,7 @@ const TicketsPage = () => {
     
     try {
       // Fixed: Updated API endpoint to match server route structure
-      const response = await fetch(`http://localhost:8000/api/tickets/${ticketToDelete.id}`, {
+      const response = await fetch(`http://localhost:8000/api/tickets/${getDisplayTicketCode(ticketToDelete)}`, {
         method: 'DELETE',
       });
 
@@ -252,7 +256,7 @@ const TicketsPage = () => {
                         className="border-b border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700/50"
                       >
                         <td className="p-3 font-mono text-sm text-gray-600 dark:text-gray-400">
-                          {ticket.id}
+                          {getDisplayTicketCode(ticket)}
                         </td>
                         <td className="p-3 font-medium text-gray-900 dark:text-white">
                           {ticket.title}
@@ -310,14 +314,14 @@ const TicketsPage = () => {
                         <td className="p-3">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => navigate(`/view-ticket/${ticket.id}`)}
+                              onClick={() => navigate(`/view-ticket/${getDisplayTicketCode(ticket)}`)}
                               className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Eye className="w-3 h-3" />
                             </button>
                             {canEdit && (
                             <button
-                              onClick={() => navigate(`/edit-ticket/${ticket.id}`)}
+                              onClick={() => navigate(`/edit-ticket/${getDisplayTicketCode(ticket)}`)}
                               className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 flex items-center gap-1 transition-colors duration-200"
                             >
                               <Edit className="w-3 h-3" />
@@ -354,7 +358,7 @@ const TicketsPage = () => {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-sm text-gray-500 dark:text-gray-400">
-                    {ticket.id}
+                    {getDisplayTicketCode(ticket)}
                   </span>
                   <div className="flex gap-2">
                     <Badge variant={getStatusVariant(ticket.status)}>
@@ -433,7 +437,7 @@ const TicketsPage = () => {
                 </div>
                 <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={() => handleView(ticket.id)}
+                    onClick={() => handleView(getDisplayTicketCode(ticket))}
                     className="flex-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 disabled:opacity-50 flex items-center justify-center gap-1"
                   >
                     <Eye className="w-3 h-3" />
@@ -441,7 +445,7 @@ const TicketsPage = () => {
                   </button>
                   {canEdit && (
                   <button
-                    onClick={() => handleEdit(ticket.id)}
+                    onClick={() => handleEdit(getDisplayTicketCode(ticket))}
                     className="flex-1 px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 disabled:opacity-50 flex items-center justify-center gap-1"
                   >
                     <Edit className="w-3 h-3" />

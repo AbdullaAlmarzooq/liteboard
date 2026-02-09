@@ -1,7 +1,7 @@
 // server/middleware/ensureSameWorkgroup.js
 const db = require("../db/db");
 
-module.exports = function ensureSameWorkgroup(req, res, next) {
+module.exports = async function ensureSameWorkgroup(req, res, next) {
   try {
     const user = req.user; // set by authenticateToken()
     const ticketId = req.params.id;
@@ -16,25 +16,29 @@ module.exports = function ensureSameWorkgroup(req, res, next) {
     }
 
     // Get user's workgroup
-    const employee = db
-      .prepare("SELECT workgroup_code FROM employees WHERE id = ?")
-      .get(user.id);
+    const employeeResult = await db.query(
+      "SELECT workgroup_id FROM employees WHERE id = $1",
+      [user.id]
+    );
+    const employee = employeeResult.rows[0];
 
     if (!employee) {
       return res.status(404).json({ error: "Employee record not found" });
     }
 
     // Get ticket's workgroup
-    const ticket = db
-      .prepare("SELECT workgroup_id FROM tickets WHERE id = ?")
-      .get(ticketId);
+    const ticketResult = await db.query(
+      "SELECT workgroup_id FROM tickets WHERE (id::text = $1 OR ticket_code = $1) AND deleted_at IS NULL",
+      [ticketId]
+    );
+    const ticket = ticketResult.rows[0];
 
     if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
     // Compare
-    if (employee.workgroup_code !== ticket.workgroup_id) {
+    if (employee.workgroup_id !== ticket.workgroup_id) {
       return res.status(403).json({
         error: "You are not part of this workgroup. You cannot edit this ticket.",
       });

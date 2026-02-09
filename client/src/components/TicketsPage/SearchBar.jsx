@@ -15,6 +15,7 @@ const SearchBar = () => {
     
     return rawTickets.map(ticket => ({
       id: ticket.id,
+      ticketCode: ticket.ticket_code || ticket.ticketCode,
       title: ticket.title,
       description: ticket.description,
       status: ticket.status,
@@ -31,6 +32,8 @@ const SearchBar = () => {
       dueDate: ticket.due_date,
     }));
   }, [rawTickets]);
+
+  const getDisplayTicketCode = (ticket) => ticket.ticketCode || ticket.id;
 
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
@@ -89,7 +92,7 @@ const SearchBar = () => {
       
       return (
         ticket.title?.toLowerCase().includes(lowerCaseSearchTerm) ||
-        ticket.id?.toString().toLowerCase().includes(lowerCaseSearchTerm) ||
+        getDisplayTicketCode(ticket)?.toString().toLowerCase().includes(lowerCaseSearchTerm) ||
         ticket.workGroup?.toLowerCase().includes(lowerCaseSearchTerm) ||
         ticket.responsible?.toLowerCase().includes(lowerCaseSearchTerm) ||
         ticket.module?.toLowerCase().includes(lowerCaseSearchTerm) ||
@@ -244,7 +247,7 @@ const SearchBar = () => {
                       <li
                         key={ticket.id}
                         className={`p-4 ${statusStyling.card} rounded-lg cursor-pointer ${statusStyling.hover} transition-all duration-200 border-2`}
-                        onClick={(e) => handleTicketClick(ticket.id, e)}
+                        onClick={(e) => handleTicketClick(getDisplayTicketCode(ticket), e)}
                       >
                         <div className="flex justify-between items-start mb-3">
                           <h3 className="text-lg font-semibold dark:text-white flex-1 pr-4">{ticket.title}</h3>
@@ -255,7 +258,7 @@ const SearchBar = () => {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-gray-600 dark:text-gray-300">
                           <div>
-                            <p><span className="font-medium">ID:</span> {ticket.id}</p>
+                            <p><span className="font-medium">ID:</span> {getDisplayTicketCode(ticket)}</p>
                             <p><span className="font-medium">WorkGroup:</span> {ticket.workGroup || 'Unassigned'}</p>
                             <p><span className="font-medium">Responsible:</span> {ticket.responsible || 'Unassigned'}</p>
                           </div>

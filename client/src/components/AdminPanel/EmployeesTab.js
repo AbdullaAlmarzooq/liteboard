@@ -36,7 +36,6 @@ const EmployeesTab = ({
           {/* Header */}
           <div className="flex justify-between items-start mb-3">
             <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium text-gray-500">{emp.id}</span>
               {emp.active && (
                 <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Active</span>
               )}

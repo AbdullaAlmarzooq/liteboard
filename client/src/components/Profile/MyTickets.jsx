@@ -80,13 +80,15 @@ const MyTickets = () => {
                 </tr>
               </thead>
               <tbody>
-                {tickets.map((ticket) => (
+                {tickets.map((ticket) => {
+                  const displayId = ticket.ticketCode || ticket.ticket_code || ticket.id;
+                  return (
                   <tr
                     key={ticket.id}
                     className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
                   >
                     <td className="px-4 py-2 font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                      <Link to={`/view-ticket/${ticket.id}`}>{ticket.id}</Link>
+                      <Link to={`/view-ticket/${displayId}`}>{displayId}</Link>
                     </td>
                     <td className="px-4 py-2">{ticket.title}</td>
                     <td className="px-4 py-2">{ticket.status}</td>
@@ -98,7 +100,7 @@ const MyTickets = () => {
                       {ticket.created_by_name || ticket.created_by || "N/A"}
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

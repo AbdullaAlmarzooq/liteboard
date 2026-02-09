@@ -2,48 +2,49 @@
 const express = require("express");
 const router = express.Router();
 const authenticateToken = require("../../middleware/authMiddleware");
-const db = require("../../db/db"); // already better-sqlite3 instance
+const db = require("../../db/db");
 
 // 🔹 GET /api/profile/stats
-router.get("/stats", authenticateToken(), (req, res) => {
+router.get("/stats", authenticateToken(), async (req, res) => {
   const userId = req.user.id; // e.g., "EMP-007"
 
   try {
-    // Prepare queries
-    const raisedByMeStmt = db.prepare(
-      "SELECT COUNT(*) AS count FROM tickets WHERE created_by = ?"
+    const raisedByMeResult = await db.query(
+      "SELECT COUNT(*) AS count FROM tickets WHERE created_by = $1 AND deleted_at IS NULL",
+      [userId]
     );
-    const assignedToMeStmt = db.prepare(`
-      SELECT COUNT(*) AS count
-      FROM tickets t
-      JOIN workflow_steps ws ON ws.step_code = t.step_code
-      WHERE t.responsible_employee_id = ?
-      AND ws.category_code != 30
-    `);
-
-
-    const workgroupTicketsStmt = db.prepare(`
-      SELECT COUNT(*) AS count
-      FROM tickets t
-      JOIN workflow_steps ws ON ws.step_code = t.step_code
-      WHERE t.workgroup_id = (
-        SELECT workgroup_code FROM employees WHERE id = ?
-      )
-      AND ws.category_code != 30
-    `);
-
-
-
-    // Execute queries synchronously
-    const raisedByMe = raisedByMeStmt.get(userId);
-    const assignedToMe = assignedToMeStmt.get(userId);
-    const workgroupTickets = workgroupTicketsStmt.get(userId);
+    const assignedToMeResult = await db.query(
+      `
+        SELECT COUNT(*) AS count
+        FROM tickets t
+        JOIN workflow_steps ws
+          ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
+        WHERE t.responsible_employee_id = $1
+        AND t.deleted_at IS NULL
+        AND ws.category_code != 90
+      `,
+      [userId]
+    );
+    const workgroupTicketsResult = await db.query(
+      `
+        SELECT COUNT(*) AS count
+        FROM tickets t
+        JOIN workflow_steps ws
+          ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
+        WHERE t.workgroup_id = (
+          SELECT workgroup_id FROM employees WHERE id = $1
+        )
+        AND t.deleted_at IS NULL
+        AND ws.category_code != 90
+      `,
+      [userId]
+    );
 
     // ✅ Send results
     res.json({
-      raised_by_me: raisedByMe?.count || 0,
-      assigned_to_me: assignedToMe?.count || 0,
-      workgroup_tickets: workgroupTickets?.count || 0,
+      raised_by_me: raisedByMeResult.rows[0]?.count || 0,
+      assigned_to_me: assignedToMeResult.rows[0]?.count || 0,
+      workgroup_tickets: workgroupTicketsResult.rows[0]?.count || 0,
     });
   } catch (err) {
     console.error("Error fetching profile stats:", err);

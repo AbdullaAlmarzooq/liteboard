@@ -8,18 +8,26 @@ const jwt = require("jsonwebtoken");
 
 
 // POST /api/auth/login
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password)
     return res.status(400).json({ error: "Email and password are required." });
 
   try {
-    const user = db
-      .prepare(
-        `SELECT id, name, email, password_hash, role_id, active FROM employees WHERE email = ?`
-      )
-      .get(email);
+    const { rows } = await db.query(
+      `
+        SELECT e.id, e.name, e.email, e.password_hash, e.role_id, e.workgroup_id, e.active,
+               r.name AS role_name,
+               wg.name AS workgroup_name
+        FROM employees e
+        LEFT JOIN roles r ON e.role_id = r.id
+        LEFT JOIN workgroups wg ON e.workgroup_id = wg.id
+        WHERE e.email = $1
+      `,
+      [email]
+    );
+    const user = rows[0];
 
     if (!user) return res.status(401).json({ error: "Invalid email or password." });
     if (!user.active) return res.status(403).json({ error: "Account is inactive." });
@@ -42,6 +50,9 @@ router.post("/login", (req, res) => {
         name: user.name,
         email: user.email,
         role_id: user.role_id,
+        role_name: user.role_name,
+        workgroup_id: user.workgroup_id,
+        workgroup_name: user.workgroup_name,
       },
     });
   } catch (err) {

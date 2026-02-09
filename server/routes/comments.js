@@ -3,30 +3,16 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 
-// Helper function to generate next comment ID
-const generateCommentId = () => {
-  try {
-    const result = db.prepare(`
-      SELECT id FROM comments 
-      WHERE id LIKE 'COM-%' 
-      ORDER BY id DESC 
-      LIMIT 1
-    `).get();
-    
-    if (result) {
-      const currentNum = parseInt(result.id.split('-')[1]);
-      const nextNum = currentNum + 1;
-      return `COM-${String(nextNum).padStart(3, '0')}`;
-    }
-    return 'COM-001';
-  } catch (err) {
-    console.error('Error generating comment ID:', err);
-    return `COM-${String(Date.now()).slice(-3)}`; // Fallback
-  }
+const resolveTicketId = async (ticketId) => {
+  const { rows } = await db.query(
+    "SELECT id FROM tickets WHERE (id::text = $1 OR ticket_code = $1) AND deleted_at IS NULL",
+    [ticketId]
+  );
+  return rows[0]?.id || null;
 };
 
 // GET comments for a ticket
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const { ticketId } = req.query;
   
   if (!ticketId) {
@@ -34,14 +20,28 @@ router.get("/", (req, res) => {
   }
   
   try {
+    const resolvedTicketId = await resolveTicketId(ticketId);
+    if (!resolvedTicketId) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+
     const commentsQuery = `
-      SELECT id, ticket_id, text, author, comment_type, timestamp
-      FROM comments 
-      WHERE ticket_id = ?
-      ORDER BY timestamp ASC
+      SELECT 
+        c.id,
+        c.ticket_id,
+        c.text,
+        c.comment_type,
+        c.created_at AS timestamp,
+        e.name AS author,
+        c.author_id
+      FROM comments c
+      LEFT JOIN employees e ON c.author_id = e.id
+      WHERE c.ticket_id = $1
+      ORDER BY c.created_at ASC
     `;
     
-    const comments = db.prepare(commentsQuery).all(ticketId);
+    const { rows } = await db.query(commentsQuery, [resolvedTicketId]);
+    const comments = rows;
     res.json(comments);
   } catch (err) {
     console.error("Error fetching comments:", err);
@@ -50,7 +50,7 @@ router.get("/", (req, res) => {
 });
 
 // POST new comment
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { ticket_id, text, author, comment_type } = req.body;
   
   if (!ticket_id || !text || !author) {
@@ -58,18 +58,22 @@ router.post("/", (req, res) => {
   }
   
   try {
-    const newId = generateCommentId();
-    
-    const insertComment = db.prepare(`
-      INSERT INTO comments (id, ticket_id, text, author, comment_type, timestamp)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
-    `);
-    
-    insertComment.run(newId, ticket_id, text, author, comment_type || 'comment');
-    
-    res.status(201).json({ 
+    const resolvedTicketId = await resolveTicketId(ticket_id);
+    if (!resolvedTicketId) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+    const result = await db.query(
+      `
+        INSERT INTO comments (ticket_id, text, author_id, comment_type, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, NOW(), NOW())
+        RETURNING id
+      `,
+      [resolvedTicketId, text, author, comment_type || "comment"]
+    );
+
+    res.status(201).json({
       message: "Comment created",
-      id: newId
+      id: result.rows[0].id,
     });
   } catch (err) {
     console.error("Error creating comment:", err);
@@ -78,7 +82,7 @@ router.post("/", (req, res) => {
 });
 
 // PUT update comment
-router.put("/:id", (req, res) => {
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { text } = req.body;
   
@@ -87,15 +91,16 @@ router.put("/:id", (req, res) => {
   }
   
   try {
-    const updateComment = db.prepare(`
-      UPDATE comments 
-      SET text = ?
-      WHERE id = ?
-    `);
+    const result = await db.query(
+      `
+        UPDATE comments
+        SET text = $1, updated_at = NOW()
+        WHERE id = $2
+      `,
+      [text, id]
+    );
     
-    const result = updateComment.run(text, id);
-    
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "Comment not found" });
     }
     
@@ -107,14 +112,13 @@ router.put("/:id", (req, res) => {
 });
 
 // DELETE comment
-router.delete("/:id", (req, res) => {
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   
   try {
-    const deleteComment = db.prepare("DELETE FROM comments WHERE id = ?");
-    const result = deleteComment.run(id);
+    const result = await db.query("DELETE FROM comments WHERE id = $1", [id]);
     
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "Comment not found" });
     }
     

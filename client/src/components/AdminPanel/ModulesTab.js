@@ -11,9 +11,7 @@ const ModulesTab = ({ modules, editingItem, editForm, handleEdit, handleSave, ha
       {modules.map(module => (
         <div key={module.id} className="bg-white rounded-lg border border-gray-200 dark:border-gray-700 dark:bg-gray-800 p-4 shadow-sm">
           <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium text-gray-500">{module.id}</span>
-            </div>
+            <div className="flex items-center space-x-2" />
             <div className="flex space-x-2">
               {editingItem === module.id ? (
                 <>

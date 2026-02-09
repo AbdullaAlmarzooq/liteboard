@@ -1,7 +1,7 @@
 // server/routes/workflow_transitions.js
 const express = require('express');
 const router = express.Router();
-const db = require('../db/db'); // make sure this exports your SQLite connection
+const db = require('../db/db');
 
 // ------------------------
 // GET all transitions (optionally by workflow_id)
@@ -14,12 +14,12 @@ router.get('/', async (req, res) => {
     let params = [];
 
     if (workflow_id) {
-      query += ' WHERE workflow_id = ?';
+      query += ' WHERE workflow_id = $1';
       params.push(workflow_id);
     }
 
-    const transitions = await db.all(query, params);
-    res.json(transitions);
+    const { rows } = await db.query(query, params);
+    res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch workflow transitions' });
@@ -32,11 +32,11 @@ router.get('/', async (req, res) => {
 router.get('/step/:step_code', async (req, res) => {
   const { step_code } = req.params;
   try {
-    const transitions = await db.all(
-      'SELECT * FROM workflow_transitions WHERE from_step_code = ?',
+    const { rows } = await db.query(
+      'SELECT * FROM workflow_transitions WHERE from_step_code = $1',
       [step_code]
     );
-    res.json(transitions);
+    res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch transitions for step' });
@@ -51,15 +51,15 @@ router.put('/:id', async (req, res) => {
   const { from_step_code, to_step_code, workflow_id, cancel_allowed } = req.body;
 
   try {
-    await db.run(
+    await db.query(
       `UPDATE workflow_transitions 
-       SET from_step_code = ?, to_step_code = ?, workflow_id = ?, cancel_allowed = ? 
-       WHERE id = ?`,
-      [from_step_code, to_step_code, workflow_id, cancel_allowed ? 1 : 0, id]
+       SET from_step_code = $1, to_step_code = $2, workflow_id = $3, cancel_allowed = $4 
+       WHERE id = $5`,
+      [from_step_code, to_step_code, workflow_id, !!cancel_allowed, id]
     );
 
-    const updated = await db.get('SELECT * FROM workflow_transitions WHERE id = ?', [id]);
-    res.json(updated);
+    const { rows } = await db.query('SELECT * FROM workflow_transitions WHERE id = $1', [id]);
+    res.json(rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to update transition' });
@@ -73,14 +73,15 @@ router.post('/', async (req, res) => {
   const { from_step_code, to_step_code, workflow_id, cancel_allowed } = req.body;
 
   try {
-    const result = await db.run(
+    const result = await db.query(
       `INSERT INTO workflow_transitions (workflow_id, from_step_code, to_step_code, cancel_allowed)
-       VALUES (?, ?, ?, ?)`,
-      [workflow_id, from_step_code, to_step_code, cancel_allowed ? 1 : 0]
+       VALUES ($1, $2, $3, $4)
+       RETURNING id`,
+      [workflow_id, from_step_code, to_step_code, !!cancel_allowed]
     );
 
-    const newTransition = await db.get('SELECT * FROM workflow_transitions WHERE id = ?', [result.lastID]);
-    res.json(newTransition);
+    const { rows } = await db.query('SELECT * FROM workflow_transitions WHERE id = $1', [result.rows[0].id]);
+    res.json(rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to create transition' });
@@ -94,7 +95,7 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    await db.run('DELETE FROM workflow_transitions WHERE id = ?', [id]);
+    await db.query('DELETE FROM workflow_transitions WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (err) {
     console.error(err);

@@ -6,10 +6,24 @@ const TicketsCreatedLineChart = ({ tickets = [] }) => {
 
   useEffect(() => {
     if (tickets.length > 0) {
+      console.log('[TicketsCreatedLineChart] sample ticket dates:', tickets.slice(0, 5).map(t => ({
+        id: t.id,
+        ticketCode: t.ticket_code || t.ticketCode,
+        initiateDate: t.initiateDate,
+        initiate_date: t.initiate_date,
+        created_at: t.created_at,
+        createdAt: t.createdAt
+      })));
       const counts = {};
       tickets.forEach(ticket => {
-        if (ticket.initiateDate) {
-          const dateObj = new Date(ticket.initiateDate);
+        const rawDate =
+          ticket.initiateDate ||
+          ticket.initiate_date ||
+          ticket.created_at ||
+          ticket.createdAt;
+        if (rawDate) {
+          const dateObj = new Date(rawDate);
+          if (Number.isNaN(dateObj.getTime())) return;
           const formattedDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth()+1).padStart(2,'0')}-${String(dateObj.getDate()).padStart(2,'0')}`;
           counts[formattedDate] = (counts[formattedDate] || 0) + 1;
         }

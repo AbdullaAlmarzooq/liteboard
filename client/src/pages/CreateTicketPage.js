@@ -287,7 +287,8 @@ const generateTicketId = async () => {
 
     const existingNumbers = tickets
       .map(ticket => {
-        const match = ticket.id.match(/TCK-(\d+)/);
+        const code = ticket.ticket_code || ticket.ticketCode || ticket.id || '';
+        const match = code.match(/TCK-(\d+)/);
         return match ? parseInt(match[1]) : 0;
       })
       .filter(num => !isNaN(num));

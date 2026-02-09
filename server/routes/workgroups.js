@@ -4,9 +4,9 @@ const db = require("../db/db");
 const router = express.Router();
 
 // GET all workgroups
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const rows = db.prepare("SELECT id, name FROM workgroups").all();
+    const { rows } = await db.query("SELECT id, ticket_code, name, description FROM workgroups");
 
     // Ensure we always return an array
     res.json(Array.isArray(rows) ? rows : []);

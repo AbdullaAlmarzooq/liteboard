@@ -2,7 +2,6 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
-const crypto = require("crypto");
 
 // Helper to generate unique codes
 const generateStepCode = (workflowId, stepOrder) => {
@@ -11,59 +10,57 @@ const generateStepCode = (workflowId, stepOrder) => {
   return `${workflowId}-${paddedOrder}`;
 };
 
-const generateWorkflowId = () => {
-  const last = db.prepare(`
-    SELECT id FROM workflows 
-    WHERE id LIKE 'WF-%' 
-    ORDER BY CAST(SUBSTR(id, 4) AS INTEGER) DESC 
-    LIMIT 1
-  `).get();
-
-  let nextNumber = 1;
-  if (last) {
-    nextNumber = parseInt(last.id.replace("WF-", ""), 10) + 1;
-  }
-
-  return `WF-${String(nextNumber).padStart(3, "0")}`;
-};
-
-
 // ----------------------------------------------------------------------
 // GET all workflows with steps and transitions for Admin Panel
 // ----------------------------------------------------------------------
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   try {
-    const workflowsRows = db.prepare(`
-      SELECT * FROM workflows WHERE active = 1
-    `).all();
+    const workflowsResult = await db.query(`
+      SELECT * FROM workflows
+    `);
+    const workflowsRows = workflowsResult.rows;
 
-    const workflows = workflowsRows.map(wf => {
-      const steps = db.prepare(`
-        SELECT * FROM workflow_steps WHERE workflow_id = ? ORDER BY step_order
-      `).all(wf.id);
+    const workflows = [];
+    for (const wf of workflowsRows) {
+      const stepsResult = await db.query(
+        `SELECT * FROM workflow_steps WHERE workflow_id = $1 ORDER BY step_order`,
+        [wf.id]
+      );
+      const steps = stepsResult.rows;
 
       // Get transitions for each step
-      steps.forEach(step => {
-        const nextSteps = db.prepare(`
-          SELECT ws.step_name 
-          FROM workflow_transitions wt
-          JOIN workflow_steps ws ON wt.to_step_code = ws.step_code
-          WHERE wt.from_step_code = ?
-        `).all(step.step_code).map(r => r.step_name);
+      for (const step of steps) {
+        step.workgroupCode = step.workgroup_id;
+        const nextStepsResult = await db.query(
+          `
+            SELECT ws.step_name
+            FROM workflow_transitions wt
+            JOIN workflow_steps ws
+              ON wt.workflow_id = ws.workflow_id AND wt.to_step_code = ws.step_code
+            WHERE wt.workflow_id = $1 AND wt.from_step_code = $2
+          `,
+          [wf.id, step.step_code]
+        );
+        const nextSteps = nextStepsResult.rows.map(r => r.step_name);
 
-        const prevSteps = db.prepare(`
-          SELECT ws.step_name 
-          FROM workflow_transitions wt
-          JOIN workflow_steps ws ON wt.from_step_code = ws.step_code
-          WHERE wt.to_step_code = ?
-        `).all(step.step_code).map(r => r.step_name);
+        const prevStepsResult = await db.query(
+          `
+            SELECT ws.step_name
+            FROM workflow_transitions wt
+            JOIN workflow_steps ws
+              ON wt.workflow_id = ws.workflow_id AND wt.from_step_code = ws.step_code
+            WHERE wt.workflow_id = $1 AND wt.to_step_code = $2
+          `,
+          [wf.id, step.step_code]
+        );
+        const prevSteps = prevStepsResult.rows.map(r => r.step_name);
 
         step.allowedNextSteps = nextSteps;
         step.allowedPreviousSteps = prevSteps;
-      });
+      }
 
-      return { ...wf, steps };
-    });
+      workflows.push({ ...wf, steps });
+    }
 
     res.json(workflows);
   } catch (err) {
@@ -75,7 +72,7 @@ router.get("/", (req, res) => {
 // ----------------------------------------------------------------------
 // POST create new workflow with steps and transitions
 // ----------------------------------------------------------------------
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { name, steps } = req.body;
 
   if (!name || !steps || !Array.isArray(steps) || steps.length === 0) {
@@ -83,210 +80,283 @@ router.post("/", (req, res) => {
   }
 
   try {
-    const workflowId = generateWorkflowId();
-    
-    // Create workflow
-    db.prepare(`
-      INSERT INTO workflows (id, name, active, created_at, updated_at) 
-      VALUES (?, ?, 1, datetime('now'), datetime('now'))
-    `).run(workflowId, name);
-
-    // Create steps with generated step codes
-    steps.forEach((step, index) => {
-      const stepCode = generateStepCode(workflowId, index + 1); // Pass workflowId and order
-      
-      db.prepare(`
-        INSERT INTO workflow_steps (
-          workflow_id, step_code, step_name, step_order, 
-          category_code, workgroup_code
-        ) VALUES (?, ?, ?, ?, ?, ?)
-      `).run(
-        workflowId,
-        stepCode,
-        step.stepName,
-        index + 1,
-        step.categoryCode || 10,
-        step.workgroupCode || null
-      );
-    
-      step.stepCode = stepCode;
+    console.log("[workflow_management] create payload:", {
+      name,
+      stepsCount: Array.isArray(steps) ? steps.length : 0,
+      steps
     });
+    const client = await db.pool.connect();
+    let workflowId = null;
+    try {
+      await client.query("BEGIN");
 
-    // Create transitions based on allowed next/previous steps
-    steps.forEach((step, index) => {
-      // Handle next steps
-      if (step.allowedNextSteps && step.allowedNextSteps.length > 0) {
-        step.allowedNextSteps.forEach(nextStepName => {
-          const nextStep = steps.find(s => s.stepName === nextStepName);
-          if (nextStep && nextStep.stepCode) {
-            db.prepare(`
-              INSERT INTO workflow_transitions (
-                workflow_id, from_step_code, to_step_code
-              ) VALUES (?, ?, ?)
-            `).run(workflowId, step.stepCode, nextStep.stepCode);
-          }
-        });
+      const workflowResult = await client.query(
+        `
+          INSERT INTO workflows (name, active, created_at, updated_at)
+          VALUES ($1, true, NOW(), NOW())
+          RETURNING id
+        `,
+        [name]
+      );
+      workflowId = workflowResult.rows[0].id;
+
+      // Create steps with generated step codes
+      for (const [index, step] of steps.entries()) {
+        const stepCode = generateStepCode(workflowId, index + 1);
+        const normalizedCategory = step.categoryCode === 90 ? 90 : 10;
+        step.normalizedCategory = normalizedCategory;
+
+        await client.query(
+          `
+            INSERT INTO workflow_steps (
+              workflow_id, step_code, step_name, step_order,
+              category_code, workgroup_id
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+          `,
+          [
+            workflowId,
+            stepCode,
+            step.stepName,
+            index + 1,
+            normalizedCategory,
+            step.workgroupId || step.workgroupCode || null,
+          ]
+        );
+
+        step.stepCode = stepCode;
       }
 
-      // Handle previous steps
-      if (step.allowedPreviousSteps && step.allowedPreviousSteps.length > 0) {
-        step.allowedPreviousSteps.forEach(prevStepName => {
-          const prevStep = steps.find(s => s.stepName === prevStepName);
-          if (prevStep && prevStep.stepCode) {
-            // Check if transition already exists
-            const exists = db.prepare(`
-              SELECT id FROM workflow_transitions
-              WHERE workflow_id = ? AND from_step_code = ? AND to_step_code = ?
-            `).get(workflowId, prevStep.stepCode, step.stepCode);
-            
-            if (!exists) {
-              db.prepare(`
-                INSERT INTO workflow_transitions (
-                  workflow_id, from_step_code, to_step_code
-                ) VALUES (?, ?, ?)
-              `).run(workflowId, prevStep.stepCode, step.stepCode);
+      // Create transitions based on allowed next/previous steps
+      for (const step of steps) {
+        if (step.allowedNextSteps && step.allowedNextSteps.length > 0) {
+          for (const nextStepName of step.allowedNextSteps) {
+            const nextStep = steps.find(s => s.stepName === nextStepName);
+            if (nextStep && nextStep.stepCode) {
+              await client.query(
+                `
+                  INSERT INTO workflow_transitions (
+                    workflow_id, from_step_code, to_step_code
+                  ) VALUES ($1, $2, $3)
+                `,
+                [workflowId, step.stepCode, nextStep.stepCode]
+              );
             }
           }
-        });
+        }
+
+        if (step.allowedPreviousSteps && step.allowedPreviousSteps.length > 0) {
+          for (const prevStepName of step.allowedPreviousSteps) {
+            const prevStep = steps.find(s => s.stepName === prevStepName);
+            if (prevStep && prevStep.stepCode) {
+              const exists = await client.query(
+                `
+                  SELECT id FROM workflow_transitions
+                  WHERE workflow_id = $1 AND from_step_code = $2 AND to_step_code = $3
+                `,
+                [workflowId, prevStep.stepCode, step.stepCode]
+              );
+
+              if (!exists.rows[0]) {
+                await client.query(
+                  `
+                    INSERT INTO workflow_transitions (
+                      workflow_id, from_step_code, to_step_code
+                    ) VALUES ($1, $2, $3)
+                  `,
+                  [workflowId, prevStep.stepCode, step.stepCode]
+                );
+              }
+            }
+          }
+        }
+
+        if (step.normalizedCategory === 90) {
+          for (const otherStep of steps) {
+            if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
+              await client.query(
+                `
+                  INSERT INTO workflow_transitions (
+                    workflow_id, from_step_code, to_step_code, cancel_allowed
+                  ) VALUES ($1, $2, $3, true)
+                `,
+                [workflowId, otherStep.stepCode, step.stepCode]
+              );
+            }
+          }
+        }
       }
 
-      // Handle Cancel step (category_code 90)
-      if (step.categoryCode === 90) {
-        steps.forEach(otherStep => {
-          if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
-            db.prepare(`
-              INSERT INTO workflow_transitions (
-                workflow_id, from_step_code, to_step_code, cancel_allowed
-              ) VALUES (?, ?, ?, 1)
-            `).run(workflowId, otherStep.stepCode, step.stepCode);
-          }
-        });
-      }
-    });
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     res.json({ success: true, workflowId });
   } catch (err) {
     console.error("Failed to create workflow:", err);
-    res.status(500).json({ error: "Failed to create workflow" });
+    res.status(500).json({ error: "Failed to create workflow", detail: err.detail || err.message });
   }
 });
 
 // ----------------------------------------------------------------------
 // PATCH update existing workflow
 // ----------------------------------------------------------------------
-router.patch("/:id", (req, res) => {
+router.patch("/:id", async (req, res) => {
   const workflowId = req.params.id;
   const { name, steps } = req.body;
+
+  if (steps === undefined && (name !== undefined)) {
+    return res.status(400).json({ error: "Steps are required for workflow update." });
+  }
 
   if (!name || !steps || !Array.isArray(steps) || steps.length === 0) {
     return res.status(400).json({ error: "Invalid workflow data" });
   }
 
   try {
-    // Update workflow name
-    db.prepare(`
-      UPDATE workflows 
-      SET name = ?, updated_at = datetime('now') 
-      WHERE id = ?
-    `).run(name, workflowId);
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    // Get existing steps to preserve step_codes
-    const existingSteps = db.prepare(`
-      SELECT step_code, step_name FROM workflow_steps 
-      WHERE workflow_id = ?
-    `).all(workflowId);
-
-    // Upsert steps
-    steps.forEach((step, index) => {
-      // Try to match by name to preserve step_code
-      const existingStep = existingSteps.find(es => es.step_name === step.stepName);
-      const stepCode = step.stepCode || existingStep?.step_code || generateStepCode(workflowId, index + 1);
-
-      db.prepare(`
-        INSERT INTO workflow_steps (
-          workflow_id, step_code, step_name, step_order, 
-          category_code, workgroup_code
-        ) VALUES (?, ?, ?, ?, ?, ?)
-        ON CONFLICT(step_code) DO UPDATE SET
-          step_name = excluded.step_name,
-          step_order = excluded.step_order,
-          category_code = excluded.category_code,
-          workgroup_code = excluded.workgroup_code
-      `).run(
-        workflowId,
-        stepCode,
-        step.stepName,
-        index + 1,
-        step.categoryCode || 10,
-        step.workgroupCode || null
+      await client.query(
+        `
+          UPDATE workflows
+          SET name = $1, updated_at = NOW()
+          WHERE id = $2
+        `,
+        [name, workflowId]
       );
 
-      step.stepCode = stepCode;
-    });
+      const existingStepsResult = await client.query(
+        `
+          SELECT step_code, step_name FROM workflow_steps
+          WHERE workflow_id = $1
+        `,
+        [workflowId]
+      );
+      const existingSteps = existingStepsResult.rows;
 
-    // Remove steps that are no longer in the workflow
-    const currentStepCodes = steps.map(s => s.stepCode);
-    db.prepare(`
-      DELETE FROM workflow_steps 
-      WHERE workflow_id = ? AND step_code NOT IN (${currentStepCodes.map(() => '?').join(',')})
-    `).run(workflowId, ...currentStepCodes);
+      for (const [index, step] of steps.entries()) {
+        const existingStep = existingSteps.find(es => es.step_name === step.stepName);
+        const stepCode =
+          step.stepCode || existingStep?.step_code || generateStepCode(workflowId, index + 1);
+        const normalizedCategory = step.categoryCode === 90 ? 90 : 10;
+        step.normalizedCategory = normalizedCategory;
 
-    // Clear all transitions for this workflow
-    db.prepare(`
-      DELETE FROM workflow_transitions 
-      WHERE workflow_id = ?
-    `).run(workflowId);
+        await client.query(
+          `
+            INSERT INTO workflow_steps (
+              workflow_id, step_code, step_name, step_order,
+              category_code, workgroup_id
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (workflow_id, step_code) DO UPDATE SET
+              step_name = EXCLUDED.step_name,
+              step_order = EXCLUDED.step_order,
+              category_code = EXCLUDED.category_code,
+              workgroup_id = EXCLUDED.workgroup_id
+          `,
+          [
+            workflowId,
+            stepCode,
+            step.stepName,
+            index + 1,
+            normalizedCategory,
+            step.workgroupId || step.workgroupCode || null,
+          ]
+        );
 
-    // Recreate transitions
-    steps.forEach(step => {
-      // Next steps
-      if (step.allowedNextSteps && step.allowedNextSteps.length > 0) {
-        step.allowedNextSteps.forEach(nextStepName => {
-          const nextStep = steps.find(s => s.stepName === nextStepName);
-          if (nextStep && nextStep.stepCode) {
-            db.prepare(`
-              INSERT INTO workflow_transitions (
-                workflow_id, from_step_code, to_step_code
-              ) VALUES (?, ?, ?)
-            `).run(workflowId, step.stepCode, nextStep.stepCode);
-          }
-        });
+        step.stepCode = stepCode;
       }
 
-      // Previous steps
-      if (step.allowedPreviousSteps && step.allowedPreviousSteps.length > 0) {
-        step.allowedPreviousSteps.forEach(prevStepName => {
-          const prevStep = steps.find(s => s.stepName === prevStepName);
-          if (prevStep && prevStep.stepCode) {
-            const exists = db.prepare(`
-              SELECT id FROM workflow_transitions
-              WHERE workflow_id = ? AND from_step_code = ? AND to_step_code = ?
-            `).get(workflowId, prevStep.stepCode, step.stepCode);
-            
-            if (!exists) {
-              db.prepare(`
-                INSERT INTO workflow_transitions (
-                  workflow_id, from_step_code, to_step_code
-                ) VALUES (?, ?, ?)
-              `).run(workflowId, prevStep.stepCode, step.stepCode);
+      const currentStepCodes = steps.map(s => s.stepCode);
+      if (currentStepCodes.length > 0) {
+        const placeholders = currentStepCodes.map((_, i) => `$${i + 2}`).join(",");
+        await client.query(
+          `
+            DELETE FROM workflow_steps
+            WHERE workflow_id = $1 AND step_code NOT IN (${placeholders})
+          `,
+          [workflowId, ...currentStepCodes]
+        );
+      }
+
+      await client.query(
+        `
+          DELETE FROM workflow_transitions
+          WHERE workflow_id = $1
+        `,
+        [workflowId]
+      );
+
+      for (const step of steps) {
+        if (step.allowedNextSteps && step.allowedNextSteps.length > 0) {
+          for (const nextStepName of step.allowedNextSteps) {
+            const nextStep = steps.find(s => s.stepName === nextStepName);
+            if (nextStep && nextStep.stepCode) {
+              await client.query(
+                `
+                  INSERT INTO workflow_transitions (
+                    workflow_id, from_step_code, to_step_code
+                  ) VALUES ($1, $2, $3)
+                `,
+                [workflowId, step.stepCode, nextStep.stepCode]
+              );
             }
           }
-        });
+        }
+
+        if (step.allowedPreviousSteps && step.allowedPreviousSteps.length > 0) {
+          for (const prevStepName of step.allowedPreviousSteps) {
+            const prevStep = steps.find(s => s.stepName === prevStepName);
+            if (prevStep && prevStep.stepCode) {
+              const exists = await client.query(
+                `
+                  SELECT id FROM workflow_transitions
+                  WHERE workflow_id = $1 AND from_step_code = $2 AND to_step_code = $3
+                `,
+                [workflowId, prevStep.stepCode, step.stepCode]
+              );
+
+              if (!exists.rows[0]) {
+                await client.query(
+                  `
+                    INSERT INTO workflow_transitions (
+                      workflow_id, from_step_code, to_step_code
+                    ) VALUES ($1, $2, $3)
+                  `,
+                  [workflowId, prevStep.stepCode, step.stepCode]
+                );
+              }
+            }
+          }
+        }
+
+        if (step.normalizedCategory === 90) {
+          for (const otherStep of steps) {
+            if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
+              await client.query(
+                `
+                  INSERT INTO workflow_transitions (
+                    workflow_id, from_step_code, to_step_code, cancel_allowed
+                  ) VALUES ($1, $2, $3, true)
+                `,
+                [workflowId, otherStep.stepCode, step.stepCode]
+              );
+            }
+          }
+        }
       }
 
-      // Cancel step
-      if (step.categoryCode === 90) {
-        steps.forEach(otherStep => {
-          if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
-            db.prepare(`
-              INSERT INTO workflow_transitions (
-                workflow_id, from_step_code, to_step_code, cancel_allowed
-              ) VALUES (?, ?, ?, 1)
-            `).run(workflowId, otherStep.stepCode, step.stepCode);
-          }
-        });
-      }
-    });
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     res.json({ success: true, workflowId });
   } catch (err) {
@@ -296,18 +366,48 @@ router.patch("/:id", (req, res) => {
 });
 
 // ----------------------------------------------------------------------
+// PATCH toggle workflow active flag
+// ----------------------------------------------------------------------
+router.patch("/:id/active", async (req, res) => {
+  const workflowId = req.params.id;
+  const { active } = req.body;
+
+  if (typeof active !== "boolean") {
+    return res.status(400).json({ error: "active must be boolean" });
+  }
+
+  try {
+    await db.query(
+      `
+        UPDATE workflows
+        SET active = $1, updated_at = NOW()
+        WHERE id = $2
+      `,
+      [active, workflowId]
+    );
+    res.json({ success: true, id: workflowId, active });
+  } catch (err) {
+    console.error("Failed to toggle workflow active:", err);
+    res.status(500).json({ error: "Failed to toggle workflow active" });
+  }
+});
+
+// ----------------------------------------------------------------------
 // DELETE workflow
 // ----------------------------------------------------------------------
-router.delete("/:id", (req, res) => {
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
     // Soft delete by setting active = 0
-    db.prepare(`
-      UPDATE workflows 
-      SET active = 0, updated_at = datetime('now') 
-      WHERE id = ?
-    `).run(id);
+    await db.query(
+      `
+        UPDATE workflows
+        SET active = false, updated_at = NOW()
+        WHERE id = $1
+      `,
+      [id]
+    );
 
     res.json({ success: true });
   } catch (err) {

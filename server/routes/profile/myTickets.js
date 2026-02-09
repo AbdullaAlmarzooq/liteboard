@@ -4,24 +4,30 @@ const db = require("../../db/db");
 const authenticateToken = require("../../middleware/authMiddleware");
 
 // 🔹 GET /api/profile/my-tickets
-router.get("/my-tickets", authenticateToken(), (req, res) => {
+router.get("/my-tickets", authenticateToken(), async (req, res) => {
   const userId = req.user.id; // Example: "EMP-007"
 
   try {
     // Get the user's workgroup ID first
-    const employee = db.prepare(`SELECT workgroup_code FROM employees WHERE id = ?`).get(userId);
+    const employeeResult = await db.query(
+      `SELECT workgroup_id FROM employees WHERE id = $1`,
+      [userId]
+    );
+    const employee = employeeResult.rows[0];
 
-    if (!employee || !employee.workgroup_code) {
+    if (!employee || !employee.workgroup_id) {
       return res.status(404).json({ error: "User workgroup not found." });
     }
 
-    const workgroupId = employee.workgroup_code;
+    const workgroupId = employee.workgroup_id;
 
     // Fetch tickets in the same workgroup that are not closed nor cancelled
     
     const query = `
     SELECT 
       t.id,
+      t.ticket_code,
+      t.ticket_code AS ticketCode,
       t.title,
       t.status,
       t.priority,
@@ -42,15 +48,17 @@ router.get("/my-tickets", authenticateToken(), (req, res) => {
     LEFT JOIN employees r ON t.responsible_employee_id = r.id
     LEFT JOIN workgroups w ON t.workgroup_id = w.id
     LEFT JOIN modules m ON t.module_id = m.id
-    LEFT JOIN workflow_steps ws ON t.step_code = ws.step_code
+    LEFT JOIN workflow_steps ws 
+      ON t.workflow_id = ws.workflow_id AND t.step_code = ws.step_code
     WHERE 
-        t.workgroup_id = ?
-        AND ws.category_code NOT IN (3, 30)
+        t.workgroup_id = $1
+        AND t.deleted_at IS NULL
+        AND ws.category_code NOT IN (90)
     ORDER BY t.updated_at DESC
     LIMIT 20
   `;
 
-    const tickets = db.prepare(query).all(workgroupId);
+    const { rows: tickets } = await db.query(query, [workgroupId]);
     res.json(tickets);
   } catch (err) {
     console.error("Error fetching my workgroup tickets:", err);

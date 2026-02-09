@@ -18,7 +18,7 @@ const EditTicket = () => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}`);
+  const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}?include_blobs=false`);
   const { data: employees } = useFetch('http://localhost:8000/api/employees'); 
   const { data: tagsList } = useFetch('http://localhost:8000/api/tags'); 
   const { data: workgroups } = useFetch('http://localhost:8000/api/workgroups');
@@ -54,6 +54,7 @@ const EditTicket = () => {
 
   // Attachments state
   const [savedAttachments, setSavedAttachments] = useState([]);
+  const [attachmentBlobs, setAttachmentBlobs] = useState({});
   const [newAttachments, setNewAttachments] = useState([]);
 
   // Submit state
@@ -320,6 +321,39 @@ const EditTicket = () => {
 
   const handleRemoveSavedAttachment = (fileToRemove) => {
     setSavedAttachments(savedAttachments.filter(file => file.id !== fileToRemove.id));
+  };
+
+  const fetchAttachmentBlob = async (attachmentId) => {
+    if (attachmentBlobs[attachmentId]) return attachmentBlobs[attachmentId];
+    const res = await fetch(`http://localhost:8000/api/attachments/${attachmentId}/blob`);
+    if (!res.ok) throw new Error("Failed to fetch attachment blob");
+    const data = await res.json();
+    const base64 = data.base64_data;
+    setAttachmentBlobs(prev => ({ ...prev, [attachmentId]: base64 }));
+    return base64;
+  };
+
+  const handleDownloadAttachment = async (file) => {
+    try {
+      const base64 = await fetchAttachmentBlob(file.id);
+      if (!base64) return;
+      const link = document.createElement("a");
+      link.href = base64;
+      link.download = file.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Failed to download attachment:", err);
+    }
+  };
+
+  const handleLoadPreview = async (file) => {
+    try {
+      await fetchAttachmentBlob(file.id);
+    } catch (err) {
+      console.error("Failed to load attachment preview:", err);
+    }
   };
 
   // Comment handlers
@@ -614,7 +648,9 @@ const EditTicket = () => {
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
             Edit Ticket
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 font-mono text-sm">{ticket.id}</p>
+          <p className="text-gray-600 dark:text-gray-300 font-mono text-sm">
+            {ticket.ticket_code || ticket.ticketCode || ticket.id}
+          </p>
         </div>
       </div>
 
@@ -678,12 +714,13 @@ const EditTicket = () => {
                 <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                   {savedAttachments.map(file => {
                     const isImage = file.type?.startsWith('image/');
+                    const blobData = attachmentBlobs[file.id];
                     return (
                       <li key={file.id} className="flex items-center justify-between py-2">
                         <div className="flex items-center gap-3">
-                          {isImage && (
+                          {isImage && blobData && (
                             <img 
-                              src={file.data} 
+                              src={blobData} 
                               alt="Attachment" 
                               className="w-10 h-10 object-cover rounded-md" 
                             />
@@ -698,13 +735,22 @@ const EditTicket = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <a 
-                            href={file.data} 
-                            download={file.name} 
+                          {isImage && !blobData && (
+                            <button
+                              type="button"
+                              onClick={() => handleLoadPreview(file)}
+                              className="text-gray-600 hover:text-gray-800 text-sm font-medium"
+                            >
+                              Load Preview
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadAttachment(file)}
                             className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                           >
                             Download
-                          </a>
+                          </button>
                           <button 
                             type="button" 
                             onClick={() => handleRemoveSavedAttachment(file)} 
@@ -739,7 +785,7 @@ const EditTicket = () => {
           <Button 
             type="button" 
             variant="outline" 
-            onClick={() => navigate(`/view-ticket/${ticket.id}`)}
+            onClick={() => navigate(`/view-ticket/${ticket.ticket_code || ticket.ticketCode || ticket.id}`)}
           >
             Cancel
           </Button>

@@ -3,14 +3,17 @@ const db = require("../db/db");
 const router = express.Router();
 
 // Helper function to generate sequential tag ID (e.g., TAG-001, TAG-002, ...)
-const generateTagId = (db) => {
-  const row = db.prepare(`
-    SELECT id 
-    FROM tags 
-    WHERE id LIKE 'TAG-%'
-    ORDER BY CAST(SUBSTR(id, 5) AS INTEGER) DESC 
-    LIMIT 1
-  `).get();
+const generateTagId = async () => {
+  const { rows } = await db.query(
+    `
+      SELECT id
+      FROM tags
+      WHERE id LIKE 'TAG-%'
+      ORDER BY CAST(SUBSTRING(id FROM 5) AS INTEGER) DESC
+      LIMIT 1
+    `
+  );
+  const row = rows[0];
 
   let nextNumber = 1;
   if (row && row.id) {
@@ -22,14 +25,14 @@ const generateTagId = (db) => {
 };
 
 // --- GET all tags ---
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const tagsQuery = `
       SELECT id, label, color, created_at, updated_at
       FROM tags
       ORDER BY label ASC
     `;
-    const rows = db.prepare(tagsQuery).all();
+    const { rows } = await db.query(tagsQuery);
 
     res.json(Array.isArray(rows) ? rows : []);
   } catch (err) {
@@ -39,7 +42,7 @@ router.get("/", (req, res) => {
 });
 
 // --- POST create new tag ---
-router.post("/", (req, res) => {
+router.post("/", async (req, res) => {
   const { label, color } = req.body;
 
   if (!label) {
@@ -48,20 +51,25 @@ router.post("/", (req, res) => {
 
   try {
     // Check for duplicate tag (case-insensitive)
-    const existing = db.prepare("SELECT id FROM tags WHERE LOWER(label) = LOWER(?)").get(label);
+    const existingResult = await db.query(
+      "SELECT id FROM tags WHERE label ILIKE $1",
+      [label]
+    );
+    const existing = existingResult.rows[0];
     if (existing) {
       return res.status(409).json({ error: "Tag with this label already exists." });
     }
 
     // Always use auto-generated sequential ID
-    const id = generateTagId(db);
+    const id = await generateTagId();
 
-    const insertTag = db.prepare(`
-      INSERT INTO tags (id, label, color, created_at, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-    `);
-
-    insertTag.run(id, label, color || "#666666");
+    await db.query(
+      `
+        INSERT INTO tags (id, label, color, created_at, updated_at)
+        VALUES ($1, $2, $3, NOW(), NOW())
+      `,
+      [id, label, color || "#666666"]
+    );
 
     res.status(201).json({
       message: "Tag created successfully",
@@ -76,7 +84,7 @@ router.post("/", (req, res) => {
 });
 
 // --- PUT update existing tag by ID ---
-router.put("/:id", (req, res) => {
+router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { label, color } = req.body;
 
@@ -87,7 +95,11 @@ router.put("/:id", (req, res) => {
   }
 
   try {
-    const existingTag = db.prepare("SELECT label, color FROM tags WHERE id = ?").get(id);
+    const existingResult = await db.query(
+      "SELECT label, color FROM tags WHERE id = $1",
+      [id]
+    );
+    const existingTag = existingResult.rows[0];
 
     if (!existingTag) {
       return res.status(404).json({ error: "Tag not found" });
@@ -96,15 +108,16 @@ router.put("/:id", (req, res) => {
     const newLabel = label !== undefined ? label : existingTag.label;
     const newColor = color !== undefined ? color : existingTag.color;
 
-    const updateTag = db.prepare(`
-      UPDATE tags
-      SET label = ?, color = ?, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `);
+    const result = await db.query(
+      `
+        UPDATE tags
+        SET label = $1, color = $2, updated_at = NOW()
+        WHERE id = $3
+      `,
+      [newLabel, newColor, id]
+    );
 
-    const result = updateTag.run(newLabel, newColor, id);
-
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(200).json({
         message: "Tag updated successfully (or no changes made).",
       });
@@ -112,7 +125,7 @@ router.put("/:id", (req, res) => {
 
     res.json({ message: "Tag updated successfully" });
   } catch (err) {
-    if (err.message.includes("UNIQUE constraint failed: tags.label")) {
+    if (err.code === "23505" || err.message.includes("duplicate key")) {
       return res.status(409).json({ error: "Tag with this label already exists." });
     }
     console.error("Error updating tag:", err);
@@ -121,14 +134,13 @@ router.put("/:id", (req, res) => {
 });
 
 // --- DELETE tag by ID ---
-router.delete("/:id", (req, res) => {
+router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    const deleteTag = db.prepare("DELETE FROM tags WHERE id = ?");
-    const result = deleteTag.run(id);
+    const result = await db.query("DELETE FROM tags WHERE id = $1", [id]);
 
-    if (result.changes === 0) {
+    if (result.rowCount === 0) {
       return res.status(404).json({ error: "Tag not found" });
     }
 

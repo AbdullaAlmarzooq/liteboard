@@ -6,7 +6,7 @@ const router = express.Router();
 // ----------------------------------------------------------------------
 // GET all active workflows with their steps
 // ----------------------------------------------------------------------
-router.get("/", (req, res) => {
+router.get("/", async (req, res) => {
   const query = `
     SELECT 
       w.id AS workflow_id,
@@ -19,18 +19,18 @@ router.get("/", (req, res) => {
       ws.step_code,
       ws.step_name,
       ws.step_order,
-      ws.workgroup_code,
+      ws.workgroup_id,
       ws.category_code,
       wg.name AS workgroup_name
     FROM workflows w
     LEFT JOIN workflow_steps ws ON w.id = ws.workflow_id
-    LEFT JOIN workgroups wg ON ws.workgroup_code = wg.id
-    WHERE w.active = 1
+    LEFT JOIN workgroups wg ON ws.workgroup_id = wg.id
+    WHERE w.active = true
     ORDER BY w.id, ws.step_order
   `;
 
   try {
-    const rows = db.prepare(query).all();
+    const { rows } = await db.query(query);
 
     const workflowsMap = {};
     rows.forEach(row => {
@@ -52,7 +52,8 @@ router.get("/", (req, res) => {
           stepCode: row.step_code,
           stepName: row.step_name,
           stepOrder: row.step_order,
-          workgroupCode: row.workgroup_code,
+          workgroupId: row.workgroup_id,
+          workgroupCode: row.workgroup_id,
           workgroupName: row.workgroup_name,
           categoryCode: row.category_code
         });
@@ -69,7 +70,7 @@ router.get("/", (req, res) => {
 // ----------------------------------------------------------------------
 // GET single workflow by ID with steps
 // ----------------------------------------------------------------------
-router.get("/:id", (req, res) => {
+router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   const query = `
@@ -84,18 +85,18 @@ router.get("/:id", (req, res) => {
       ws.step_code,
       ws.step_name,
       ws.step_order,
-      ws.workgroup_code,
+      ws.workgroup_id,
       ws.category_code,
       wg.name AS workgroup_name
     FROM workflows w
     LEFT JOIN workflow_steps ws ON w.id = ws.workflow_id
-    LEFT JOIN workgroups wg ON ws.workgroup_code = wg.id
-    WHERE w.id = ? AND w.active = 1
+    LEFT JOIN workgroups wg ON ws.workgroup_id = wg.id
+    WHERE w.id = $1 AND w.active = true
     ORDER BY ws.step_order
   `;
 
   try {
-    const rows = db.prepare(query).all([id]);
+    const { rows } = await db.query(query, [id]);
 
     if (!rows.length) {
       return res.status(404).json({ error: "Workflow not found or inactive" });
@@ -118,7 +119,8 @@ router.get("/:id", (req, res) => {
           stepCode: row.step_code,
           stepName: row.step_name,
           stepOrder: row.step_order,
-          workgroupCode: row.workgroup_code,
+          workgroupId: row.workgroup_id,
+          workgroupCode: row.workgroup_id,
           workgroupName: row.workgroup_name,
           categoryCode: row.category_code
         });

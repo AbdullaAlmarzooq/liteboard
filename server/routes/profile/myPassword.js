@@ -6,7 +6,7 @@ const bcrypt = require("bcryptjs");
 const authenticateToken = require("../../middleware/authMiddleware");
 
 // PATCH /api/profile/myPassword
-router.patch("/myPassword", authenticateToken, (req, res) => {
+router.patch("/myPassword", authenticateToken(), async (req, res) => {
   const userId = req.user.id;
   const { current_password, new_password } = req.body;
 
@@ -15,10 +15,11 @@ router.patch("/myPassword", authenticateToken, (req, res) => {
   }
 
   try {
-    // Fetch user
-    const user = db
-      .prepare("SELECT id, password_hash FROM employees WHERE id = ?")
-      .get(userId);
+    const userResult = await db.query(
+      "SELECT id, password_hash FROM employees WHERE id = $1",
+      [userId]
+    );
+    const user = userResult.rows[0];
 
     if (!user) return res.status(404).json({ error: "User not found" });
 
@@ -32,8 +33,10 @@ router.patch("/myPassword", authenticateToken, (req, res) => {
     const salt = bcrypt.genSaltSync(10);
     const newHash = bcrypt.hashSync(new_password, salt);
 
-    db.prepare("UPDATE employees SET password_hash = ? WHERE id = ?")
-      .run(newHash, userId);
+    await db.query(
+      "UPDATE employees SET password_hash = $1 WHERE id = $2",
+      [newHash, userId]
+    );
 
     res.json({ message: "Password updated successfully" });
   } catch (err) {
