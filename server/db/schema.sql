@@ -322,7 +322,21 @@ CREATE TABLE attachments (
 );
 
 -- =====================================================================
--- 14. STATUS HISTORY TABLE
+-- 14. ATTACHMENT BLOBS TABLE
+-- =====================================================================
+-- Base64 payloads stored separately to keep metadata queries fast
+CREATE TABLE attachment_blobs (
+    attachment_id UUID PRIMARY KEY,
+    base64_data TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_attachment_blobs_attachment
+        FOREIGN KEY (attachment_id)
+        REFERENCES attachments(id) ON DELETE CASCADE
+);
+
+-- =====================================================================
+-- 15. STATUS HISTORY TABLE
 -- =====================================================================
 -- Comprehensive audit trail for all ticket changes
 CREATE TABLE status_history (
@@ -349,7 +363,7 @@ CREATE TABLE status_history (
 );
 
 -- =====================================================================
--- 15. SYSTEM SETTINGS TABLE
+-- 16. SYSTEM SETTINGS TABLE
 -- =====================================================================
 -- Application-level configuration key-value store
 CREATE TABLE system_settings (
@@ -635,6 +649,7 @@ COMMENT ON TABLE tickets IS 'Main ticket entity with workflow tracking';
 COMMENT ON TABLE ticket_tags IS 'Many-to-many relationship between tickets and tags';
 COMMENT ON TABLE comments IS 'Ticket discussion thread';
 COMMENT ON TABLE attachments IS 'File metadata (actual files in object storage)';
+COMMENT ON TABLE attachment_blobs IS 'Base64 payloads stored separately to avoid heavy attachment metadata queries';
 COMMENT ON TABLE status_history IS 'Comprehensive audit trail for ticket changes';
 COMMENT ON TABLE system_settings IS 'Application-level configuration';
 

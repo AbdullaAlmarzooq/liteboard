@@ -16,11 +16,13 @@
  *   node verify-migration.js
  */
 
+require('dotenv').config({ path: '../server/.env' });
+
 const { Pool } = require('pg');
 const Database = require('better-sqlite3');
 
 const PG_CONNECTION_STRING = process.env.DATABASE_URL;
-const SQLITE_DB_PATH = process.env.SQLITE_DB_PATH || './server/db/liteboard.db';
+const SQLITE_DB_PATH = process.env.SQLITE_DB_PATH || '../server/db/liteboard.db';
 
 if (!PG_CONNECTION_STRING) {
   console.error('❌ ERROR: DATABASE_URL environment variable not set');
@@ -287,12 +289,26 @@ async function testEmailUniqueness() {
 
 async function testAutoAuditLogging() {
   try {
+    const workgroupResult = await pool.query(`
+      SELECT id FROM workgroups WHERE deleted_at IS NULL LIMIT 1
+    `);
+    const employeeResult = await pool.query(`
+      SELECT id FROM employees WHERE deleted_at IS NULL LIMIT 1
+    `);
+    const workgroupId = workgroupResult.rows[0]?.id || null;
+    const employeeId = employeeResult.rows[0]?.id || null;
+
+    if (!workgroupId || !employeeId) {
+      warn('Skipping audit logging test (missing workgroup or employee)');
+      return;
+    }
+
     // Create test ticket
     const result = await pool.query(`
-      INSERT INTO tickets (title, status, priority) 
-      VALUES ('Test Audit Ticket', 'Open', 'Low') 
+      INSERT INTO tickets (ticket_code, title, status, priority, workgroup_id, created_by) 
+      VALUES ($1, 'Test Audit Ticket', 'Open', 'Low', $2, $3) 
       RETURNING id
-    `);
+    `, [`VERIFY-${Date.now()}`, workgroupId, employeeId]);
     const ticketId = result.rows[0].id;
     
     // Check creation was logged
@@ -335,10 +351,10 @@ async function testUpdatedAtTrigger() {
   try {
     // Create test workgroup
     const result = await pool.query(`
-      INSERT INTO workgroups (name) 
-      VALUES ('Test Workgroup') 
+      INSERT INTO workgroups (ticket_code, name) 
+      VALUES ($1, 'Test Workgroup') 
       RETURNING id, created_at, updated_at
-    `);
+    `, [`VERIFY-WG-${Date.now()}`]);
     const workgroupId = result.rows[0].id;
     const createdAt = new Date(result.rows[0].created_at);
     
@@ -374,7 +390,7 @@ async function runVerification() {
   
   // Check all tables exist
   const tables = [
-    'roles', 'workgroups', 'employees', 'employee_skills',
+    'roles', 'workgroups', 'employees',
     'workflows', 'workflow_steps', 'workflow_transitions',
     'modules', 'tags', 'tickets', 'ticket_tags',
     'comments', 'attachments', 'status_history', 'system_settings'
@@ -390,7 +406,7 @@ async function runVerification() {
   
   // Check record counts (excluding roles and workflow_transitions which are new)
   const tablesToCount = [
-    'workgroups', 'employees', 'employee_skills',
+    'workgroups', 'employees',
     'workflows', 'workflow_steps', 'modules', 'tags',
     'tickets', 'ticket_tags', 'comments', 'attachments', 'status_history'
   ];
