@@ -47,7 +47,6 @@ const getAllowedNextSteps = async (ticketId) => {
       SELECT
         ws.step_code,
         ws.step_name,
-        ws.category_code,
         wt.cancel_allowed
       FROM workflow_transitions wt
       JOIN workflow_steps ws
@@ -167,12 +166,22 @@ router.get("/", authenticateToken(), async (req, res) => {
       SELECT 
         t.id, t.ticket_code, t.title, t.description, t.status, t.priority, 
         t.workflow_id, wf.name AS workflow_name,
+        ws.step_name AS current_step_name,
+        CASE ws.category_code
+          WHEN 10 THEN 'default'
+          WHEN 20 THEN 'secondary'
+          WHEN 30 THEN 'new'
+          WHEN 40 THEN 'destructive'
+          ELSE 'outline'
+        END AS status_variant,
         t.workgroup_id, w.name AS workgroup_name,
         t.module_id, m.name AS module_name, t.initiate_date, t.created_at,
         t.responsible_employee_id, e.name AS responsible_name,
         t.due_date, t.start_date 
       FROM tickets t
       LEFT JOIN workflows wf ON t.workflow_id = wf.id
+      LEFT JOIN workflow_steps ws
+        ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
       LEFT JOIN workgroups w ON t.workgroup_id = w.id
       LEFT JOIN modules m ON t.module_id = m.id
       LEFT JOIN employees e ON t.responsible_employee_id = e.id
@@ -232,6 +241,14 @@ router.get("/:id", authenticateToken(), async (req, res) => {
         t.id, t.ticket_code, t.title, t.description, t.status, t.priority, 
         t.workflow_id,
         t.step_code,
+        ws.step_name AS current_step_name,
+        CASE ws.category_code
+          WHEN 10 THEN 'default'
+          WHEN 20 THEN 'secondary'
+          WHEN 30 THEN 'new'
+          WHEN 40 THEN 'destructive'
+          ELSE 'outline'
+        END AS status_variant,
         t.workgroup_id, w.name AS workgroup_name,
         t.module_id, m.name AS module_name, t.initiate_date, t.created_at,
         t.responsible_employee_id, e.name AS responsible_name,
@@ -240,6 +257,8 @@ router.get("/:id", authenticateToken(), async (req, res) => {
         creator.name AS created_by_name
 
       FROM tickets t
+      LEFT JOIN workflow_steps ws
+        ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
       LEFT JOIN workgroups w ON t.workgroup_id = w.id
       LEFT JOIN modules m ON t.module_id = m.id
       LEFT JOIN employees e ON t.responsible_employee_id = e.id
@@ -522,7 +541,6 @@ router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, async (req, r
       message: "Ticket updated successfully",
       step_code,
       status: stepInfo ? stepInfo.step_name : undefined,
-      category_code: stepInfo ? stepInfo.category_code : undefined,
     });
 
   } catch (err) {

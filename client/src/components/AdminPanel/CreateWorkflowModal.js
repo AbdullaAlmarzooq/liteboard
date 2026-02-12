@@ -4,6 +4,13 @@ import { X, Plus, Trash2, Info } from 'lucide-react';
 import { WORKFLOW_CATEGORIES } from '../../constants/statuses';
 
 const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) => {
+  const normalizeCategoryCode = (value) => {
+    const parsed = Number.parseInt(value, 10);
+    if (parsed === 90) return 40; // backward compatibility for old data
+    if ([10, 20, 30, 40].includes(parsed)) return parsed;
+    return 10;
+  };
+
   const [form, setForm] = useState({
     id: null,
     name: '',
@@ -18,21 +25,44 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
     ],
   });
 
+  const mapWorkflowToForm = (workflow) => ({
+    id: workflow.id,
+    name: workflow.name,
+    steps: (workflow.steps || []).map(step => ({
+      stepCode: step.step_code || step.stepCode,
+      stepName: step.step_name || step.stepName,
+      categoryCode: normalizeCategoryCode(step.category_code ?? step.categoryCode),
+      workgroupCode: step.workgroup_code || step.workgroupCode,
+      allowedNextSteps: step.allowedNextSteps || [],
+      allowedPreviousSteps: step.allowedPreviousSteps || []
+    }))
+  });
+
   useEffect(() => {
-    if (workflowToEdit) {
-      setForm({
-        id: workflowToEdit.id,
-        name: workflowToEdit.name,
-        steps: workflowToEdit.steps.map(step => ({
-          stepCode: step.step_code || step.stepCode,
-          stepName: step.step_name || step.stepName,
-          categoryCode: step.category_code || step.categoryCode,
-          workgroupCode: step.workgroup_code || step.workgroupCode,
-          allowedNextSteps: step.allowedNextSteps || [],
-          allowedPreviousSteps: step.allowedPreviousSteps || []
-        }))
-      });
-    }
+    if (!workflowToEdit?.id) return;
+
+    let cancelled = false;
+    // Show current row data immediately, then refresh from DB.
+    setForm(mapWorkflowToForm(workflowToEdit));
+
+    const loadLatestWorkflow = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/api/workflow_management/${workflowToEdit.id}`);
+        if (!res.ok) throw new Error('Failed to fetch workflow');
+        const latest = await res.json();
+        if (!cancelled) {
+          setForm(mapWorkflowToForm(latest));
+        }
+      } catch (err) {
+        // Keep already-set local workflow values as fallback.
+      }
+    };
+
+    loadLatestWorkflow();
+
+    return () => {
+      cancelled = true;
+    };
   }, [workflowToEdit]);
 
   const handleInputChange = (e) => {
@@ -56,7 +86,7 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
               }
             }
           } else if (name === 'categoryCode') {
-            updatedStep[name] = parseInt(value);
+            updatedStep[name] = normalizeCategoryCode(value);
           } else {
             updatedStep[name] = value;
           }
@@ -160,7 +190,7 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
               <ol className="list-decimal ml-4 space-y-1">
                 <li>Define all steps in your workflow</li>
                 <li>For each step, select which steps it can transition to (forward/backward)</li>
-                <li>Steps with Cancel category (90) automatically allow transitions from all steps</li>
+                <li>Steps with Cancelled category (40) automatically allow transitions from all steps</li>
               </ol>
             </div>
           </div>
@@ -203,7 +233,7 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
                       <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                         Step {index + 1}
                       </span>
-                      {step.categoryCode === 90 && (
+                      {step.categoryCode === 40 && (
                         <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs rounded">
                           Cancel Step
                         </span>
@@ -303,7 +333,7 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
                   </div>
 
                   {/* Additional info for Cancel steps */}
-                  {step.categoryCode === 90 && (
+                  {step.categoryCode === 40 && (
                     <div className="mt-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs text-yellow-700 dark:text-yellow-400">
                       <strong>Note:</strong> Cancel steps automatically allow transitions from ALL other steps in the workflow.
                     </div>

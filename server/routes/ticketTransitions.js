@@ -28,7 +28,6 @@ const getAllowedNextSteps = async (ticketId) => {
       SELECT
         ws.step_code,
         ws.step_name,
-        ws.category_code,
         wt.cancel_allowed
       FROM workflow_transitions wt
       JOIN workflow_steps ws

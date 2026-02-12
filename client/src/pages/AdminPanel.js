@@ -76,12 +76,19 @@ const AdminPanel = () => {
 
   const saveWorkflow = async (wf) => {
     try {
+      const normalizeCategoryCode = (value) => {
+        const parsed = Number.parseInt(value, 10);
+        if (parsed === 90) return 40;
+        if ([10, 20, 30, 40].includes(parsed)) return parsed;
+        return 10;
+      };
+
       const payload = {
         name: wf.name,
         steps: wf.steps.map(step => ({
           stepName: step.stepName || step.step_name,
           stepCode: step.stepCode || step.step_code,
-          categoryCode: step.categoryCode || step.category_code,
+          categoryCode: normalizeCategoryCode(step.categoryCode ?? step.category_code),
           workgroupCode: step.workgroupCode || step.workgroup_code,
           allowedNextSteps: step.allowedNextSteps || [],
           allowedPreviousSteps: step.allowedPreviousSteps || []
@@ -96,7 +103,10 @@ const AdminPanel = () => {
           body: JSON.stringify(payload)
         });
         console.log('[AdminPanel] workflow create status:', res.status);
-        if (!res.ok) throw new Error('Failed to create workflow');
+        if (!res.ok) {
+          const errorBody = await res.json().catch(() => ({}));
+          throw new Error(errorBody.detail || errorBody.error || 'Failed to create workflow');
+        }
         showToast('Workflow created successfully');
       } else {
         const res = await fetch(`http://localhost:8000/api/workflow_management/${wf.id}`, {
@@ -105,7 +115,10 @@ const AdminPanel = () => {
           body: JSON.stringify({ id: wf.id, ...payload })
         });
         console.log('[AdminPanel] workflow update status:', res.status);
-        if (!res.ok) throw new Error('Failed to update workflow');
+        if (!res.ok) {
+          const errorBody = await res.json().catch(() => ({}));
+          throw new Error(errorBody.detail || errorBody.error || 'Failed to update workflow');
+        }
         showToast('Workflow updated successfully');
       }
 
@@ -114,7 +127,7 @@ const AdminPanel = () => {
       setWorkflowToEdit(null);
     } catch (error) {
       console.error('Error saving workflow:', error);
-      showToast('Failed to save workflow', 'error');
+      showToast(error.message || 'Failed to save workflow', 'error');
     }
   };
 
@@ -318,7 +331,7 @@ const AdminPanel = () => {
       <div className="max-w-6xl mx-auto">
         {toast && (
           <div
-            className={`mb-4 px-4 py-2 rounded-md text-sm ${
+            className={`fixed top-4 right-4 z-[70] px-4 py-2 rounded-md text-sm shadow-lg ${
               toast.type === 'error'
                 ? 'bg-red-100 text-red-800 border border-red-200'
                 : 'bg-green-100 text-green-800 border border-green-200'

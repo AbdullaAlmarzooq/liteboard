@@ -6,6 +6,33 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2026-02-12]
+
+### Added
+- Dashboard filter now supports Workflow with the same existing filter UI pattern.
+- Tickets filter now supports Workflow by workflow name (not workflow code).
+- CSV export now includes Workflow as the second column and no longer exports UUID.
+- Workflow admin API now includes `GET /api/workflow_management/:id` for fast single-workflow fetch in edit modal.
+
+### Changed
+- Workflow category model standardized to 4 codes: `10=Open`, `20=In Progress`, `30=Closed`, `40=Cancelled`.
+- Workflow create/update now normalizes legacy `90` to `40` for backward compatibility.
+- Workflow transition inserts now use upsert-on-constraint to prevent duplicate transition failures during workflow updates.
+- Workflow edit modal now hydrates from latest DB data on open (fast single-workflow fetch).
+- Tickets page status display now uses current workflow step label while color is derived from workflow category.
+- Category code exposure was removed from non-admin workflow/ticket transition responses; admin workflow screens still manage categories.
+
+### Fixed
+- React Flow `ResizeObserver` runtime loop noise in workflow tab.
+- Workflow edit save flow now shows clear success/error toasts and closes modal on successful save.
+- Workflow update failures caused by duplicate `workflow_transitions` inserts (`uq_workflow_transitions` conflict).
+- Workflow edit modal reopening with stale/default category values.
+
+### Schema
+- Updated schema check constraint for workflow step categories to `IN (10, 20, 30, 40)`.
+- Updated workflow step category column comments to reflect the 4-category model.
+- For existing Neon databases, existing constraints/data may need one-time SQL migration (legacy `90 -> 40` and constraint recreation).
+
 ## [2026-02-09]
 
 ### Added

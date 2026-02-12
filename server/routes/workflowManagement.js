@@ -3,11 +3,31 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 
+const normalizeCategoryCode = (value) => {
+  const parsed = Number.parseInt(value, 10);
+  if (parsed === 90) return 40; // backward compatibility for old clients/data
+  if ([10, 20, 30, 40].includes(parsed)) return parsed;
+  return 10;
+};
+
 // Helper to generate unique codes
 const generateStepCode = (workflowId, stepOrder) => {
   // Format: WF-XXX-01, WF-XXX-02, etc.
   const paddedOrder = String(stepOrder).padStart(2, '0');
   return `${workflowId}-${paddedOrder}`;
+};
+
+const upsertTransition = async (client, workflowId, fromStepCode, toStepCode, cancelAllowed = false) => {
+  await client.query(
+    `
+      INSERT INTO workflow_transitions (
+        workflow_id, from_step_code, to_step_code, cancel_allowed
+      ) VALUES ($1, $2, $3, $4)
+      ON CONFLICT ON CONSTRAINT uq_workflow_transitions
+      DO UPDATE SET cancel_allowed = workflow_transitions.cancel_allowed OR EXCLUDED.cancel_allowed
+    `,
+    [workflowId, fromStepCode, toStepCode, cancelAllowed]
+  );
 };
 
 // ----------------------------------------------------------------------
@@ -23,7 +43,19 @@ router.get("/", async (req, res) => {
     const workflows = [];
     for (const wf of workflowsRows) {
       const stepsResult = await db.query(
-        `SELECT * FROM workflow_steps WHERE workflow_id = $1 ORDER BY step_order`,
+        `
+          SELECT ws.*,
+                 CASE ws.category_code
+                   WHEN 10 THEN 'Open'
+                   WHEN 20 THEN 'In Progress'
+                   WHEN 30 THEN 'Closed'
+                   WHEN 40 THEN 'Cancelled'
+                   ELSE 'Open'
+                 END AS category_name
+          FROM workflow_steps ws
+          WHERE ws.workflow_id = $1
+          ORDER BY ws.step_order
+        `,
         [wf.id]
       );
       const steps = stepsResult.rows;
@@ -70,6 +102,73 @@ router.get("/", async (req, res) => {
 });
 
 // ----------------------------------------------------------------------
+// GET single workflow with steps and transitions
+// ----------------------------------------------------------------------
+router.get("/:id", async (req, res) => {
+  const workflowId = req.params.id;
+  try {
+    const workflowResult = await db.query(
+      `SELECT * FROM workflows WHERE id = $1`,
+      [workflowId]
+    );
+    const workflow = workflowResult.rows[0];
+    if (!workflow) {
+      return res.status(404).json({ error: "Workflow not found" });
+    }
+
+    const stepsResult = await db.query(
+      `
+        SELECT ws.*,
+               CASE ws.category_code
+                 WHEN 10 THEN 'Open'
+                 WHEN 20 THEN 'In Progress'
+                 WHEN 30 THEN 'Closed'
+                 WHEN 40 THEN 'Cancelled'
+                 ELSE 'Open'
+               END AS category_name
+        FROM workflow_steps ws
+        WHERE ws.workflow_id = $1
+        ORDER BY ws.step_order
+      `,
+      [workflowId]
+    );
+    const steps = stepsResult.rows;
+
+    for (const step of steps) {
+      step.workgroupCode = step.workgroup_id;
+      const nextStepsResult = await db.query(
+        `
+          SELECT ws.step_name
+          FROM workflow_transitions wt
+          JOIN workflow_steps ws
+            ON wt.workflow_id = ws.workflow_id AND wt.to_step_code = ws.step_code
+          WHERE wt.workflow_id = $1 AND wt.from_step_code = $2
+        `,
+        [workflowId, step.step_code]
+      );
+      step.allowedNextSteps = nextStepsResult.rows.map(r => r.step_name);
+
+      const prevStepsResult = await db.query(
+        `
+          SELECT ws.step_name
+          FROM workflow_transitions wt
+          JOIN workflow_steps ws
+            ON wt.workflow_id = ws.workflow_id AND wt.from_step_code = ws.step_code
+          WHERE wt.workflow_id = $1 AND wt.to_step_code = $2
+        `,
+        [workflowId, step.step_code]
+      );
+      step.allowedPreviousSteps = prevStepsResult.rows.map(r => r.step_name);
+    }
+
+    res.json({ ...workflow, steps });
+  } catch (err) {
+    console.error("Failed to fetch workflow:", err);
+    res.status(500).json({ error: "Failed to fetch workflow" });
+  }
+});
+
+// ----------------------------------------------------------------------
 // POST create new workflow with steps and transitions
 // ----------------------------------------------------------------------
 router.post("/", async (req, res) => {
@@ -103,7 +202,7 @@ router.post("/", async (req, res) => {
       // Create steps with generated step codes
       for (const [index, step] of steps.entries()) {
         const stepCode = generateStepCode(workflowId, index + 1);
-        const normalizedCategory = step.categoryCode === 90 ? 90 : 10;
+        const normalizedCategory = normalizeCategoryCode(step.categoryCode);
         step.normalizedCategory = normalizedCategory;
 
         await client.query(
@@ -132,14 +231,7 @@ router.post("/", async (req, res) => {
           for (const nextStepName of step.allowedNextSteps) {
             const nextStep = steps.find(s => s.stepName === nextStepName);
             if (nextStep && nextStep.stepCode) {
-              await client.query(
-                `
-                  INSERT INTO workflow_transitions (
-                    workflow_id, from_step_code, to_step_code
-                  ) VALUES ($1, $2, $3)
-                `,
-                [workflowId, step.stepCode, nextStep.stepCode]
-              );
+              await upsertTransition(client, workflowId, step.stepCode, nextStep.stepCode, false);
             }
           }
         }
@@ -148,39 +240,15 @@ router.post("/", async (req, res) => {
           for (const prevStepName of step.allowedPreviousSteps) {
             const prevStep = steps.find(s => s.stepName === prevStepName);
             if (prevStep && prevStep.stepCode) {
-              const exists = await client.query(
-                `
-                  SELECT id FROM workflow_transitions
-                  WHERE workflow_id = $1 AND from_step_code = $2 AND to_step_code = $3
-                `,
-                [workflowId, prevStep.stepCode, step.stepCode]
-              );
-
-              if (!exists.rows[0]) {
-                await client.query(
-                  `
-                    INSERT INTO workflow_transitions (
-                      workflow_id, from_step_code, to_step_code
-                    ) VALUES ($1, $2, $3)
-                  `,
-                  [workflowId, prevStep.stepCode, step.stepCode]
-                );
-              }
+              await upsertTransition(client, workflowId, prevStep.stepCode, step.stepCode, false);
             }
           }
         }
 
-        if (step.normalizedCategory === 90) {
+        if (step.normalizedCategory === 40) {
           for (const otherStep of steps) {
             if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
-              await client.query(
-                `
-                  INSERT INTO workflow_transitions (
-                    workflow_id, from_step_code, to_step_code, cancel_allowed
-                  ) VALUES ($1, $2, $3, true)
-                `,
-                [workflowId, otherStep.stepCode, step.stepCode]
-              );
+              await upsertTransition(client, workflowId, otherStep.stepCode, step.stepCode, true);
             }
           }
         }
@@ -243,7 +311,7 @@ router.patch("/:id", async (req, res) => {
         const existingStep = existingSteps.find(es => es.step_name === step.stepName);
         const stepCode =
           step.stepCode || existingStep?.step_code || generateStepCode(workflowId, index + 1);
-        const normalizedCategory = step.categoryCode === 90 ? 90 : 10;
+        const normalizedCategory = normalizeCategoryCode(step.categoryCode);
         step.normalizedCategory = normalizedCategory;
 
         await client.query(
@@ -296,14 +364,7 @@ router.patch("/:id", async (req, res) => {
           for (const nextStepName of step.allowedNextSteps) {
             const nextStep = steps.find(s => s.stepName === nextStepName);
             if (nextStep && nextStep.stepCode) {
-              await client.query(
-                `
-                  INSERT INTO workflow_transitions (
-                    workflow_id, from_step_code, to_step_code
-                  ) VALUES ($1, $2, $3)
-                `,
-                [workflowId, step.stepCode, nextStep.stepCode]
-              );
+              await upsertTransition(client, workflowId, step.stepCode, nextStep.stepCode, false);
             }
           }
         }
@@ -312,39 +373,15 @@ router.patch("/:id", async (req, res) => {
           for (const prevStepName of step.allowedPreviousSteps) {
             const prevStep = steps.find(s => s.stepName === prevStepName);
             if (prevStep && prevStep.stepCode) {
-              const exists = await client.query(
-                `
-                  SELECT id FROM workflow_transitions
-                  WHERE workflow_id = $1 AND from_step_code = $2 AND to_step_code = $3
-                `,
-                [workflowId, prevStep.stepCode, step.stepCode]
-              );
-
-              if (!exists.rows[0]) {
-                await client.query(
-                  `
-                    INSERT INTO workflow_transitions (
-                      workflow_id, from_step_code, to_step_code
-                    ) VALUES ($1, $2, $3)
-                  `,
-                  [workflowId, prevStep.stepCode, step.stepCode]
-                );
-              }
+              await upsertTransition(client, workflowId, prevStep.stepCode, step.stepCode, false);
             }
           }
         }
 
-        if (step.normalizedCategory === 90) {
+        if (step.normalizedCategory === 40) {
           for (const otherStep of steps) {
             if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
-              await client.query(
-                `
-                  INSERT INTO workflow_transitions (
-                    workflow_id, from_step_code, to_step_code, cancel_allowed
-                  ) VALUES ($1, $2, $3, true)
-                `,
-                [workflowId, otherStep.stepCode, step.stepCode]
-              );
+              await upsertTransition(client, workflowId, otherStep.stepCode, step.stepCode, true);
             }
           }
         }
@@ -361,7 +398,7 @@ router.patch("/:id", async (req, res) => {
     res.json({ success: true, workflowId });
   } catch (err) {
     console.error("Failed to update workflow:", err);
-    res.status(500).json({ error: "Failed to update workflow" });
+    res.status(500).json({ error: "Failed to update workflow", detail: err.detail || err.message });
   }
 });
 

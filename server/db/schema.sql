@@ -105,7 +105,7 @@ CREATE TABLE workflow_steps (
     step_code TEXT NOT NULL,  -- Unique identifier used in transitions
     step_name TEXT NOT NULL,
     step_order INTEGER NOT NULL,
-    category_code INTEGER NOT NULL,  -- 10=normal, 90=cancelled/rejected
+    category_code INTEGER NOT NULL,  -- 10=open, 20=in progress, 30=closed, 40=cancelled
     workgroup_id UUID,
     description TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -124,7 +124,7 @@ CREATE TABLE workflow_steps (
     CONSTRAINT uq_workflow_steps_order UNIQUE (workflow_id, step_order, deleted_at),
 
     CONSTRAINT chk_workflow_steps_order CHECK (step_order > 0),
-    CONSTRAINT chk_workflow_steps_category CHECK (category_code IN (10, 90)),
+    CONSTRAINT chk_workflow_steps_category CHECK (category_code IN (10, 20, 30, 40)),
 
     CONSTRAINT uq_workflow_steps_workflow_step UNIQUE (workflow_id, step_code)
 );
@@ -655,7 +655,7 @@ COMMENT ON TABLE system_settings IS 'Application-level configuration';
 
 COMMENT ON COLUMN attachments.storage_key IS 'Object storage path (e.g., tickets/{ticket_id}/{filename})';
 COMMENT ON COLUMN attachments.storage_bucket IS 'S3/R2 bucket name';
-COMMENT ON COLUMN workflow_steps.category_code IS '10=normal workflow step, 90=cancelled/rejected terminal state';
+COMMENT ON COLUMN workflow_steps.category_code IS '10=open, 20=in progress, 30=closed, 40=cancelled terminal state';
 COMMENT ON COLUMN tickets.step_code IS 'Current position in workflow (FK to workflow_steps)';
 COMMENT ON COLUMN tickets.ticket_code IS 'Human-friendly ticket identifier (e.g., TCK-1012)';
 COMMENT ON COLUMN employees.password_hash IS 'bcrypt hash with cost factor 10';

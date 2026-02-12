@@ -36,9 +36,11 @@ const TicketsPage = () => {
       ticketCode: ticket.ticket_code || ticket.ticketCode,
       title: ticket.title,
       description: ticket.description,
-      status: ticket.status,
+      status: ticket.current_step_name || ticket.status,
+      statusVariant: ticket.status_variant || 'outline',
       priority: ticket.priority,
       workflowId: ticket.workflow_id,
+      workflow: ticket.workflow_name || ticket.workflowName || 'No Workflow',
       workgroupId: ticket.workgroup_id,
       workGroup: ticket.workgroup_name || 'Unassigned',
       moduleId: ticket.module_id,
@@ -91,16 +93,19 @@ const TicketsPage = () => {
     setItemsPerPage(size);
   };
 
-  const getStatusVariant = status => {
+  const getStatusVariant = (status, statusVariant) => {
+    if (statusVariant) return statusVariant;
     switch (status) {
       case "Closed":
-        return "default"
+        return "new";
       case "In Progress":
-        return "secondary"
+        return "secondary";
+      case "Cancelled":
+        return "destructive";
       case "Open":
-        return "new"
+        return "default";
       default:
-        return "outline"
+        return "outline";
     }
   }
 
@@ -262,7 +267,7 @@ const TicketsPage = () => {
                           {ticket.title}
                         </td>
                         <td className="p-3">
-                          <Badge variant={getStatusVariant(ticket.status)}>
+                          <Badge variant={getStatusVariant(ticket.status, ticket.statusVariant)}>
                             {ticket.status}
                           </Badge>
                         </td>
@@ -361,7 +366,7 @@ const TicketsPage = () => {
                     {getDisplayTicketCode(ticket)}
                   </span>
                   <div className="flex gap-2">
-                    <Badge variant={getStatusVariant(ticket.status)}>
+                    <Badge variant={getStatusVariant(ticket.status, ticket.statusVariant)}>
                       {ticket.status}
                     </Badge>
                     <Badge variant={getPriorityVariant(ticket.priority)}>
@@ -522,7 +527,7 @@ const TicketsPage = () => {
                       {ticketToDelete.id}
                     </span>
                     <div className="flex gap-2">
-                      <Badge variant={getStatusVariant(ticketToDelete.status)} className="text-xs">
+                      <Badge variant={getStatusVariant(ticketToDelete.status, ticketToDelete.statusVariant)} className="text-xs">
                         {ticketToDelete.status}
                       </Badge>
                       <Badge variant={getPriorityVariant(ticketToDelete.priority)} className="text-xs">

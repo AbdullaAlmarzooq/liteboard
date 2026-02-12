@@ -9,6 +9,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
   const [filters, setFilters] = useState({
     status: [],
     priority: [],
+    workflow: [],
     workGroup: [],
     responsible: [],
     module: [],
@@ -34,7 +35,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
   // Extract unique values from tickets for filter options
   const filterOptions = useMemo(() => {
     if (!tickets || tickets.length === 0) return {
-      status: [], priority: [], workGroup: [], responsible: [], module: [], tags: []
+      status: [], priority: [], workflow: [], workGroup: [], responsible: [], module: [], tags: []
     };
 
     // Extract unique tag names from the normalized tag structure
@@ -52,6 +53,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
     return {
       status: [...new Set(tickets.map(t => t.status).filter(Boolean))],
       priority: [...new Set(tickets.map(t => t.priority).filter(Boolean))],
+      workflow: [...new Set(tickets.map(t => t.workflow).filter(Boolean))],
       workGroup: [...new Set(tickets.map(t => t.workGroup).filter(Boolean))], // Use workGroup names directly
       responsible: [...new Set(tickets.map(t => t.responsible).filter(Boolean))],
       module: [...new Set(tickets.map(t => t.module).filter(Boolean))],
@@ -76,6 +78,9 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
       
       // Priority filter
       if (filters.priority.length && !filters.priority.includes(ticket.priority)) return false;
+
+      // Workflow filter - using workflow name
+      if (filters.workflow.length && !filters.workflow.includes(ticket.workflow)) return false;
       
       // WorkGroup filter - now using workGroup name instead of ID
       if (filters.workGroup.length && !filters.workGroup.includes(ticket.workGroup)) return false;
@@ -123,6 +128,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
   const clearFilters = () => setFilters({
     status: [], 
     priority: [], 
+    workflow: [],
     workGroup: [], 
     responsible: [], 
     module: [], 
@@ -230,6 +236,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
             <div className="flex flex-wrap gap-3 mb-4">
               <FilterDropdownButton category="status" title="Status" options={filterOptions.status} />
               <FilterDropdownButton category="priority" title="Priority" options={filterOptions.priority} />
+              <FilterDropdownButton category="workflow" title="Workflow" options={filterOptions.workflow} />
               <FilterDropdownButton category="workGroup" title="WorkGroup" options={filterOptions.workGroup} />
               <FilterDropdownButton category="responsible" title="Responsible" options={filterOptions.responsible} />
               <FilterDropdownButton category="module" title="Module" options={filterOptions.module} />

@@ -7,6 +7,7 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
 
   const [selectedWorkGroups, setSelectedWorkGroups] = useState([]);
   const [selectedModules, setSelectedModules] = useState([]);
+  const [selectedWorkflows, setSelectedWorkflows] = useState([]);
   const [selectedStatuses, setSelectedStatuses] = useState([]);
   const [openDropdown, setOpenDropdown] = useState(null);
 
@@ -39,7 +40,12 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
       ? [...selectedWorkGroups, value]
       : selectedWorkGroups.filter((id) => id !== value);
     setSelectedWorkGroups(newSelection);
-    onFilterChange({ selectedWorkGroups: newSelection, selectedModules, selectedStatuses });
+    onFilterChange({
+      selectedWorkGroups: newSelection,
+      selectedModules,
+      selectedWorkflows,
+      selectedStatuses
+    });
   };
 
   const handleModuleChange = (e) => {
@@ -48,7 +54,26 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
       ? [...selectedModules, value]
       : selectedModules.filter((m) => m !== value);
     setSelectedModules(newSelection);
-    onFilterChange({ selectedWorkGroups, selectedModules: newSelection, selectedStatuses });
+    onFilterChange({
+      selectedWorkGroups,
+      selectedModules: newSelection,
+      selectedWorkflows,
+      selectedStatuses
+    });
+  };
+
+  const handleWorkflowChange = (e) => {
+    const { value, checked } = e.target;
+    const newSelection = checked
+      ? [...selectedWorkflows, value]
+      : selectedWorkflows.filter((w) => w !== value);
+    setSelectedWorkflows(newSelection);
+    onFilterChange({
+      selectedWorkGroups,
+      selectedModules,
+      selectedWorkflows: newSelection,
+      selectedStatuses
+    });
   };
 
   const handleStatusChange = (e) => {
@@ -57,14 +82,25 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
       ? [...selectedStatuses, value]
       : selectedStatuses.filter((s) => s !== value);
     setSelectedStatuses(newSelection);
-    onFilterChange({ selectedWorkGroups, selectedModules, selectedStatuses: newSelection });
+    onFilterChange({
+      selectedWorkGroups,
+      selectedModules,
+      selectedWorkflows,
+      selectedStatuses: newSelection
+    });
   };
 
   const clearAllFilters = () => {
     setSelectedWorkGroups([]);
     setSelectedModules([]);
+    setSelectedWorkflows([]);
     setSelectedStatuses([]);
-    onFilterChange({ selectedWorkGroups: [], selectedModules: [], selectedStatuses: [] });
+    onFilterChange({
+      selectedWorkGroups: [],
+      selectedModules: [],
+      selectedWorkflows: [],
+      selectedStatuses: []
+    });
   };
 
   // Compute narrowed lists
@@ -74,16 +110,38 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
   // Modules depend only on workgroup
   // Note: Using the sanitized 'tickets' array now
   const modulesTickets = tickets.filter(
-    (t) => !selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)
+    (t) =>
+      !selectedWorkGroups.length ||
+      selectedWorkGroups.includes(t.workgroupId || t.workgroup_id)
   );
-  const allModules = [...new Set(modulesTickets.map((t) => t.module_name).filter(Boolean))].sort();
+  const allModules = [...new Set(modulesTickets.map((t) => t.module_name || t.module).filter(Boolean))].sort();
+
+  // Workflows depend on workgroup + module
+  const workflowsTickets = tickets.filter(
+    (t) =>
+      (!selectedWorkGroups.length ||
+        selectedWorkGroups.includes(t.workgroupId || t.workgroup_id)) &&
+      (!selectedModules.length ||
+        selectedModules.includes(t.module_name || t.module))
+  );
+  const allWorkflows = [
+    ...new Set(
+      workflowsTickets
+        .map((t) => t.workflow_name || t.workflowName)
+        .filter(Boolean)
+    )
+  ].sort();
 
   // Statuses depend on workgroup + module
   // Note: Using the sanitized 'tickets' array now
   const statusesTickets = tickets.filter(
     (t) =>
-      (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)) &&
-      (!selectedModules.length || selectedModules.includes(t.module_name))
+      (!selectedWorkGroups.length ||
+        selectedWorkGroups.includes(t.workgroupId || t.workgroup_id)) &&
+      (!selectedModules.length ||
+        selectedModules.includes(t.module_name || t.module)) &&
+      (!selectedWorkflows.length ||
+        selectedWorkflows.includes(t.workflow_name || t.workflowName))
   );
   const allStatuses = [...new Set(statusesTickets.map((t) => t.status).filter(Boolean))].sort();
 
@@ -91,8 +149,12 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
   // Note: Using the sanitized 'tickets' array now
   const filteredTickets = tickets.filter(
     (t) =>
-      (!selectedWorkGroups.length || selectedWorkGroups.includes(t.workgroupId)) &&
-      (!selectedModules.length || selectedModules.includes(t.module_name)) &&
+      (!selectedWorkGroups.length ||
+        selectedWorkGroups.includes(t.workgroupId || t.workgroup_id)) &&
+      (!selectedModules.length ||
+        selectedModules.includes(t.module_name || t.module)) &&
+      (!selectedWorkflows.length ||
+        selectedWorkflows.includes(t.workflow_name || t.workflowName)) &&
       (!selectedStatuses.length || selectedStatuses.includes(t.status))
   );
 
@@ -174,6 +236,11 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
       value,
       remove: () => handleModuleChange({ target: { value, checked: false } })
     })),
+    ...selectedWorkflows.map(value => ({
+      category: 'Workflow',
+      value,
+      remove: () => handleWorkflowChange({ target: { value, checked: false } })
+    })),
     ...selectedStatuses.map(value => ({
       category: 'Status',
       value,
@@ -183,7 +250,10 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
 
 
   const hasActiveFilters =
-    selectedWorkGroups.length > 0 || selectedModules.length > 0 || selectedStatuses.length > 0;
+    selectedWorkGroups.length > 0 ||
+    selectedModules.length > 0 ||
+    selectedWorkflows.length > 0 ||
+    selectedStatuses.length > 0;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 flex flex-col gap-4 justify-start transition-colors duration-200">
@@ -202,6 +272,13 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
           options={allModules}
           selectedValues={selectedModules}
           onChange={handleModuleChange}
+        />
+        <FilterDropdownButton
+          category="workflow"
+          title="Workflow"
+          options={allWorkflows}
+          selectedValues={selectedWorkflows}
+          onChange={handleWorkflowChange}
         />
         <FilterDropdownButton
           category="status"

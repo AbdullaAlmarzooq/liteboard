@@ -52,15 +52,30 @@ const Dashboard = () => {
   const toggleFilterVisibility = () => setAreFiltersVisible(prev => !prev);
 
   // Stable handleFilterChange (unchanged)
-  const handleFilterChange = ({ selectedWorkGroups, selectedModules, selectedStatuses }) => {
+  const handleFilterChange = ({
+    selectedWorkGroups,
+    selectedModules,
+    selectedWorkflows,
+    selectedStatuses
+  }) => {
     let filtered = [...allTickets];
 
     if (selectedWorkGroups?.length) {
-      filtered = filtered.filter(ticket => selectedWorkGroups.includes(ticket.workgroupId));
+      filtered = filtered.filter(ticket =>
+        selectedWorkGroups.includes(ticket.workgroupId || ticket.workgroup_id)
+      );
     }
 
     if (selectedModules?.length) {
-      filtered = filtered.filter(ticket => selectedModules.includes(ticket.module_name));
+      filtered = filtered.filter(ticket =>
+        selectedModules.includes(ticket.module_name || ticket.module)
+      );
+    }
+
+    if (selectedWorkflows?.length) {
+      filtered = filtered.filter(ticket =>
+        selectedWorkflows.includes(ticket.workflow_name || ticket.workflowName)
+      );
     }
 
     if (selectedStatuses?.length) {

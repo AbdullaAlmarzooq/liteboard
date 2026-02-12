@@ -1,17 +1,16 @@
 // WorkflowsTab.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Plus, Edit2 } from 'lucide-react';
 import ReactFlow, { Background } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { getCategoryByCode } from '../../constants/statuses';
 import CreateWorkflowModal from './CreateWorkflowModal';
 
 const WorkflowDiagram = ({ steps }) => {
-  if (!steps || steps.length === 0) return null;
+  const safeSteps = Array.isArray(steps) ? steps : [];
 
-  const nodes = steps.map((step, i) => {
-    const categoryCode = step.categoryCode ?? step.category_code;
-    const category = getCategoryByCode(categoryCode) || { name: 'Unknown', color: 'bg-gray-400' };
+  const isDark = document.documentElement.classList.contains('dark');
+
+  const nodes = useMemo(() => safeSteps.map((step, i) => {
     const stepLabel = step.stepName || step.step_name || 'Unnamed';
     return {
       id: `step-${i}`,
@@ -21,26 +20,40 @@ const WorkflowDiagram = ({ steps }) => {
         border: '1px solid #777',
         borderRadius: '8px',
         padding: '10px',
-        background: document.documentElement.classList.contains('dark') ? '#1f2937' : '#fff',
-        color: document.documentElement.classList.contains('dark') ? '#fff' : '#000',
+        background: isDark ? '#1f2937' : '#fff',
+        color: isDark ? '#fff' : '#000',
         fontSize: '12px',
       },
       sourcePosition: 'right',
       targetPosition: 'left',
     };
-  });
+  }), [safeSteps, isDark]);
 
-  const edges = steps.slice(0, -1).map((_, i) => ({
+  const edges = useMemo(() => safeSteps.slice(0, -1).map((_, i) => ({
     id: `edge-${i}`,
     source: `step-${i}`,
     target: `step-${i + 1}`,
     type: 'smoothstep',
-  }));
+  })), [safeSteps]);
+
+  if (safeSteps.length === 0) return null;
 
   return (
-    <div style={{ height: 200 }} className="mt-4 border border-gray-300 dark:border-gray-600 rounded-md">
-      <ReactFlow nodes={nodes} edges={edges} fitView>
-        <Background color={document.documentElement.classList.contains('dark') ? '#555' : '#eee'} />
+    <div style={{ height: 200 }} className="mt-4 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        panOnDrag={false}
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
+      >
+        <Background color={isDark ? '#555' : '#eee'} />
       </ReactFlow>
     </div>
   );
@@ -56,9 +69,31 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
     setWorkflows(initialWorkflows);
   }, [initialWorkflows]);
 
+  useEffect(() => {
+    // Prevent CRA dev overlay from crashing the tab on known ReactFlow ResizeObserver noise.
+    const suppressResizeObserverError = (event) => {
+      if (
+        event?.message?.includes('ResizeObserver loop') ||
+        event?.message?.includes('ResizeObserver loop completed with undelivered notifications')
+      ) {
+        event.stopImmediatePropagation();
+      }
+    };
+
+    window.addEventListener('error', suppressResizeObserverError);
+    return () => window.removeEventListener('error', suppressResizeObserverError);
+  }, []);
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const normalizeCategoryCode = (value) => {
+    const parsed = Number.parseInt(value, 10);
+    if (parsed === 90) return 40; // backward compatibility for old payloads
+    if ([10, 20, 30, 40].includes(parsed)) return parsed;
+    return 10;
   };
 
   const refreshWorkflows = async () => {
@@ -99,7 +134,7 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
         steps: workflow.steps.map(step => ({
           stepName: step.stepName || step.step_name,
           stepCode: step.stepCode || step.step_code,
-          categoryCode: step.categoryCode || step.category_code,
+          categoryCode: normalizeCategoryCode(step.categoryCode ?? step.category_code),
           workgroupCode: step.workgroupCode || step.workgroup_code,
           allowedNextSteps: step.allowedNextSteps || [],
           allowedPreviousSteps: step.allowedPreviousSteps || []
@@ -113,7 +148,12 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
           body: JSON.stringify(payload)
         });
         console.log('[Workflows] create response status:', res.status);
-        if (!res.ok) throw new Error('Failed to create workflow');
+        if (!res.ok) {
+          const errorBody = await res.json().catch(() => ({}));
+          throw new Error(errorBody.detail || errorBody.error || 'Failed to create workflow');
+        }
+        setModalOpen(false);
+        setWorkflowToEdit(null);
         showToast('Workflow created successfully');
       } else {
         const res = await fetch(`http://localhost:8000/api/workflow_management/${workflow.id}`, {
@@ -122,17 +162,20 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
           body: JSON.stringify({ id: workflow.id, ...payload })
         });
         console.log('[Workflows] update response status:', res.status);
-        if (!res.ok) throw new Error('Failed to update workflow');
+        if (!res.ok) {
+          const errorBody = await res.json().catch(() => ({}));
+          throw new Error(errorBody.detail || errorBody.error || 'Failed to update workflow');
+        }
+        setModalOpen(false);
+        setWorkflowToEdit(null);
         showToast('Workflow updated successfully');
       }
 
       await refreshWorkflows();
-      setModalOpen(false);
-      setWorkflowToEdit(null);
       parentOnEdit && parentOnEdit(workflow);
     } catch (err) {
       console.error('Failed to save workflow:', err);
-      showToast('Failed to save workflow', 'error');
+      showToast(err.message || 'Failed to save workflow', 'error');
     }
   };
 
@@ -184,7 +227,7 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
     <div className="grid gap-4">
       {toast && (
         <div
-          className={`px-4 py-2 rounded-md text-sm ${
+          className={`fixed top-4 right-4 z-[70] px-4 py-2 rounded-md text-sm shadow-lg ${
             toast.type === 'error'
               ? 'bg-red-100 text-red-800 border border-red-200'
               : 'bg-green-100 text-green-800 border border-green-200'

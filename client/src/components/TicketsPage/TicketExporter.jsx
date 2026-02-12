@@ -38,7 +38,7 @@ const TicketExporter = ({ ticketsToExport = [] }) => {
     if (!data || data.length === 0) return "";
 
     const headers = [
-      "Ticket Code", "UUID", "Title", "Description", "Status", "Priority", "WorkGroup",
+      "Ticket Code", "Workflow", "Title", "Description", "Status", "Priority", "WorkGroup",
       "Responsible", "Module", "Tags", "Due Date", "Created At"
     ];
 
@@ -47,7 +47,7 @@ const TicketExporter = ({ ticketsToExport = [] }) => {
     const csvRows = data.map(ticket => {
       const row = [
         ticket.ticketCode || ticket.ticket_code || ticket.id || '',
-        ticket.id || '',
+        ticket.workflow || ticket.workflow_name || ticket.workflowName || 'No Workflow',
         ticket.title || '',
         ticket.description || '',
         ticket.status || '',

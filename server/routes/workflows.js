@@ -20,7 +20,6 @@ router.get("/", async (req, res) => {
       ws.step_name,
       ws.step_order,
       ws.workgroup_id,
-      ws.category_code,
       wg.name AS workgroup_name
     FROM workflows w
     LEFT JOIN workflow_steps ws ON w.id = ws.workflow_id
@@ -54,8 +53,7 @@ router.get("/", async (req, res) => {
           stepOrder: row.step_order,
           workgroupId: row.workgroup_id,
           workgroupCode: row.workgroup_id,
-          workgroupName: row.workgroup_name,
-          categoryCode: row.category_code
+          workgroupName: row.workgroup_name
         });
       }
     });
@@ -86,7 +84,6 @@ router.get("/:id", async (req, res) => {
       ws.step_name,
       ws.step_order,
       ws.workgroup_id,
-      ws.category_code,
       wg.name AS workgroup_name
     FROM workflows w
     LEFT JOIN workflow_steps ws ON w.id = ws.workflow_id
@@ -121,8 +118,7 @@ router.get("/:id", async (req, res) => {
           stepOrder: row.step_order,
           workgroupId: row.workgroup_id,
           workgroupCode: row.workgroup_id,
-          workgroupName: row.workgroup_name,
-          categoryCode: row.category_code
+          workgroupName: row.workgroup_name
         });
       }
     });
