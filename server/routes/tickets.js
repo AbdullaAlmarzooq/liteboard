@@ -175,8 +175,9 @@ router.get("/", authenticateToken(), async (req, res) => {
           ELSE 'outline'
         END AS status_variant,
         t.workgroup_id, w.name AS workgroup_name,
-        t.module_id, m.name AS module_name, t.initiate_date, t.created_at,
+        t.module_id, m.name AS module_name, t.initiate_date, t.created_at, t.updated_at,
         t.responsible_employee_id, e.name AS responsible_name,
+        t.created_by, creator.name AS created_by_name,
         t.due_date, t.start_date 
       FROM tickets t
       LEFT JOIN workflows wf ON t.workflow_id = wf.id
@@ -185,8 +186,9 @@ router.get("/", authenticateToken(), async (req, res) => {
       LEFT JOIN workgroups w ON t.workgroup_id = w.id
       LEFT JOIN modules m ON t.module_id = m.id
       LEFT JOIN employees e ON t.responsible_employee_id = e.id
+      LEFT JOIN employees creator ON t.created_by = creator.id
       WHERE t.deleted_at IS NULL
-      ORDER BY t.id DESC
+      ORDER BY t.updated_at DESC NULLS LAST, t.created_at DESC NULLS LAST
     `;
     const { rows: tickets } = await db.query(ticketsQuery);
 
@@ -215,6 +217,7 @@ router.get("/", authenticateToken(), async (req, res) => {
       ticketCode: ticket.ticket_code,
       workGroup: ticket.workgroup_name,
       responsible: ticket.responsible_name,
+      createdBy: ticket.created_by_name,
       module: ticket.module_name,
       workflowName: ticket.workflow_name,
       tags: tagsByTicket[ticket.id] || []

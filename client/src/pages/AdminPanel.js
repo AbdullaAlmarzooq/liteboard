@@ -134,6 +134,16 @@ const AdminPanel = () => {
   // ---------- Editing Handlers ----------
   const handleEdit = (item) => {
     setEditingItem(item.id);
+
+    if (activeTab === 'tags') {
+      setEditForm({
+        id: item.id,
+        label: item.label || '',
+        color: item.color || '#666666'
+      });
+      return;
+    }
+
     setEditForm({
       id: item.id,
       name: item.name,
@@ -147,6 +157,37 @@ const AdminPanel = () => {
 
   const handleSave = async () => {
     try {
+      if (activeTab === 'tags') {
+        const payload = {
+          label: editForm.label,
+          color: editForm.color
+        };
+
+        const response = await fetch(`http://localhost:8000/api/tags/${editForm.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          throw new Error(errorBody.error || 'Failed to update tag');
+        }
+
+        setTags(prev =>
+          prev.map(tag =>
+            tag.id === editForm.id
+              ? { ...tag, label: editForm.label, color: editForm.color }
+              : tag
+          )
+        );
+
+        setEditingItem(null);
+        setEditForm({});
+        showToast('Tag updated successfully');
+        return;
+      }
+
       const payload = {
         name: editForm.name,
         email: editForm.email,
@@ -174,8 +215,10 @@ const AdminPanel = () => {
 
       setEditingItem(null);
       setEditForm({});
+      showToast('Employee updated successfully');
     } catch (error) {
-      console.error('Error saving employee:', error);
+      console.error('Error saving item:', error);
+      showToast(error.message || 'Failed to save changes', 'error');
     }
   };
 

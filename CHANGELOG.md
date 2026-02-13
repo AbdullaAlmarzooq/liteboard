@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2026-02-13]
+
+### Added
+- Tickets filter now supports `Created By` using creator display names (not user IDs).
+
+### Changed
+- Tickets page ordering now prioritizes last update time (`updated_at` descending), with creation time fallback.
+- Tickets search results now follow the same latest-updated-first ordering for consistency.
+- Tags tab UI now shows the tag label once (inside the colored tag chip) to remove duplicate label rendering.
+
+### Fixed
+- Tags edit form now pre-fills existing tag values (label/color) when entering edit mode.
+- Tags edit save now calls the correct tags API endpoint (`PUT /api/tags/:id`) instead of the employees endpoint.
+
 ## [2026-02-12]
 
 ### Added

@@ -47,6 +47,8 @@ const TicketsPage = () => {
       module: ticket.module_name || 'No Module',
       initiateDate: ticket.initiate_date || ticket.initiateDate || ticket.created_at || ticket.createdAt,
       createdAt: ticket.created_at || ticket.createdAt,
+      updatedAt: ticket.updated_at || ticket.updatedAt,
+      createdBy: ticket.created_by_name || ticket.createdBy || 'Unknown',
       responsibleEmployeeId: ticket.responsible_employee_id,
       responsible: ticket.responsible_name || 'Unassigned', // Now from employees table
       tags: ticket.tags || [], // Now from ticket_tags join
@@ -56,19 +58,13 @@ const TicketsPage = () => {
 
   const getDisplayTicketCode = (ticket) => ticket.ticketCode || ticket.id;
 
-  // Sort tickets by extracting numeric part from ID in descending order (newest first)
+  // Sort tickets by last updated timestamp (most recently updated first)
   const sortedTickets = useMemo(() => {
     if (!tickets) return [];
     return [...tickets].sort((a, b) => {
-      // Handle different ID formats - if it's just numbers or contains dashes
-      const extractNumber = (id) => {
-        const match = id.toString().match(/(\d+)$/);
-        return match ? parseInt(match[1]) : 0;
-      };
-      
-      const aNum = extractNumber(getDisplayTicketCode(a));
-      const bNum = extractNumber(getDisplayTicketCode(b));
-      return bNum - aNum;
+      const aUpdated = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const bUpdated = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return bUpdated - aUpdated;
     });
   }, [tickets]);
 

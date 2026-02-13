@@ -11,6 +11,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
     priority: [],
     workflow: [],
     workGroup: [],
+    createdBy: [],
     responsible: [],
     module: [],
     tags: [],
@@ -35,7 +36,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
   // Extract unique values from tickets for filter options
   const filterOptions = useMemo(() => {
     if (!tickets || tickets.length === 0) return {
-      status: [], priority: [], workflow: [], workGroup: [], responsible: [], module: [], tags: []
+      status: [], priority: [], workflow: [], workGroup: [], createdBy: [], responsible: [], module: [], tags: []
     };
 
     // Extract unique tag names from the normalized tag structure
@@ -55,6 +56,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
       priority: [...new Set(tickets.map(t => t.priority).filter(Boolean))],
       workflow: [...new Set(tickets.map(t => t.workflow).filter(Boolean))],
       workGroup: [...new Set(tickets.map(t => t.workGroup).filter(Boolean))], // Use workGroup names directly
+      createdBy: [...new Set(tickets.map(t => t.createdBy).filter(Boolean))],
       responsible: [...new Set(tickets.map(t => t.responsible).filter(Boolean))],
       module: [...new Set(tickets.map(t => t.module).filter(Boolean))],
       tags: [...uniqueTags] // Use extracted tag names
@@ -84,6 +86,9 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
       
       // WorkGroup filter - now using workGroup name instead of ID
       if (filters.workGroup.length && !filters.workGroup.includes(ticket.workGroup)) return false;
+
+      // Created By filter - using creator display name
+      if (filters.createdBy.length && !filters.createdBy.includes(ticket.createdBy)) return false;
       
       // Responsible filter
       if (filters.responsible.length && !filters.responsible.includes(ticket.responsible)) return false;
@@ -130,6 +135,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
     priority: [], 
     workflow: [],
     workGroup: [], 
+    createdBy: [],
     responsible: [], 
     module: [], 
     tags: [], 
@@ -238,6 +244,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
               <FilterDropdownButton category="priority" title="Priority" options={filterOptions.priority} />
               <FilterDropdownButton category="workflow" title="Workflow" options={filterOptions.workflow} />
               <FilterDropdownButton category="workGroup" title="WorkGroup" options={filterOptions.workGroup} />
+              <FilterDropdownButton category="createdBy" title="Created By" options={filterOptions.createdBy} />
               <FilterDropdownButton category="responsible" title="Responsible" options={filterOptions.responsible} />
               <FilterDropdownButton category="module" title="Module" options={filterOptions.module} />
               <FilterDropdownButton category="tags" title="Tags" options={filterOptions.tags} />

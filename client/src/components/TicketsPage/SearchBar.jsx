@@ -25,7 +25,8 @@ const SearchBar = () => {
       workGroup: ticket.workgroup_name || 'Unassigned',
       moduleId: ticket.module_id,
       module: ticket.module_name || 'No Module',
-      initiateDate: ticket.initiateDate,
+      initiateDate: ticket.initiate_date || ticket.initiateDate || ticket.created_at || ticket.createdAt,
+      updatedAt: ticket.updated_at || ticket.updatedAt,
       responsibleEmployeeId: ticket.responsible_employee_id,
       responsible: ticket.responsible_name || 'Unassigned',
       tags: ticket.tags || [],
@@ -55,11 +56,11 @@ const SearchBar = () => {
     }
   }
 
-  // Helper function to sort tickets by initiate date (newest first)
-  const sortTicketsByInitiateDate = (tickets) => {
+  // Helper function to sort tickets by update date (newest first)
+  const sortTicketsByUpdatedDate = (tickets) => {
     return [...tickets].sort((a, b) => {
-      const dateA = new Date(a.initiateDate || 0)
-      const dateB = new Date(b.initiateDate || 0)
+      const dateA = new Date(a.updatedAt || a.initiateDate || 0)
+      const dateB = new Date(b.updatedAt || b.initiateDate || 0)
       return dateB - dateA // Newest first (descending order)
     })
   }
@@ -103,8 +104,8 @@ const SearchBar = () => {
       )
     })
 
-    // Sort the filtered results by initiate date (newest first)
-    const sortedResults = sortTicketsByInitiateDate(filtered)
+    // Sort the filtered results by last update date (newest first)
+    const sortedResults = sortTicketsByUpdatedDate(filtered)
     
     setSearchResults(sortedResults)
     setIsModalOpen(true)
