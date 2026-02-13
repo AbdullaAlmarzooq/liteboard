@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/Card"
 import Button from "../components/Button"
 import Badge from "../components/Badge"
 import useFetch from "../useFetch"
+import TicketEditor from "../components/TicketManagement/TicketEditor"
 import { AlertCircle, CheckCircle, X } from "lucide-react"
 
 // Toast Component
@@ -93,6 +94,8 @@ const CreateTicketPage = () => {
   const { data: workgroups, isPending: workgroupsLoading, error: workgroupsError } = useFetch('http://localhost:8000/api/workgroups')
   const { data: modules, isPending: modulesLoading, error: modulesError } = useFetch('http://localhost:8000/api/modules')
   const { data: workflows, isPending: workflowsLoading, error: workflowsError } = useFetch('http://localhost:8000/api/workflows')
+
+  const stripHtml = (html = "") => html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
@@ -336,7 +339,7 @@ const generateTicketId = async () => {
       return false
     }
 
-    if (!formData.description.trim()) {
+    if (!stripHtml(formData.description)) {
       showToast('Please provide a description', 'error')
       return false
     }
@@ -372,7 +375,7 @@ const generateTicketId = async () => {
       const ticketData = {
         id: ticketId,
         title: formData.title.trim(),
-        description: formData.description.trim(),
+        description: formData.description,
         status: formData.status,
         step_code: formData.stepCode,
         priority: formData.priority,
@@ -541,14 +544,10 @@ const generateTicketId = async () => {
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Description <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  rows={4}
+                <TicketEditor
                   value={formData.description}
-                  onChange={handleInputChange}
+                  onChange={(html) => setFormData(prev => ({ ...prev, description: html }))}
                   placeholder="Describe the ticket in detail"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 />
               </div>
 

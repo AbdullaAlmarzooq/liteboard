@@ -205,9 +205,7 @@ const ticket = useMemo(() => {
     responsible: rawTicket.responsible_name || rawTicket.responsible || 'Unassigned',
     createdBy: rawTicket.created_by || 'Unknown',
     createdByName: rawTicket.created_by_name || 'Unknown',
-    createdByDisplay: rawTicket.created_by_name
-  ? `${rawTicket.created_by_name}${rawTicket.created_by ? ` (${rawTicket.created_by})` : ""}`
-  : "Unknown",
+    createdByDisplay: rawTicket.created_by_name || "Unknown",
     tags: rawTicket.tags || [],
     dueDate: rawTicket.dueDate || rawTicket.due_date,
     startDate: rawTicket.startDate || rawTicket.start_date,
@@ -439,10 +437,31 @@ const renderTag = (tag, index) => {
               <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
                 Ticket Code: {ticket.ticketCode || ticket.id}
               </p>
-              <p className="text-gray-600 dark:text-gray-300">{ticket.description}</p>
               <div className="flex flex-wrap gap-2 mt-4">
                 {ticket.tags?.map((tag, index) => renderTag(tag, index))}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle className="text-xl">Description</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div
+                className="text-gray-700 dark:text-gray-200 leading-relaxed break-words
+                  [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
+                  [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:mt-4 [&_h2]:mb-2
+                  [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1
+                  [&_p]:my-2
+                  [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2
+                  [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2
+                  [&_blockquote]:border-l-4 [&_blockquote]:border-blue-300 dark:[&_blockquote]:border-blue-700 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-3
+                  [&_pre]:bg-slate-100 dark:[&_pre]:bg-slate-800 [&_pre]:rounded-md [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre]:my-3
+                  [&_code]:bg-slate-100 dark:[&_code]:bg-slate-800 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded
+                  [&_a]:text-blue-600 dark:[&_a]:text-blue-400 [&_a]:underline"
+                dangerouslySetInnerHTML={{ __html: ticket.description || "<p>No description provided.</p>" }}
+              />
             </CardContent>
           </Card>
 
@@ -580,8 +599,12 @@ const renderTag = (tag, index) => {
             <CardHeader><CardTitle className="text-xl">Ticket Information</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div><label className="text-sm font-medium">Created By</label><div>{ticket.createdByDisplay}</div></div>
-              <div><label className="text-sm font-medium">Priority</label>
-                <Badge variant={getPriorityVariant(ticket.priority)}>{ticket.priority}</Badge></div>
+              <div>
+                <label className="text-sm font-medium">Priority</label>
+                <div className="mt-1">
+                  <Badge variant={getPriorityVariant(ticket.priority)}>{ticket.priority}</Badge>
+                </div>
+              </div>
               <div><label className="text-sm font-medium">Workgroup</label><div>{ticket.workGroup}</div></div>
               <div><label className="text-sm font-medium">Responsible</label><div>{ticket.responsible}</div></div>
               <div><label className="text-sm font-medium">Module</label><div>{ticket.module}</div></div>

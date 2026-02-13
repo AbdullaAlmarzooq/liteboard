@@ -10,15 +10,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 - Tickets filter now supports `Created By` using creator display names (not user IDs).
+- Rich text editor for ticket descriptions (`TicketEditor`) using Quill toolbar features (headings, formatting, lists, blockquote, code block, colors, links).
+- Login page password visibility toggle icon for masked/unmasked input.
 
 ### Changed
 - Tickets page ordering now prioritizes last update time (`updated_at` descending), with creation time fallback.
 - Tickets search results now follow the same latest-updated-first ordering for consistency.
 - Tags tab UI now shows the tag label once (inside the colored tag chip) to remove duplicate label rendering.
+- Ticket create/edit forms now use rich HTML description input while still storing in `tickets.description`.
+- View Ticket page now renders rich description content (headings/lists/blockquote/code/links) with improved section layout.
+- View Ticket ticket-information panel now shows only creator name (no employee UUID) and stacks the priority badge under its label.
 
 ### Fixed
 - Tags edit form now pre-fills existing tag values (label/color) when entering edit mode.
 - Tags edit save now calls the correct tags API endpoint (`PUT /api/tags/:id`) instead of the employees endpoint.
+- Server-side HTML sanitization on ticket create/update prevents unsafe description payloads (supports `mailto` links).
+- Ticket create/update status mapping now uses workflow category mapping to satisfy status constraints when step names are custom.
+- Quill toolbar duplicate-render issue in create/edit ticket pages.
 
 ## [2026-02-12]
 

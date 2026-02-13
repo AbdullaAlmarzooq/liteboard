@@ -3,6 +3,7 @@
 const express = require("express");
 const db = require("../db/db"); 
 const router = express.Router();
+const sanitizeHtml = require("sanitize-html");
 const authenticateToken = require("../middleware/authMiddleware"); 
 const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
 
@@ -10,6 +11,65 @@ const normalizeDate = (value) => {
   if (!value) return null;
   if (typeof value === "string" && value.trim() === "") return null;
   return value;
+};
+
+const sanitizeTicketDescription = (input) => {
+  if (!input) return "";
+  return sanitizeHtml(String(input), {
+    allowedTags: [
+      "p",
+      "br",
+      "strong",
+      "b",
+      "em",
+      "i",
+      "u",
+      "s",
+      "strike",
+      "h1",
+      "h2",
+      "h3",
+      "ul",
+      "ol",
+      "li",
+      "blockquote",
+      "pre",
+      "code",
+      "a",
+      "span",
+    ],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+      span: ["style"],
+      p: ["style"],
+      h1: ["style"],
+      h2: ["style"],
+      h3: ["style"],
+      li: ["style"],
+      blockquote: ["style"],
+      pre: ["style"],
+      code: ["style"],
+    },
+    allowedStyles: {
+      "*": {
+        color: [/^#[0-9a-fA-F]{3,8}$/, /^rgb\((\s*\d+\s*,){2}\s*\d+\s*\)$/],
+        "background-color": [/^#[0-9a-fA-F]{3,8}$/, /^rgb\((\s*\d+\s*,){2}\s*\d+\s*\)$/],
+      },
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    transformTags: {
+      a: sanitizeHtml.simpleTransform("a", { rel: "noopener noreferrer" }, true),
+    },
+    disallowedTagsMode: "discard",
+  });
+};
+
+const mapCategoryToTicketStatus = (categoryCode) => {
+  const code = Number(categoryCode);
+  if (code === 20) return "In Progress";
+  if (code === 30) return "Closed";
+  if (code === 40) return "Cancelled";
+  return "Open";
 };
 
 const getTicketByParam = async (id, fields = "*") => {
@@ -113,7 +173,7 @@ router.post("/:id/transition", authenticateToken([1, 2]), ensureSameWorkgroup, a
 
     const newStepResult = await db.query(
       `
-        SELECT step_name FROM workflow_steps
+        SELECT step_name, category_code FROM workflow_steps
         WHERE workflow_id = $1 AND step_code = $2
       `,
       [currentTicket.workflow_id, step_code]
@@ -130,7 +190,7 @@ router.post("/:id/transition", authenticateToken([1, 2]), ensureSameWorkgroup, a
         SET step_code = $1, status = $2, updated_at = NOW()
         WHERE id = $3
       `,
-      [step_code, newStep.step_name, currentTicket.id]
+      [step_code, mapCategoryToTicketStatus(newStep.category_code), currentTicket.id]
     );
 
     const updatedTicketResult = await db.query(
@@ -365,6 +425,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
   const { id, ticket_code, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, tag_ids } = req.body;
 
   try {
+    const safeDescription = sanitizeTicketDescription(description);
     const now = new Date();
     const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
     const timestamp = bahrainTime.toISOString();
@@ -373,11 +434,11 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
     let finalStatus = status || "Open";
     if (workflow_id && step_code) {
       const stepResult = await db.query(
-        `SELECT step_name FROM workflow_steps WHERE workflow_id = $1 AND step_code = $2`,
+        `SELECT step_name, category_code FROM workflow_steps WHERE workflow_id = $1 AND step_code = $2`,
         [workflow_id, step_code]
       );
       if (stepResult.rows[0]) {
-        finalStatus = stepResult.rows[0].step_name;
+        finalStatus = mapCategoryToTicketStatus(stepResult.rows[0].category_code);
       }
     }
 
@@ -396,7 +457,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
         [
           code,
           title,
-          description,
+          safeDescription,
           finalStatus,
           step_code,
           priority,
@@ -457,6 +518,7 @@ router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, async (req, r
   let step_code = stepCode || null;
 
   try {
+    const safeDescription = sanitizeTicketDescription(description);
     const ticket = await getTicketByParam(id, "id, workflow_id");
     if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
@@ -507,8 +569,8 @@ router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, async (req, r
         `,
         [
           title,
-          description,
-          stepInfo ? stepInfo.step_name : null,
+          safeDescription,
+          stepInfo ? mapCategoryToTicketStatus(stepInfo.category_code) : null,
           priority,
           effectiveWorkflowId,
           workgroupId,

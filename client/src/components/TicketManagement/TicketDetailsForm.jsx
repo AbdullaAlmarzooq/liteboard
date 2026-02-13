@@ -1,6 +1,7 @@
 // TicketDetailsForm.jsx - UPDATED WITH REACTFLOW
 import ReactFlow, { Background } from 'reactflow'
 import 'reactflow/dist/style.css'
+import TicketEditor from './TicketEditor'
 
 if (typeof window !== 'undefined') {
   const errorHandler = (event) => {
@@ -199,12 +200,16 @@ const WorkflowDiagram = ({ steps = [], currentStepName = '', selectedStepName = 
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description
             </label>
-            <textarea
-              name="description"
+            <TicketEditor
               value={formData.description}
-              onChange={handleInputChange}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              onChange={(html) =>
+                handleInputChange({
+                  target: {
+                    name: 'description',
+                    value: html,
+                  },
+                })
+              }
               placeholder="Describe the ticket details..."
             />
           </div>
