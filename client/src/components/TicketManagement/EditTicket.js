@@ -96,7 +96,7 @@ const EditTicket = () => {
         description: ticket.description || '',
         workflowId: ticket.workflow_id || ticket.workflowId || '',
         stepCode: ticket.step_code || ticket.stepCode || '',
-        status: ticket.status || '',
+        status: ticket.current_step_name || ticket.status || '',
         priority: ticket.priority || 'Medium',
         workgroupId: ticket.workgroup_id || ticket.workgroupId || '',
         workGroup: ticket.workGroup || '',

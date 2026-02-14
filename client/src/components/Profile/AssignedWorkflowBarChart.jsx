@@ -23,7 +23,7 @@ const AssignedWorkflowBarChart = ({ tickets = [] }) => {
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
-      <h2 className="text-xl font-bold mb-4">My Tickets by Workflow</h2>
+      <h2 className="text-xl font-bold mb-4">Assigned Tickets</h2>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" />

@@ -10,8 +10,12 @@ const WorkgroupStatusPieChart = ({ tickets = [] }) => {
     if (tickets.length > 0) {
       const counts = {};
       tickets.forEach((t) => {
-        const status = t.status?.trim() || "Unknown";
-        counts[status] = (counts[status] || 0) + 1;
+        const stepName =
+          t.current_step_name?.trim() ||
+          t.currentStepName?.trim() ||
+          t.status?.trim() ||
+          "Unknown";
+        counts[stepName] = (counts[stepName] || 0) + 1;
       });
       setData(Object.entries(counts).map(([name, value]) => ({ name, value })));
     } else {

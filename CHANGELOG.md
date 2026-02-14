@@ -6,6 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2026-02-14]
+
+### Added
+- Dashboard top-row chart `Pending Tickets Per Type` (grouped by workflow name), positioned between `Active Tickets` and `Active Tickets by WorkGroup`.
+
+### Changed
+- Edit Ticket now resolves displayed status from workflow step name (`current_step_name`) instead of legacy `tickets.status`.
+- View Ticket now resolves displayed status from workflow step name (`current_step_name`) instead of legacy `tickets.status`.
+- Dashboard Status filter now uses workflow step names (`current_step_name`) for options and filtering.
+- Dashboard `Tickets by Status` now groups by workflow step names (`current_step_name`).
+- Profile chart title updated from `My Tickets by Workflow` to `Assigned Tickets`.
+- Profile `Assigned Tickets` and `Workgroup Tickets by Status` now exclude closed/cancelled categories (30/40).
+- Profile `Workgroup Tickets by Status` now counts by workflow step name (`current_step_name`).
+- Create Ticket page width increased for a wider layout (`max-w-4xl`).
+
+### Fixed
+- Edit Ticket preview message under workflow diagram now uses correct workflow step names (`current_step_name`) for from/to text.
+- Dashboard `Tickets by Priority` now includes `Critical` priority in counts.
+
 ## [2026-02-13]
 
 ### Added

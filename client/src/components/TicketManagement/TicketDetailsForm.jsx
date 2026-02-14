@@ -40,10 +40,11 @@ const TicketDetailsForm = ({
   workflow = null,
   ticket = null
 }) => {
+  const currentStepLabel = ticket?.current_step_name || ticket?.status || '';
 
   // Card Component Structure
   const Card = ({ children, className = "" }) => (
-    <div className={`p-6 bg-white shadow-lg rounded-xl transition-all duration-300 ${className}`}>
+    <div className={`p-6 bg-white shadow-sm rounded-xl transition-all duration-300 ${className}`}>
       {children}
     </div>
   );
@@ -285,12 +286,12 @@ const WorkflowDiagram = ({ steps = [], currentStepName = '', selectedStepName = 
               </div>
               <WorkflowDiagram
                 steps={workflow.steps}
-                currentStepName={ticket?.status}
+                currentStepName={currentStepLabel}
                 selectedStepName={formData.status}
               />
-              {formData.status !== ticket?.status && (
+              {formData.status !== currentStepLabel && (
                 <p className="text-xs text-gray-600 dark:text-blue-400 mt-2 font-medium">
-                  ⓘ Preview: Status will change from "{ticket?.status}" to "{formData.status}" when you save
+                  ⓘ Preview: Status will change from "{currentStepLabel}" to "{formData.status}" when you save
                 </p>
               )}
             </div>

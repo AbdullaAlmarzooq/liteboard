@@ -6,6 +6,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import useFetch from "../useFetch"; // Still keeping this as ../useFetch, as it's the most logical path
 import FilterBar from "../components/Dashboard/FilterBar"; 
 import TotalPendingTickets from "../components/Dashboard/TotalPendingTickets";
+import PendingTicketsPerTypeChart from "../components/Dashboard/PendingTicketsPerTypeChart";
 import OpenTicketsPieChart from "../components/Dashboard/PendingTicketsPieChart";
 import TicketPriorityChart from "../components/Dashboard/TicketPriorityChart";
 import TicketStatusChart from "../components/Dashboard/TicketStatusChart";
@@ -59,6 +60,7 @@ const Dashboard = () => {
     selectedStatuses
   }) => {
     let filtered = [...allTickets];
+    const getTicketStepName = (ticket) => ticket.current_step_name || ticket.currentStepName || ticket.status;
 
     if (selectedWorkGroups?.length) {
       filtered = filtered.filter(ticket =>
@@ -79,7 +81,7 @@ const Dashboard = () => {
     }
 
     if (selectedStatuses?.length) {
-      filtered = filtered.filter(ticket => selectedStatuses.includes(ticket.status));
+      filtered = filtered.filter(ticket => selectedStatuses.includes(getTicketStepName(ticket)));
     }
 
     setFilteredTickets(filtered);
@@ -123,8 +125,9 @@ const Dashboard = () => {
       )}
 
       {/* Section 1: Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <TotalPendingTickets tickets={filteredTickets} />
+        <PendingTicketsPerTypeChart tickets={filteredTickets} />
         <OpenTicketsPieChart tickets={filteredTickets} workgroups={workgroups}/>
       </div>
 

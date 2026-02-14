@@ -193,7 +193,7 @@ const ticket = useMemo(() => {
     ticketCode: rawTicket.ticket_code || rawTicket.ticketCode,
     title: rawTicket.title,
     description: rawTicket.description,
-    status: rawTicket.status,
+    status: rawTicket.current_step_name || rawTicket.status,
     priority: rawTicket.priority,
     workflowId: rawTicket.workflowId || rawTicket.workflow_id, 
     workgroupId: rawTicket.workgroupId || rawTicket.workgroup_id,

@@ -6,10 +6,19 @@ const TicketPriorityChart = ({ tickets = [] }) => {
 
   useEffect(() => {
     if (tickets.length > 0) {
-      const counts = { High: 0, Medium: 0, Low: 0 };
+      const counts = { Critical: 0, High: 0, Medium: 0, Low: 0 };
+      const normalizePriority = (value) => {
+        const normalized = String(value || "").trim().toLowerCase();
+        if (normalized === "critical") return "Critical";
+        if (normalized === "high") return "High";
+        if (normalized === "medium") return "Medium";
+        if (normalized === "low") return "Low";
+        return null;
+      };
+
       tickets.forEach(ticket => {
-        const priority = ticket.priority?.trim();
-        if (priority && counts.hasOwnProperty(priority)) counts[priority]++;
+        const priority = normalizePriority(ticket.priority);
+        if (priority) counts[priority]++;
       });
       setData(Object.entries(counts).map(([priority, count]) => ({ priority, count })));
     } else {

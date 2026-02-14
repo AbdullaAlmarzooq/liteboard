@@ -242,7 +242,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
             <div className="flex flex-wrap gap-3 mb-4">
               <FilterDropdownButton category="status" title="Status" options={filterOptions.status} />
               <FilterDropdownButton category="priority" title="Priority" options={filterOptions.priority} />
-              <FilterDropdownButton category="workflow" title="Workflow" options={filterOptions.workflow} />
+              <FilterDropdownButton category="workflow" title="Type" options={filterOptions.workflow} />
               <FilterDropdownButton category="workGroup" title="WorkGroup" options={filterOptions.workGroup} />
               <FilterDropdownButton category="createdBy" title="Created By" options={filterOptions.createdBy} />
               <FilterDropdownButton category="responsible" title="Responsible" options={filterOptions.responsible} />

@@ -86,11 +86,23 @@ const ProfileActivity = () => {
   }
 
   const myAssignedTickets = Array.isArray(ticketsData)
-    ? ticketsData.filter(t => t.responsible_employee_id === user.id)
+    ? ticketsData.filter((t) => {
+        const isAssigned = t.responsible_employee_id === user.id;
+        const isActiveByVariant =
+          t.status_variant ? t.status_variant !== "new" && t.status_variant !== "destructive" : true;
+        const isActiveByStatus = t.status !== "Closed" && t.status !== "Cancelled";
+        return isAssigned && isActiveByVariant && isActiveByStatus;
+      })
     : [];
 
   const myWorkgroupTickets = Array.isArray(ticketsData)
-    ? ticketsData.filter(t => t.workgroup_id === user.workgroup_id)
+    ? ticketsData.filter((t) => {
+        const isSameWorkgroup = t.workgroup_id === user.workgroup_id;
+        const isActiveByVariant =
+          t.status_variant ? t.status_variant !== "new" && t.status_variant !== "destructive" : true;
+        const isActiveByStatus = t.status !== "Closed" && t.status !== "Cancelled";
+        return isSameWorkgroup && isActiveByVariant && isActiveByStatus;
+      })
     : [];
 
   return (

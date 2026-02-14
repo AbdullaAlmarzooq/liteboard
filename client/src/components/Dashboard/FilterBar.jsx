@@ -4,6 +4,7 @@ import Badge from '../Badge';
 const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
   // --- FIX: Safely ensure 'tickets' is an array before attempting .filter() ---
   const tickets = Array.isArray(allTickets) ? allTickets : [];
+  const getTicketStepName = (ticket) => ticket.current_step_name || ticket.currentStepName || ticket.status;
 
   const [selectedWorkGroups, setSelectedWorkGroups] = useState([]);
   const [selectedModules, setSelectedModules] = useState([]);
@@ -143,7 +144,7 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
       (!selectedWorkflows.length ||
         selectedWorkflows.includes(t.workflow_name || t.workflowName))
   );
-  const allStatuses = [...new Set(statusesTickets.map((t) => t.status).filter(Boolean))].sort();
+  const allStepNames = [...new Set(statusesTickets.map((t) => getTicketStepName(t)).filter(Boolean))].sort();
 
   // Final filtered tickets (all 3 filters applied)
   // Note: Using the sanitized 'tickets' array now
@@ -155,7 +156,7 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
         selectedModules.includes(t.module_name || t.module)) &&
       (!selectedWorkflows.length ||
         selectedWorkflows.includes(t.workflow_name || t.workflowName)) &&
-      (!selectedStatuses.length || selectedStatuses.includes(t.status))
+      (!selectedStatuses.length || selectedStatuses.includes(getTicketStepName(t)))
   );
 
   // Reusable dropdown component
@@ -275,7 +276,7 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
         />
         <FilterDropdownButton
           category="workflow"
-          title="Workflow"
+          title="Type"
           options={allWorkflows}
           selectedValues={selectedWorkflows}
           onChange={handleWorkflowChange}
@@ -283,7 +284,7 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
         <FilterDropdownButton
           category="status"
           title="Status"
-          options={allStatuses}
+          options={allStepNames}
           selectedValues={selectedStatuses}
           onChange={handleStatusChange}
         />
