@@ -488,6 +488,39 @@ CREATE TRIGGER update_comments_updated_at BEFORE UPDATE ON comments
 CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- Keep completed_at aligned with workflow step category
+CREATE OR REPLACE FUNCTION sync_ticket_completed_at()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_category_code INTEGER;
+BEGIN
+    IF NEW.workflow_id IS NULL OR NEW.step_code IS NULL THEN
+        NEW.completed_at = NULL;
+        RETURN NEW;
+    END IF;
+
+    SELECT ws.category_code
+      INTO v_category_code
+      FROM workflow_steps ws
+     WHERE ws.workflow_id = NEW.workflow_id
+       AND ws.step_code = NEW.step_code
+     LIMIT 1;
+
+    IF v_category_code = 30 THEN
+        NEW.completed_at = COALESCE(NEW.completed_at, NOW());
+    ELSE
+        NEW.completed_at = NULL;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_ticket_completed_at
+    BEFORE INSERT OR UPDATE OF workflow_id, step_code ON tickets
+    FOR EACH ROW
+    EXECUTE FUNCTION sync_ticket_completed_at();
+
 -- =====================================================================
 -- AUDIT TRIGGER - Auto-log ticket changes to status_history
 -- =====================================================================

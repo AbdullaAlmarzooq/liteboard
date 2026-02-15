@@ -11,7 +11,13 @@ const TicketEditor = ({
   const editorContainerRef = useRef(null);
   const quillInstanceRef = useRef(null);
   const syncingFromPropsRef = useRef(false);
+  const lastEmittedHtmlRef = useRef(value || "");
   const onChangeRef = useRef(onChange);
+  const normalizeHtml = (html = "") =>
+    String(html)
+      .replace(/&nbsp;/g, " ")
+      .replace(/\u200B/g, "")
+      .trim();
 
   const modules = useMemo(
     () => ({
@@ -70,10 +76,12 @@ const TicketEditor = ({
     if (initialValue) {
       quill.clipboard.dangerouslyPasteHTML(initialValue);
     }
+    lastEmittedHtmlRef.current = quill.root.innerHTML;
 
     const handleTextChange = () => {
       if (syncingFromPropsRef.current) return;
       const html = quill.root.innerHTML;
+      lastEmittedHtmlRef.current = html;
       if (typeof onChangeRef.current === "function") {
         onChangeRef.current(html === "<p><br></p>" ? "" : html);
       }
@@ -98,11 +106,25 @@ const TicketEditor = ({
     if (!quill) return;
     const next = value || "";
     const current = quill.root.innerHTML;
-    if (current !== next) {
-      syncingFromPropsRef.current = true;
-      quill.clipboard.dangerouslyPasteHTML(next);
-      syncingFromPropsRef.current = false;
+    const nextNorm = normalizeHtml(next);
+    const currentNorm = normalizeHtml(current);
+    const lastEmittedNorm = normalizeHtml(lastEmittedHtmlRef.current);
+
+    if (nextNorm === currentNorm || nextNorm === lastEmittedNorm) return;
+
+    syncingFromPropsRef.current = true;
+    const currentSelection = quill.getSelection();
+    quill.clipboard.dangerouslyPasteHTML(next);
+    if (currentSelection) {
+      const maxIndex = Math.max(0, quill.getLength() - 1);
+      quill.setSelection(
+        Math.min(currentSelection.index, maxIndex),
+        currentSelection.length,
+        "silent"
+      );
     }
+    syncingFromPropsRef.current = false;
+    lastEmittedHtmlRef.current = quill.root.innerHTML;
   }, [value]);
 
   return (

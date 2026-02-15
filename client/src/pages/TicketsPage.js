@@ -332,7 +332,7 @@ const TicketsPage = () => {
                               <Edit className="w-3 h-3" />
                             </button>
                             )}
-                            {user?.role_id === 1 && (
+                            {user?.role_id === 1 && !ticket.isTerminal && (
                             <button
                               onClick={() => openDeleteModal(ticket)}
                               disabled={isDeleting === ticket.id}
@@ -457,7 +457,7 @@ const TicketsPage = () => {
                     Edit
                   </button>
                   )}
-                  {user?.role_id === 1 && (
+                  {user?.role_id === 1 && !ticket.isTerminal && (
                   <button
                     onClick={() => openDeleteModal(ticket)}
                     disabled={isDeleting === ticket.id}
@@ -524,7 +524,7 @@ const TicketsPage = () => {
                 <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-mono text-sm text-gray-500 dark:text-gray-400">
-                      {ticketToDelete.id}
+                      {getDisplayTicketCode(ticketToDelete)}
                     </span>
                     <div className="flex gap-2">
                       <Badge variant={getStatusVariant(ticketToDelete.status, ticketToDelete.statusVariant)} className="text-xs">

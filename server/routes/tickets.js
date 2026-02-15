@@ -8,6 +8,8 @@ const authenticateToken = require("../middleware/authMiddleware");
 const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
 
+const CLOSED_CATEGORY_CODE = 30;
+
 const normalizeDate = (value) => {
   if (!value) return null;
   if (typeof value === "string" && value.trim() === "") return null;
@@ -177,7 +179,7 @@ router.post(
 
     const newStepResult = await db.query(
       `
-        SELECT step_name FROM workflow_steps
+        SELECT step_name, category_code FROM workflow_steps
         WHERE workflow_id = $1 AND step_code = $2
       `,
       [currentTicket.workflow_id, step_code]
@@ -191,10 +193,13 @@ router.post(
     await db.query(
       `
         UPDATE tickets
-        SET step_code = $1, updated_at = NOW()
+        SET
+          step_code = $1,
+          completed_at = CASE WHEN $3 = $4 THEN NOW() ELSE NULL END,
+          updated_at = NOW()
         WHERE id = $2
       `,
-      [step_code, currentTicket.id]
+      [step_code, currentTicket.id, Number(newStep.category_code), CLOSED_CATEGORY_CODE]
     );
 
     const updatedTicketResult = await db.query(
@@ -435,17 +440,34 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
     const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
     const timestamp = bahrainTime.toISOString();
     const code = id || ticket_code || `TCK-${Date.now()}`;
+    let completedAt = null;
 
     const client = await db.pool.connect();
     try {
       await client.query("BEGIN");
 
+      if (workflow_id && step_code) {
+        const stepCategoryResult = await client.query(
+          `
+            SELECT category_code
+            FROM workflow_steps
+            WHERE workflow_id = $1 AND step_code = $2
+            LIMIT 1
+          `,
+          [workflow_id, step_code]
+        );
+        const stepCategory = Number(stepCategoryResult.rows[0]?.category_code);
+        if (stepCategory === CLOSED_CATEGORY_CODE) {
+          completedAt = timestamp;
+        }
+      }
+
       const insertResult = await client.query(
         `
           INSERT INTO tickets
             (ticket_code, title, description, step_code, priority, workflow_id, workgroup_id,
-             module_id, responsible_employee_id, due_date, start_date, initiate_date, created_at, updated_at, created_by)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+             module_id, responsible_employee_id, due_date, start_date, initiate_date, completed_at, created_at, updated_at, created_by)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
           RETURNING id, ticket_code
         `,
         [
@@ -461,6 +483,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
           normalizeDate(due_date),
           normalizeDate(start_date),
           timestamp,
+          completedAt,
           timestamp,
           timestamp,
           userId,
@@ -527,7 +550,7 @@ router.put(
     if (step_code && effectiveWorkflowId) {
       const stepResult = await db.query(
         `
-          SELECT step_name
+          SELECT step_name, category_code
           FROM workflow_steps
           WHERE workflow_id = $1 AND step_code = $2
         `,
@@ -561,7 +584,12 @@ router.put(
             due_date = $8,
             start_date = $9,
             step_code = COALESCE($10, step_code),
-            updated_at = $11
+            updated_at = $11,
+            completed_at = CASE
+              WHEN $10 IS NULL THEN completed_at
+              WHEN $13 = $14 THEN NOW()
+              ELSE NULL
+            END
           WHERE id = $12
         `,
         [
@@ -577,6 +605,8 @@ router.put(
           step_code,
           timestamp,
           ticket.id,
+          Number(stepInfo?.category_code),
+          CLOSED_CATEGORY_CODE,
         ]
       );
 
