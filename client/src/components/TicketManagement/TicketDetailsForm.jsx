@@ -2,6 +2,7 @@
 import ReactFlow, { Background } from 'reactflow'
 import 'reactflow/dist/style.css'
 import TicketEditor from './TicketEditor'
+import { useMemo } from 'react'
 
 if (typeof window !== 'undefined') {
   const errorHandler = (event) => {
@@ -55,6 +56,9 @@ const TicketDetailsForm = ({
   const CardContent = ({ children, className = "" }) => <div className={className}>{children}</div>;
 
 const WorkflowDiagram = ({ steps = [], currentStepName = '', selectedStepName = '' }) => {
+  const nodeTypes = useMemo(() => ({}), []);
+  const edgeTypes = useMemo(() => ({}), []);
+
   if (!steps || steps.length === 0) {
     return (
       <div className="text-center py-4 text-gray-500 dark:text-gray-400 text-sm">
@@ -165,16 +169,13 @@ const WorkflowDiagram = ({ steps = [], currentStepName = '', selectedStepName = 
         --edge-color: #6b7280 !important;
       }
     `}</style>
-    <ReactFlow nodes={nodes} edges={edges} fitView>
+    <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView>
       <Background />
     </ReactFlow>
   </div>
   );
 };
 
-  console.log('Select value (formData.stepCode):', formData.stepCode);
-  console.log('Available options:', statusOptions.map(o => o.value));
-  
   return (
     <div className="space-y-6">
       {/* Basic Information */}

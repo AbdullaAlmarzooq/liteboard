@@ -6,6 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2026-02-15]
+
+### Added
+- DB migration script `server/db/migrations/2026-02-15_drop_legacy_ticket_status.sql` to complete legacy `tickets.status` retirement in Neon.
+
+### Changed
+- Tickets API write paths now update workflow state using `step_code` only (no writes to `tickets.status`) for transition/create/update flows.
+- Tickets API read paths now expose status from workflow step name (`COALESCE(workflow_steps.step_name, tickets.step_code)`) while returning `step_code`.
+- Ticket audit trigger (`log_ticket_changes`) now tracks creation/transition using `step_code` and no longer references `OLD.status`/`NEW.status`.
+- Schema views were refactored away from `tickets.status`:
+  - `v_active_tickets` now exposes `current_step_name` and `step_category_code`.
+  - `v_employee_workload` now calculates workload counts from `workflow_steps.category_code`.
+- Schema indexes were refactored from status-based to step-based for ticket filtering and assignment queries.
+
+### Removed
+- Legacy `chk_tickets_status` constraint from project schema and migration path.
+- Legacy status-based indexes (`idx_tickets_status`, `idx_tickets_workgroup_status`, `idx_tickets_responsible_status`) from migration path.
+- Unmounted duplicate transition route file (`server/routes/ticketTransitions.js`).
+
 ## [2026-02-14]
 
 ### Added

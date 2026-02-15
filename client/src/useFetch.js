@@ -51,7 +51,7 @@ const useFetch = (url) => {
       })
       .catch(err => {
         if (err.name === 'AbortError') {
-          console.log('fetch aborted')
+          // Request was canceled during unmount/re-render.
         } else {
           setIsPending(false);
           setError(err.message);

@@ -38,7 +38,6 @@ const TicketEditor = ({
     "underline",
     "strike",
     "list",
-    "bullet",
     "blockquote",
     "code-block",
     "color",

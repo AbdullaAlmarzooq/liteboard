@@ -13,6 +13,12 @@ const normalizeDate = (value) => {
   return value;
 };
 
+const normalizeUuid = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+  return value;
+};
+
 const sanitizeTicketDescription = (input) => {
   if (!input) return "";
   return sanitizeHtml(String(input), {
@@ -62,14 +68,6 @@ const sanitizeTicketDescription = (input) => {
     },
     disallowedTagsMode: "discard",
   });
-};
-
-const mapCategoryToTicketStatus = (categoryCode) => {
-  const code = Number(categoryCode);
-  if (code === 20) return "In Progress";
-  if (code === 30) return "Closed";
-  if (code === 40) return "Cancelled";
-  return "Open";
 };
 
 const getTicketByParam = async (id, fields = "*") => {
@@ -148,7 +146,7 @@ router.post("/:id/transition", authenticateToken([1, 2]), ensureSameWorkgroup, a
   }
 
   try {
-    const currentTicket = await getTicketByParam(id, "id, ticket_code, workflow_id, step_code, status");
+    const currentTicket = await getTicketByParam(id, "id, ticket_code, workflow_id, step_code");
 
     if (!currentTicket) {
       return res.status(404).json({ error: "Ticket not found" });
@@ -173,7 +171,7 @@ router.post("/:id/transition", authenticateToken([1, 2]), ensureSameWorkgroup, a
 
     const newStepResult = await db.query(
       `
-        SELECT step_name, category_code FROM workflow_steps
+        SELECT step_name FROM workflow_steps
         WHERE workflow_id = $1 AND step_code = $2
       `,
       [currentTicket.workflow_id, step_code]
@@ -187,10 +185,10 @@ router.post("/:id/transition", authenticateToken([1, 2]), ensureSameWorkgroup, a
     await db.query(
       `
         UPDATE tickets
-        SET step_code = $1, status = $2, updated_at = NOW()
-        WHERE id = $3
+        SET step_code = $1, updated_at = NOW()
+        WHERE id = $2
       `,
-      [step_code, mapCategoryToTicketStatus(newStep.category_code), currentTicket.id]
+      [step_code, currentTicket.id]
     );
 
     const updatedTicketResult = await db.query(
@@ -224,9 +222,9 @@ router.get("/", authenticateToken(), async (req, res) => {
   try {
     const ticketsQuery = `
       SELECT 
-        t.id, t.ticket_code, t.title, t.description, t.status, t.priority, 
+        t.id, t.ticket_code, t.title, t.description, COALESCE(ws.step_name, t.step_code) AS status, t.step_code, t.priority, 
         t.workflow_id, wf.name AS workflow_name,
-        ws.step_name AS current_step_name,
+        COALESCE(ws.step_name, t.step_code) AS current_step_name,
         CASE ws.category_code
           WHEN 10 THEN 'default'
           WHEN 20 THEN 'secondary'
@@ -301,10 +299,10 @@ router.get("/:id", authenticateToken(), async (req, res) => {
   try {
     const ticketQuery = `
       SELECT 
-        t.id, t.ticket_code, t.title, t.description, t.status, t.priority, 
+        t.id, t.ticket_code, t.title, t.description, COALESCE(ws.step_name, t.step_code) AS status, t.priority, 
         t.workflow_id,
         t.step_code,
-        ws.step_name AS current_step_name,
+        COALESCE(ws.step_name, t.step_code) AS current_step_name,
         CASE ws.category_code
           WHEN 10 THEN 'default'
           WHEN 20 THEN 'secondary'
@@ -422,7 +420,7 @@ router.get("/:id", authenticateToken(), async (req, res) => {
 
 router.post("/", authenticateToken([1, 2]), async (req, res) => {
   const userId = req.user.id;
-  const { id, ticket_code, title, description, status, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, tag_ids } = req.body;
+  const { id, ticket_code, title, description, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, tag_ids } = req.body;
 
   try {
     const safeDescription = sanitizeTicketDescription(description);
@@ -431,17 +429,6 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
     const timestamp = bahrainTime.toISOString();
     const code = id || ticket_code || `TCK-${Date.now()}`;
 
-    let finalStatus = status || "Open";
-    if (workflow_id && step_code) {
-      const stepResult = await db.query(
-        `SELECT step_name, category_code FROM workflow_steps WHERE workflow_id = $1 AND step_code = $2`,
-        [workflow_id, step_code]
-      );
-      if (stepResult.rows[0]) {
-        finalStatus = mapCategoryToTicketStatus(stepResult.rows[0].category_code);
-      }
-    }
-
     const client = await db.pool.connect();
     try {
       await client.query("BEGIN");
@@ -449,16 +436,15 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
       const insertResult = await client.query(
         `
           INSERT INTO tickets
-            (ticket_code, title, description, status, step_code, priority, workflow_id, workgroup_id,
+            (ticket_code, title, description, step_code, priority, workflow_id, workgroup_id,
              module_id, responsible_employee_id, due_date, start_date, initiate_date, created_at, updated_at, created_by)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
           RETURNING id, ticket_code
         `,
         [
           code,
           title,
           safeDescription,
-          finalStatus,
           step_code,
           priority,
           workflow_id,
@@ -529,7 +515,7 @@ router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, async (req, r
     if (step_code && effectiveWorkflowId) {
       const stepResult = await db.query(
         `
-          SELECT step_name, category_code
+          SELECT step_name
           FROM workflow_steps
           WHERE workflow_id = $1 AND step_code = $2
         `,
@@ -555,27 +541,25 @@ router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, async (req, r
           SET
             title = $1,
             description = $2,
-            status = COALESCE($3, status),
-            priority = $4,
-            workflow_id = $5,
-            workgroup_id = $6,
-            module_id = $7,
-            responsible_employee_id = $8,
-            due_date = $9,
-            start_date = $10,
-            step_code = COALESCE($11, step_code),
-            updated_at = $12
-          WHERE id = $13
+            priority = $3,
+            workflow_id = $4,
+            workgroup_id = $5,
+            module_id = $6,
+            responsible_employee_id = $7,
+            due_date = $8,
+            start_date = $9,
+            step_code = COALESCE($10, step_code),
+            updated_at = $11
+          WHERE id = $12
         `,
         [
           title,
           safeDescription,
-          stepInfo ? mapCategoryToTicketStatus(stepInfo.category_code) : null,
           priority,
-          effectiveWorkflowId,
-          workgroupId,
-          moduleId,
-          responsibleEmployeeId || null,
+          normalizeUuid(effectiveWorkflowId),
+          normalizeUuid(workgroupId),
+          normalizeUuid(moduleId),
+          normalizeUuid(responsibleEmployeeId),
           normalizeDate(dueDate),
           normalizeDate(startDate),
           step_code,

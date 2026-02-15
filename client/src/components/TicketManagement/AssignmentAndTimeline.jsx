@@ -1,6 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../Card";
 
 const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employees, moduleOptions }) => {
+  const toDateInputValue = (value) => {
+    if (!value) return "";
+    if (typeof value === "string" && value.length >= 10) {
+      // Supports ISO timestamps and plain YYYY-MM-DD strings.
+      return value.slice(0, 10);
+    }
+    return "";
+  };
+
   // Filter employees by current workGroup
   const eligibleEmployees = employees
     ? employees.filter(emp => String(emp.workgroupId) === String(formData.workgroupId))
@@ -112,7 +121,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             id="startDate"
             name="startDate"
             type="date"
-            value={formData.startDate}
+            value={toDateInputValue(formData.startDate)}
             onChange={handleInputChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
@@ -128,7 +137,7 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             id="dueDate"
             name="dueDate"
             type="date"
-            value={formData.dueDate}
+            value={toDateInputValue(formData.dueDate)}
             onChange={handleInputChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />

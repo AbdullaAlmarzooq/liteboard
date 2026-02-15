@@ -201,7 +201,6 @@ CREATE TABLE tickets (
     ticket_code TEXT NOT NULL,  -- Human-friendly code (e.g., TCK-1012)
     title TEXT NOT NULL,
     description TEXT,
-    status TEXT NOT NULL DEFAULT 'Open',
     priority TEXT NOT NULL DEFAULT 'Medium',
     
     -- Workflow tracking
@@ -241,9 +240,6 @@ CREATE TABLE tickets (
     CONSTRAINT fk_tickets_module FOREIGN KEY (module_id)
         REFERENCES modules(id) ON DELETE SET NULL,
     
-    CONSTRAINT chk_tickets_status CHECK (
-        status IN ('Open', 'In Progress', 'Pending', 'Resolved', 'Closed', 'Cancelled')
-    ),
     CONSTRAINT chk_tickets_priority CHECK (
         priority IN ('Low', 'Medium', 'High', 'Critical')
     ),
@@ -405,7 +401,7 @@ CREATE INDEX idx_workflow_transitions_to ON workflow_transitions(to_step_code) W
 
 -- Tickets (performance-critical for dashboard queries)
 CREATE INDEX idx_tickets_ticket_code ON tickets(ticket_code) WHERE deleted_at IS NULL;
-CREATE INDEX idx_tickets_status ON tickets(status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_tickets_step_code ON tickets(step_code) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tickets_priority ON tickets(priority) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tickets_workgroup ON tickets(workgroup_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tickets_responsible ON tickets(responsible_employee_id) WHERE deleted_at IS NULL;
@@ -415,12 +411,12 @@ CREATE INDEX idx_tickets_module ON tickets(module_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tickets_due_date ON tickets(due_date) WHERE deleted_at IS NULL AND due_date IS NOT NULL;
 CREATE INDEX idx_tickets_created_at ON tickets(created_at) WHERE deleted_at IS NULL;
 
--- Composite index for common dashboard filter (workgroup + status)
-CREATE INDEX idx_tickets_workgroup_status ON tickets(workgroup_id, status) 
+-- Composite index for common dashboard filter (workgroup + workflow step)
+CREATE INDEX idx_tickets_workgroup_step_code ON tickets(workgroup_id, step_code) 
     WHERE deleted_at IS NULL;
 
 -- Composite index for user's assigned tickets
-CREATE INDEX idx_tickets_responsible_status ON tickets(responsible_employee_id, status) 
+CREATE INDEX idx_tickets_responsible_step_code ON tickets(responsible_employee_id, step_code) 
     WHERE deleted_at IS NULL;
 
 -- Full-text search on title and description
@@ -499,16 +495,6 @@ CREATE TRIGGER update_roles_updated_at BEFORE UPDATE ON roles
 CREATE OR REPLACE FUNCTION log_ticket_changes()
 RETURNS TRIGGER AS $$
 BEGIN
-    -- Log status changes
-    IF (TG_OP = 'UPDATE' AND OLD.status IS DISTINCT FROM NEW.status) THEN
-        INSERT INTO status_history (
-            ticket_id, activity_type, field_name, old_value, new_value, changed_by
-        ) VALUES (
-            NEW.id, 'status_change', 'status', OLD.status, NEW.status, 
-            COALESCE(NEW.responsible_employee_id, NEW.created_by)
-        );
-    END IF;
-    
     -- Log priority changes
     IF (TG_OP = 'UPDATE' AND OLD.priority IS DISTINCT FROM NEW.priority) THEN
         INSERT INTO status_history (
@@ -545,7 +531,7 @@ BEGIN
         INSERT INTO status_history (
             ticket_id, activity_type, field_name, old_value, new_value, changed_by
         ) VALUES (
-            NEW.id, 'created', NULL, NULL, NEW.status,
+            NEW.id, 'created', 'step_code', NULL, NEW.step_code,
             COALESCE(NEW.created_by, NEW.responsible_employee_id)
         );
     END IF;
@@ -570,7 +556,8 @@ SELECT
     t.ticket_code,
     t.title,
     t.description,
-    t.status,
+    COALESCE(ws.step_name, t.step_code) AS current_step_name,
+    ws.category_code AS step_category_code,
     t.priority,
     t.due_date,
     t.created_at,
@@ -597,13 +584,14 @@ SELECT
     e.name,
     e.email,
     wg.name AS workgroup_name,
-    COUNT(t.id) FILTER (WHERE t.status = 'Open') AS open_tickets,
-    COUNT(t.id) FILTER (WHERE t.status = 'In Progress') AS in_progress_tickets,
-    COUNT(t.id) FILTER (WHERE t.status NOT IN ('Resolved', 'Closed', 'Cancelled')) AS active_tickets,
+    COUNT(t.id) FILTER (WHERE ws.category_code = 10) AS open_tickets,
+    COUNT(t.id) FILTER (WHERE ws.category_code = 20) AS in_progress_tickets,
+    COUNT(t.id) FILTER (WHERE ws.category_code IN (10, 20)) AS active_tickets,
     COUNT(t.id) AS total_assigned_tickets
 FROM employees e
 LEFT JOIN workgroups wg ON e.workgroup_id = wg.id
 LEFT JOIN tickets t ON e.id = t.responsible_employee_id AND t.deleted_at IS NULL
+LEFT JOIN workflow_steps ws ON t.workflow_id = ws.workflow_id AND t.step_code = ws.step_code
 WHERE e.deleted_at IS NULL AND e.active = true
 GROUP BY e.id, e.name, e.email, wg.name;
 
