@@ -3,6 +3,7 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 const crypto = require("crypto");
+const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
 
 const resolveTicketId = async (ticketId) => {
   const { rows } = await db.query(
@@ -10,6 +11,19 @@ const resolveTicketId = async (ticketId) => {
     [ticketId]
   );
   return rows[0]?.id || null;
+};
+
+const resolveTicketIdByAttachmentId = async (attachmentId) => {
+  const { rows } = await db.query(
+    `
+      SELECT a.ticket_id
+      FROM attachments a
+      WHERE a.id = $1
+      LIMIT 1
+    `,
+    [attachmentId]
+  );
+  return rows[0]?.ticket_id || null;
 };
 
 // ----------------------------------------------------------------------
@@ -71,7 +85,7 @@ router.get("/:ticketId", async (req, res) => {
 // ----------------------------------------------------------------------
 // POST a new attachment
 // ----------------------------------------------------------------------
-router.post("/", async (req, res) => {
+router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
   const { ticket_id, name, type, size, data, created_by } = req.body;
 
   if (!ticket_id || !name || !type || !size || !data) {
@@ -129,7 +143,12 @@ router.post("/", async (req, res) => {
 // ----------------------------------------------------------------------
 // DELETE an attachment
 // ----------------------------------------------------------------------
-router.delete("/:id", async (req, res) => {
+router.delete(
+  "/:id",
+  ensureTicketIsEditable({
+    resolveTicketRef: async (req) => resolveTicketIdByAttachmentId(req.params.id),
+  }),
+  async (req, res) => {
   const { id } = req.params;
   try {
     const result = await db.query("DELETE FROM attachments WHERE id = $1", [id]);
@@ -141,6 +160,7 @@ router.delete("/:id", async (req, res) => {
     console.error("Error deleting attachment:", err);
     res.status(500).json({ error: "Failed to delete attachment" });
   }
-});
+  }
+);
 
 module.exports = router;

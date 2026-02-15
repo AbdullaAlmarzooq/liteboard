@@ -6,6 +6,7 @@ const router = express.Router();
 const sanitizeHtml = require("sanitize-html");
 const authenticateToken = require("../middleware/authMiddleware"); 
 const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
+const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
 
 const normalizeDate = (value) => {
   if (!value) return null;
@@ -137,7 +138,12 @@ router.get("/:id/allowed-steps", authenticateToken(), async (req, res) => {
 // (Admins + Editors only)
 // ----------------------------------------------------------------------
 // ✅ Fixed: Using authenticateToken([1, 2]) (Admins and Editors)
-router.post("/:id/transition", authenticateToken([1, 2]), ensureSameWorkgroup, async (req, res) => {
+router.post(
+  "/:id/transition",
+  authenticateToken([1, 2]),
+  ensureTicketIsEditable({ paramKey: "id" }),
+  ensureSameWorkgroup,
+  async (req, res) => {
   const { id } = req.params;
   const { step_code } = req.body;
 
@@ -212,7 +218,8 @@ router.post("/:id/transition", authenticateToken([1, 2]), ensureSameWorkgroup, a
     console.error("Failed to transition ticket:", err);
     res.status(500).json({ error: "Failed to transition ticket" });
   }
-});
+  }
+);
 
 // ----------------------------------------------------------------------
 // GET all tickets (any logged-in user)
@@ -492,7 +499,12 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
 // UPDATE ticket (Admins + Editors only), must be same workgroup unless Admin)
 // ----------------------------------------------------------------------
 
-router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, async (req, res) => {
+router.put(
+  "/:id",
+  authenticateToken([1, 2]),
+  ensureTicketIsEditable({ paramKey: "id" }),
+  ensureSameWorkgroup,
+  async (req, res) => {
   const { id } = req.params;
 
   const { 
@@ -599,13 +611,18 @@ router.put("/:id", authenticateToken([1, 2]), ensureSameWorkgroup, async (req, r
     }
     res.status(500).json({ error: "Failed to update ticket" });
   }
-});
+  }
+);
 
 // ----------------------------------------------------------------------
 // DELETE ticket (Admins only)
 // ----------------------------------------------------------------------
 // ✅ Fixed: Using authenticateToken([1]) (Admins only)
-router.delete("/:id", authenticateToken([1]), async (req, res) => {
+router.delete(
+  "/:id",
+  authenticateToken([1]),
+  ensureTicketIsEditable({ paramKey: "id" }),
+  async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -624,6 +641,7 @@ router.delete("/:id", authenticateToken([1]), async (req, res) => {
     }
     res.status(500).json({ error: "Failed to delete ticket" });
   }
-});
+  }
+);
 
 module.exports = router;

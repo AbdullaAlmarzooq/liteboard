@@ -11,6 +11,8 @@ import TicketExporter from "../components/TicketsPage/TicketExporter"
 import Pagination from "../components/TicketsPage/Pagination"
 import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
 
+const isTerminalStatusVariant = (variant) =>
+  variant === "new" || variant === "destructive";
 
 const TicketsPage = () => {
 
@@ -38,6 +40,7 @@ const TicketsPage = () => {
       description: ticket.description,
       status: ticket.current_step_name || ticket.status,
       statusVariant: ticket.status_variant || 'outline',
+      isTerminal: isTerminalStatusVariant(ticket.status_variant || ticket.statusVariant),
       priority: ticket.priority,
       workflowId: ticket.workflow_id,
       workflow: ticket.workflow_name || ticket.workflowName || 'No Workflow',
@@ -120,7 +123,8 @@ const TicketsPage = () => {
     }
   }
 
-  const handleEdit = (ticketId) => {
+  const handleEdit = (ticketId, isTerminal) => {
+    if (isTerminal) return;
     navigate(`/edit-ticket/${ticketId}`);
   };
 
@@ -320,7 +324,7 @@ const TicketsPage = () => {
                             >
                               <Eye className="w-3 h-3" />
                             </button>
-                            {canEdit && (
+                            {canEdit && !ticket.isTerminal && (
                             <button
                               onClick={() => navigate(`/edit-ticket/${getDisplayTicketCode(ticket)}`)}
                               className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 flex items-center gap-1 transition-colors duration-200"
@@ -444,9 +448,9 @@ const TicketsPage = () => {
                     <Eye className="w-3 h-3" />
                     View
                   </button>
-                  {canEdit && (
+                  {canEdit && !ticket.isTerminal && (
                   <button
-                    onClick={() => handleEdit(getDisplayTicketCode(ticket))}
+                    onClick={() => handleEdit(getDisplayTicketCode(ticket), ticket.isTerminal)}
                     className="flex-1 px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 disabled:opacity-50 flex items-center justify-center gap-1"
                   >
                     <Edit className="w-3 h-3" />

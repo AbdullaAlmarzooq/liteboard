@@ -2,6 +2,7 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
+const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
 
 const resolveTicketId = async (ticketId) => {
   const { rows } = await db.query(
@@ -9,6 +10,19 @@ const resolveTicketId = async (ticketId) => {
     [ticketId]
   );
   return rows[0]?.id || null;
+};
+
+const resolveTicketIdByCommentId = async (commentId) => {
+  const { rows } = await db.query(
+    `
+      SELECT c.ticket_id
+      FROM comments c
+      WHERE c.id = $1
+      LIMIT 1
+    `,
+    [commentId]
+  );
+  return rows[0]?.ticket_id || null;
 };
 
 // GET comments for a ticket
@@ -50,7 +64,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST new comment
-router.post("/", async (req, res) => {
+router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
   const { ticket_id, text, author, comment_type } = req.body;
   
   if (!ticket_id || !text || !author) {
@@ -82,7 +96,12 @@ router.post("/", async (req, res) => {
 });
 
 // PUT update comment
-router.put("/:id", async (req, res) => {
+router.put(
+  "/:id",
+  ensureTicketIsEditable({
+    resolveTicketRef: async (req) => resolveTicketIdByCommentId(req.params.id),
+  }),
+  async (req, res) => {
   const { id } = req.params;
   const { text } = req.body;
   
@@ -109,10 +128,16 @@ router.put("/:id", async (req, res) => {
     console.error("Error updating comment:", err);
     res.status(500).json({ error: "Failed to update comment" });
   }
-});
+  }
+);
 
 // DELETE comment
-router.delete("/:id", async (req, res) => {
+router.delete(
+  "/:id",
+  ensureTicketIsEditable({
+    resolveTicketRef: async (req) => resolveTicketIdByCommentId(req.params.id),
+  }),
+  async (req, res) => {
   const { id } = req.params;
   
   try {
@@ -127,6 +152,7 @@ router.delete("/:id", async (req, res) => {
     console.error("Error deleting comment:", err);
     res.status(500).json({ error: "Failed to delete comment" });
   }
-});
+  }
+);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
+const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
 
 const resolveTicketId = async (ticketId) => {
   const { rows } = await db.query(
@@ -49,7 +50,7 @@ router.get("/:ticketId", async (req, res) => {
 // Route: /api/ticket_tags
 // Body: { ticket_id: "TKT-001", tag_id: "TAG-XYZ" }
 // ----------------------------------------------------------------------
-router.post("/", async (req, res) => {
+router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
   const { ticket_id, tag_id } = req.body;
 
   if (!ticket_id || !tag_id) {
@@ -89,7 +90,10 @@ router.post("/", async (req, res) => {
 // DELETE remove a tag from a ticket (Remove)
 // Route: /api/ticket_tags/:ticketId/:tagId
 // ----------------------------------------------------------------------
-router.delete("/:ticketId/:tagId", async (req, res) => {
+router.delete(
+  "/:ticketId/:tagId",
+  ensureTicketIsEditable({ paramKey: "ticketId" }),
+  async (req, res) => {
   const { ticketId, tagId } = req.params;
 
   try {
@@ -115,7 +119,8 @@ router.delete("/:ticketId/:tagId", async (req, res) => {
     console.error("Error removing tag:", err);
     res.status(500).json({ error: "Failed to remove tag from ticket" });
   }
-});
+  }
+);
 
 // ----------------------------------------------------------------------
 // PUT/PATCH replace all tags for a ticket (Modification/Edit)
@@ -123,7 +128,10 @@ router.delete("/:ticketId/:tagId", async (req, res) => {
 // Body: { tag_ids: ["TAG-001", "TAG-002", ...] }
 // This replaces the old set of tags with a completely new set in a single transaction.
 // ----------------------------------------------------------------------
-router.put("/:ticketId", async (req, res) => {
+router.put(
+  "/:ticketId",
+  ensureTicketIsEditable({ paramKey: "ticketId" }),
+  async (req, res) => {
     const { ticketId } = req.params;
     const { tag_ids } = req.body; // Expects an array of tag IDs
 
@@ -166,7 +174,8 @@ router.put("/:ticketId", async (req, res) => {
         }
         res.status(500).json({ error: "Failed to update tags for ticket" });
     }
-});
+  }
+);
 
 
 module.exports = router;

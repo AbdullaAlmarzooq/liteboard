@@ -3,6 +3,7 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
+const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
 
 // --- GET history for a ticket (Previously fixed) ---
 router.get("/", async (req, res) => {
@@ -58,7 +59,7 @@ router.get("/", async (req, res) => {
 });
 
 // --- POST new history record (FIXED WHITESPACE) ---
-router.post("/", async (req, res) => {
+router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
   const { ticket_id, activity_type, field_name, old_value, new_value, changed_by } = req.body;
 
   if (!ticket_id || !activity_type || !changed_by) {

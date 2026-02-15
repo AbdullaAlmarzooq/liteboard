@@ -10,6 +10,8 @@ import ReactFlow, { Background } from 'reactflow'
 import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3, Edit, X } from "lucide-react";
 import 'reactflow/dist/style.css'
 
+const isTerminalStatusVariant = (variant) =>
+  variant === "new" || variant === "destructive";
 
 
 const WorkflowDiagram = ({ steps, currentStepName }) => {
@@ -194,6 +196,8 @@ const ticket = useMemo(() => {
     title: rawTicket.title,
     description: rawTicket.description,
     status: rawTicket.current_step_name || rawTicket.status,
+    statusVariant: rawTicket.status_variant || "outline",
+    isTerminal: isTerminalStatusVariant(rawTicket.status_variant || rawTicket.statusVariant),
     priority: rawTicket.priority,
     workflowId: rawTicket.workflowId || rawTicket.workflow_id, 
     workgroupId: rawTicket.workgroupId || rawTicket.workgroup_id,
@@ -398,7 +402,7 @@ const renderTag = (tag, index) => {
 };
 
   // Check if ticket can be cancelled (not already closed or cancelled)
-  const canCancelTicket = ticket && canEdit && !['Closed', 'Cancelled'].includes(ticket.status)
+  const canCancelTicket = ticket && canEdit && !ticket.isTerminal
 
   if (isPending || isHistoryPending) {
     return <div className="flex items-center justify-center min-h-64 text-gray-500">Loading ticket details...</div>
@@ -416,7 +420,7 @@ const renderTag = (tag, index) => {
         <Button variant="outline" size="sm" onClick={() => navigate("/tickets")}>← Back to Tickets</Button>
         <h1 className="text-3xl font-bold">Ticket Details</h1>
         <div className="flex space-x-2">
-          {canEdit && (
+          {canEdit && !ticket.isTerminal && (
             <Button className="bg-gray-400 hover:bg-gray-600 text-white dark:bg-gray-600 dark:hover:bg-gray-500"
               onClick={() => navigate(`/edit-ticket/${ticketId}`)}>
               <Edit />
@@ -431,7 +435,7 @@ const renderTag = (tag, index) => {
           <Card className="bg-white">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-2xl">{ticket.title}</CardTitle>
-              <Badge variant={getStatusVariant(ticket.status)}>{ticket.status}</Badge>
+              <Badge variant={ticket.statusVariant || getStatusVariant(ticket.status)}>{ticket.status}</Badge>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">

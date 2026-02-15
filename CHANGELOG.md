@@ -39,10 +39,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Profile `Assigned Tickets` and `Workgroup Tickets by Status` now exclude closed/cancelled categories (30/40).
 - Profile `Workgroup Tickets by Status` now counts by workflow step name (`current_step_name`).
 - Create Ticket page width increased for a wider layout (`max-w-4xl`).
+- Server now enforces terminal ticket locking by workflow category (`30/40`) across write endpoints (tickets/comments/attachments/tags/status history), including direct URL/API calls.
+- Edit Ticket route now auto-redirects terminal tickets to View Ticket with a clear toast message.
+- Tickets page and View Ticket page now hide edit actions for terminal tickets to match backend locking behavior.
 
 ### Fixed
 - Edit Ticket preview message under workflow diagram now uses correct workflow step names (`current_step_name`) for from/to text.
 - Dashboard `Tickets by Priority` now includes `Critical` priority in counts.
+- Edit Ticket comment actions now surface backend error messages (e.g., terminal-state lock reason) instead of generic failure text.
 
 ## [2026-02-13]
 

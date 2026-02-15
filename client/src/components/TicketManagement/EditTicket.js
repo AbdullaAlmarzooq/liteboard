@@ -12,7 +12,8 @@ import fetchWithAuth from "../../utils/fetchWithAuth";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-
+const isTerminalStatusVariant = (variant) =>
+  variant === "new" || variant === "destructive";
 
 const EditTicket = () => {
   const { ticketId } = useParams();
@@ -65,6 +66,15 @@ const EditTicket = () => {
   // Workflow status options
   const [allowedSteps, setAllowedSteps] = useState([]);
   const [loadingSteps, setLoadingSteps] = useState(false);
+
+  useEffect(() => {
+    if (!ticket) return;
+
+    if (isTerminalStatusVariant(ticket.status_variant || ticket.statusVariant)) {
+      toast.error("This ticket is closed/cancelled and cannot be edited.");
+      navigate(`/view-ticket/${ticket.ticket_code || ticket.ticketCode || ticket.id}`, { replace: true });
+    }
+  }, [ticket, navigate]);
 
   // Populate form when ticket loads
   useEffect(() => {
@@ -356,6 +366,17 @@ const EditTicket = () => {
     }
   };
 
+  const getApiErrorMessage = async (res, fallbackMessage) => {
+    try {
+      const data = await res.json();
+      if (data?.error) return data.error;
+      if (data?.message) return data.message;
+    } catch (_) {
+      // ignore non-json error bodies
+    }
+    return fallbackMessage;
+  };
+
   // Comment handlers
   const handleCommentSubmit = async () => {
     if (!newCommentText.trim()) return;
@@ -381,7 +402,7 @@ const EditTicket = () => {
         }]);
         setNewCommentText('');
       } else {
-        setSubmitError('Failed to add comment.');
+        setSubmitError(await getApiErrorMessage(res, 'Failed to add comment.'));
       }
     } catch (err) {
       setSubmitError('Error adding comment.');
@@ -404,6 +425,8 @@ const EditTicket = () => {
         ));
         setEditingCommentId(null);
         setEditingCommentText('');
+      } else {
+        setSubmitError(await getApiErrorMessage(res, 'Failed to update comment.'));
       }
     } catch {
       setSubmitError('Error updating comment.');
@@ -418,6 +441,8 @@ const EditTicket = () => {
       });
       if (res.ok) {
         setComments(comments.filter(c => c.id !== commentToDeleteId));
+      } else {
+        setSubmitError(await getApiErrorMessage(res, 'Failed to delete comment.'));
       }
     } catch {
       setSubmitError('Error deleting comment.');
