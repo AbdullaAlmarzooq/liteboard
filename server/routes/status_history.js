@@ -5,7 +5,7 @@ const db = require("../db/db");
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
-const { resolveReadableTicketId } = require("../utils/projectAccess");
+const { getReadableTicketAccess } = require("../utils/projectAccess");
 
 // --- GET history for a ticket (Previously fixed) ---
 router.get("/", authenticateToken(), async (req, res) => {
@@ -15,10 +15,11 @@ router.get("/", authenticateToken(), async (req, res) => {
   }
 
   try {
-    const resolvedTicketId = await resolveReadableTicketId(req.user, ticketId);
-    if (!resolvedTicketId) {
-      return res.status(404).json({ error: "Ticket not found" });
+    const access = await getReadableTicketAccess(req.user, ticketId);
+    if (!access.ticketId) {
+      return res.status(access.status).json({ error: access.message });
     }
+    const resolvedTicketId = access.ticketId;
 
     const historyQuery = `
       SELECT

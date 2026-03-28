@@ -1,15 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Users, Tag, Briefcase, AppWindow, GitCommit } from 'lucide-react';
+import { Plus, Users, Tag, Briefcase, AppWindow, GitCommit, FolderOpen } from 'lucide-react';
 import EmployeesTab from '../components/AdminPanel/EmployeesTab';
 import TagsTab from '../components/AdminPanel/TagsTab';
 import WorkgroupsTab from '../components/AdminPanel/WorkgroupsTab';
 import ModulesTab from '../components/AdminPanel/ModulesTab';
 import WorkflowsTab from '../components/AdminPanel/WorkflowsTab';
+import ProjectsTab from '../components/AdminPanel/ProjectsTab';
 import CreateModal from '../components/AdminPanel/CreateModal';
 import CreateWorkflowModal from '../components/AdminPanel/CreateWorkflowModal';
+import ProjectModal from '../components/AdminPanel/ProjectModal';
 import ConfirmationModal from '../components/AdminPanel/ConfirmationModal';
 import AlertModal from '../components/AdminPanel/AlertModal';
 import fetchWithAuth from '../utils/fetchWithAuth';
+
+const isTruthyProjectActive = (value) =>
+  value === true || value === 1 || value === '1' || value === 'true';
+
+const normalizeProject = (project) => ({
+  ...project,
+  active: isTruthyProjectActive(project?.active),
+});
+
+const sameMembers = (left = [], right = []) => {
+  if (left.length !== right.length) return false;
+
+  const leftSet = new Set(left);
+  return right.every((value) => leftSet.has(value));
+};
+
+const parseApiResponse = async (response, fallbackMessage) => {
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(result.error || result.message || fallbackMessage);
+  }
+
+  return result;
+};
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('employees');
@@ -18,6 +45,7 @@ const AdminPanel = () => {
   const [modules, setModules] = useState([]);
   const [workgroups, setWorkgroups] = useState([]);
   const [workflows, setWorkflows] = useState([]);
+  const [projects, setProjects] = useState([]);
   const [roles, setRoles] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({});
@@ -26,6 +54,10 @@ const AdminPanel = () => {
   const [createForm, setCreateForm] = useState({});
   const [showCreateWorkflowModal, setShowCreateWorkflowModal] = useState(false);
   const [workflowToEdit, setWorkflowToEdit] = useState(null);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [projectToEdit, setProjectToEdit] = useState(null);
+  const [projectToggleTarget, setProjectToggleTarget] = useState(null);
+  const [isProjectSaving, setIsProjectSaving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
@@ -39,12 +71,13 @@ const AdminPanel = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [empRes, tagsRes, wgRes, modRes, wfRes, rolesRes] = await Promise.all([
+      const [empRes, tagsRes, wgRes, modRes, wfRes, projectsRes, rolesRes] = await Promise.all([
         fetch('http://localhost:8000/api/employees'),
         fetchWithAuth('http://localhost:8000/api/tags'),
         fetch('http://localhost:8000/api/workgroups'),
         fetch('http://localhost:8000/api/modules'),
         fetch('http://localhost:8000/api/workflow_management'),
+        fetchWithAuth('http://localhost:8000/api/projects'),
         fetch('http://localhost:8000/api/employees/roles')
       ]);
 
@@ -53,6 +86,7 @@ const AdminPanel = () => {
       setWorkgroups(await wgRes.json());
       setModules(await modRes.json());
       setWorkflows(await wfRes.json());
+      setProjects((await projectsRes.json()).map(normalizeProject));
       setRoles(await rolesRes.json());
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -72,6 +106,20 @@ const AdminPanel = () => {
       setWorkflows(data);
     } catch (error) {
       console.error('Error refreshing workflows:', error);
+    }
+  };
+
+  const refreshProjects = async () => {
+    try {
+      const res = await fetchWithAuth('http://localhost:8000/api/projects');
+      if (!res.ok) throw new Error('Failed to refresh projects');
+      const data = await res.json();
+      const normalized = data.map(normalizeProject);
+      setProjects(normalized);
+      return normalized;
+    } catch (error) {
+      console.error('Error refreshing projects:', error);
+      return null;
     }
   };
 
@@ -247,6 +295,10 @@ const AdminPanel = () => {
       setCreateForm({ label: '' });
     } else if (activeTab === 'workgroups' || activeTab === 'modules') {
       setCreateForm({ name: '', description: '' });
+    } else if (activeTab === 'projects') {
+      setProjectToEdit(null);
+      setShowProjectModal(true);
+      return;
     } else if (activeTab === 'workflows') {
       setWorkflowToEdit(null);
       setShowCreateWorkflowModal(true);
@@ -299,8 +351,134 @@ const AdminPanel = () => {
     { id: 'tags', label: 'Tags', icon: Tag },
     { id: 'workgroups', label: 'Workgroups', icon: Briefcase },
     { id: 'modules', label: 'Modules', icon: AppWindow },
-    { id: 'workflows', label: 'Workflows', icon: GitCommit }
+    { id: 'workflows', label: 'Workflows', icon: GitCommit },
+    { id: 'projects', label: 'Projects', icon: FolderOpen }
   ];
+
+  const handleProjectEdit = (project) => {
+    setProjectToEdit(project);
+    setShowProjectModal(true);
+  };
+
+  const handleProjectModalClose = () => {
+    setShowProjectModal(false);
+    setProjectToEdit(null);
+  };
+
+  const saveProject = async (projectForm) => {
+    setIsProjectSaving(true);
+
+    try {
+      const isEditing = Boolean(projectForm.id);
+
+      if (isEditing) {
+        await parseApiResponse(
+          await fetchWithAuth(`http://localhost:8000/api/projects/${projectForm.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              name: projectForm.name,
+              description: projectForm.description,
+              active: projectForm.active,
+            }),
+          }),
+          'Failed to update project details'
+        );
+
+        await parseApiResponse(
+          await fetchWithAuth(`http://localhost:8000/api/projects/${projectForm.id}/workgroups`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              workgroupCodes: projectForm.workgroupCodes,
+            }),
+          }),
+          'Failed to update project workgroups'
+        );
+
+        await parseApiResponse(
+          await fetchWithAuth(`http://localhost:8000/api/projects/${projectForm.id}/workflows`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              workflowIds: projectForm.workflowIds,
+            }),
+          }),
+          'Failed to update project workflows'
+        );
+      } else {
+        await parseApiResponse(
+          await fetchWithAuth('http://localhost:8000/api/projects', {
+            method: 'POST',
+            body: JSON.stringify(projectForm),
+          }),
+          'Failed to create project'
+        );
+      }
+
+      const refreshedProjects = await refreshProjects();
+
+      if (isEditing) {
+        const refreshedProject = refreshedProjects?.find(
+          (project) => project.id === projectForm.id
+        );
+
+        if (!refreshedProject) {
+          throw new Error('Project updated, but the refreshed project record could not be found.');
+        }
+
+        const savedWorkgroupCodes = (refreshedProject.workgroups || []).map((workgroup) => workgroup.code);
+        const savedWorkflowIds = (refreshedProject.workflows || []).map((workflow) => workflow.id);
+
+        if (
+          !sameMembers(savedWorkgroupCodes, projectForm.workgroupCodes) ||
+          !sameMembers(savedWorkflowIds, projectForm.workflowIds)
+        ) {
+          throw new Error(
+            'Project details were saved, but the refreshed assignments do not match the selected workflows/workgroups.'
+          );
+        }
+      }
+
+      setShowProjectModal(false);
+      setProjectToEdit(null);
+      showToast(isEditing ? 'Project updated successfully' : 'Project created successfully');
+    } catch (error) {
+      console.error('Error saving project:', error);
+      showToast(error.message || 'Failed to save project', 'error');
+    } finally {
+      setIsProjectSaving(false);
+    }
+  };
+
+  const handleProjectToggleActive = (project) => {
+    setProjectToggleTarget(project);
+  };
+
+  const confirmProjectToggleActive = async () => {
+    const project = projectToggleTarget;
+    if (!project) return;
+
+    try {
+      const response = await fetchWithAuth(`http://localhost:8000/api/projects/${project.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: project.name,
+          description: project.description || '',
+          active: !isTruthyProjectActive(project.active),
+        }),
+      });
+      await parseApiResponse(response, 'Failed to update project status');
+
+      await refreshProjects();
+      setProjectToggleTarget(null);
+      showToast(
+        isTruthyProjectActive(project.active)
+          ? 'Project deactivated successfully'
+          : 'Project activated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating project status:', error);
+      showToast(error.message || 'Failed to update project status', 'error');
+    }
+  };
 
   const renderCurrentTabComponent = () => {
     if (loading) return <div className="text-center py-8">Loading...</div>;
@@ -365,6 +543,14 @@ const AdminPanel = () => {
             onCreateClick={() => setShowCreateWorkflowModal(true)}
           />
         );
+      case 'projects':
+        return (
+          <ProjectsTab
+            projects={projects}
+            onEdit={handleProjectEdit}
+            onToggleActive={handleProjectToggleActive}
+          />
+        );
       default:
         return null;
     }
@@ -386,7 +572,7 @@ const AdminPanel = () => {
         )}
         <div className="px-6 py-4 border-b border-gray-200">
           <h1 className="text-2xl font-bold">Admin Panel</h1>
-          <p className="mt-1">Manage employees, tags, workgroups, modules, and workflows</p>
+          <p className="mt-1">Manage employees, tags, workgroups, modules, workflows, and projects</p>
         </div>
 
         <div className="border-b border-gray-200">
@@ -445,6 +631,17 @@ const AdminPanel = () => {
             workgroups={workgroups}
           />
         )}
+        {showProjectModal && (
+          <ProjectModal
+            isOpen={showProjectModal}
+            project={projectToEdit}
+            workgroups={workgroups}
+            workflows={workflows}
+            isSaving={isProjectSaving}
+            onClose={handleProjectModalClose}
+            onSave={saveProject}
+          />
+        )}
         {showDeleteModal && (
           <ConfirmationModal
             isOpen={showDeleteModal}
@@ -452,8 +649,23 @@ const AdminPanel = () => {
             onConfirm={() => setEmployees(prev => prev.filter(emp => emp.id !== itemToDelete))}
             title="Confirm Deletion"
             message="Are you sure you want to delete this item? This action cannot be undone."
+            confirmLabel="Delete"
+            confirmVariant="danger"
           />
         )}
+        <ConfirmationModal
+          isOpen={!!projectToggleTarget}
+          onClose={() => setProjectToggleTarget(null)}
+          onConfirm={confirmProjectToggleActive}
+          title={projectToggleTarget?.active ? 'Deactivate Project' : 'Activate Project'}
+          message={
+            projectToggleTarget
+              ? `Are you sure you want to ${projectToggleTarget.active ? 'deactivate' : 'activate'} "${projectToggleTarget.name}"?`
+              : ''
+          }
+          confirmLabel={projectToggleTarget?.active ? 'Deactivate' : 'Activate'}
+          confirmVariant={projectToggleTarget?.active ? 'danger' : 'primary'}
+        />
         {showAlertModal && (
           <AlertModal
             isOpen={showAlertModal}

@@ -5,9 +5,10 @@ const db = require("../db/db");
 const router = express.Router();
 const sanitizeHtml = require("sanitize-html");
 const authenticateToken = require("../middleware/authMiddleware"); 
+const ensureProjectAccess = require("../middleware/ensureProjectAccess");
 const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
-const { buildProjectAccessFilter } = require("../utils/projectAccess");
+const { buildProjectAccessFilter, getProjectAccess } = require("../utils/projectAccess");
 
 const CLOSED_CATEGORY_CODE = 30;
 
@@ -21,6 +22,16 @@ const normalizeUuid = (value) => {
   if (value === undefined || value === null) return null;
   if (typeof value === "string" && value.trim() === "") return null;
   return value;
+};
+
+const normalizeUuidArray = (values) => {
+  if (!Array.isArray(values)) return null;
+
+  return [...new Set(
+    values
+      .map((value) => normalizeUuid(value))
+      .filter(Boolean)
+  )];
 };
 
 const sanitizeTicketDescription = (input) => {
@@ -144,6 +155,7 @@ router.get("/:id/allowed-steps", authenticateToken(), async (req, res) => {
 router.post(
   "/:id/transition",
   authenticateToken([1, 2]),
+  ensureProjectAccess,
   ensureTicketIsEditable({ paramKey: "id" }),
   ensureSameWorkgroup,
   async (req, res) => {
@@ -238,7 +250,8 @@ router.get("/", authenticateToken(), async (req, res) => {
 
     const ticketsQuery = `
       SELECT 
-        t.id, t.ticket_code, t.title, t.description, COALESCE(ws.step_name, t.step_code) AS status, t.step_code, t.priority, 
+        t.id, t.ticket_code, t.title, t.description, t.project_id, p.name AS project_name,
+        COALESCE(ws.step_name, t.step_code) AS status, t.step_code, t.priority,
         t.workflow_id, wf.name AS workflow_name,
         COALESCE(ws.step_name, t.step_code) AS current_step_name,
         CASE ws.category_code
@@ -255,6 +268,7 @@ router.get("/", authenticateToken(), async (req, res) => {
         t.due_date, t.start_date 
       FROM tickets t
       LEFT JOIN workflows wf ON t.workflow_id = wf.id
+      LEFT JOIN projects p ON t.project_id = p.id
       LEFT JOIN workflow_steps ws
         ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
       LEFT JOIN workgroups w ON t.workgroup_id = w.id
@@ -310,7 +324,7 @@ router.get("/", authenticateToken(), async (req, res) => {
 // GET single ticket (any logged-in user)
 // ----------------------------------------------------------------------
 // ✅ Fixed: Using authenticateToken()
-router.get("/:id", authenticateToken(), async (req, res) => {
+router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) => {
   const { id } = req.params;
   const includeBlobs = req.query.include_blobs !== "false";
 
@@ -441,7 +455,34 @@ router.get("/:id", authenticateToken(), async (req, res) => {
 
 router.post("/", authenticateToken([1, 2]), async (req, res) => {
   const userId = req.user.id;
-  const { id, ticket_code, title, description, step_code, priority, workflow_id, workgroup_id, module_id, responsible_employee_id, due_date, start_date, tag_ids } = req.body;
+  const {
+    id,
+    ticket_code,
+    title,
+    description,
+    project_id,
+    step_code,
+    priority,
+    workflow_id,
+    workgroup_id,
+    module_id,
+    responsible_employee_id,
+    due_date,
+    start_date,
+    tag_ids,
+  } = req.body;
+
+  if (!project_id) {
+    return res.status(400).json({ error: "project_id is required" });
+  }
+
+  if (!workflow_id) {
+    return res.status(400).json({ error: "workflow_id is required" });
+  }
+
+  if (!step_code) {
+    return res.status(400).json({ error: "step_code is required" });
+  }
 
   try {
     const safeDescription = sanitizeTicketDescription(description);
@@ -450,43 +491,106 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
     const timestamp = bahrainTime.toISOString();
     const code = id || ticket_code || `TCK-${Date.now()}`;
     let completedAt = null;
+    const normalizedTagIds = normalizeUuidArray(tag_ids || []);
+
+    if (tag_ids !== undefined && normalizedTagIds === null) {
+      return res.status(400).json({ error: "tag_ids must be an array of tag IDs" });
+    }
+
+    const projectAccess = await getProjectAccess(req.user, project_id, {
+      requireActiveForNonAdmin: true,
+    });
+    if (projectAccess.status !== 200) {
+      return res.status(projectAccess.status).json({ error: projectAccess.message });
+    }
 
     const client = await db.pool.connect();
     try {
       await client.query("BEGIN");
 
-      if (workflow_id && step_code) {
-        const stepCategoryResult = await client.query(
+      const workflowResult = await client.query(
+        `
+          SELECT w.id
+          FROM workflows w
+          JOIN project_workflows pw ON pw.workflow_id = w.id
+          WHERE w.id = $1
+            AND pw.project_id = $2
+          LIMIT 1
+        `,
+        [workflow_id, project_id]
+      );
+      if (!workflowResult.rows[0]) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "Selected workflow does not belong to the selected project.",
+        });
+      }
+
+      const stepResult = await client.query(
+        `
+          SELECT step_code, step_name, workgroup_id, category_code
+          FROM workflow_steps
+          WHERE workflow_id = $1 AND step_code = $2
+          LIMIT 1
+        `,
+        [workflow_id, step_code]
+      );
+      const stepInfo = stepResult.rows[0];
+      if (!stepInfo) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ error: "Invalid workflow step selected." });
+      }
+
+      const resolvedWorkgroupId = stepInfo.workgroup_id || null;
+      if (normalizeUuid(workgroup_id) && normalizeUuid(workgroup_id) !== resolvedWorkgroupId) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          error: "Selected workflow step does not match the assigned workgroup.",
+        });
+      }
+
+      if (normalizedTagIds && normalizedTagIds.length > 0) {
+        const tagsResult = await client.query(
           `
-            SELECT category_code
-            FROM workflow_steps
-            WHERE workflow_id = $1 AND step_code = $2
-            LIMIT 1
+            SELECT id
+            FROM tags
+            WHERE id = ANY($1::uuid[])
+              AND project_id = $2
+              AND deleted_at IS NULL
           `,
-          [workflow_id, step_code]
+          [normalizedTagIds, project_id]
         );
-        const stepCategory = Number(stepCategoryResult.rows[0]?.category_code);
-        if (stepCategory === CLOSED_CATEGORY_CODE) {
-          completedAt = timestamp;
+
+        if (tagsResult.rows.length !== normalizedTagIds.length) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "One or more selected tags do not belong to the selected project.",
+          });
         }
+      }
+
+      const stepCategory = Number(stepInfo.category_code);
+      if (stepCategory === CLOSED_CATEGORY_CODE) {
+        completedAt = timestamp;
       }
 
       const insertResult = await client.query(
         `
           INSERT INTO tickets
-            (ticket_code, title, description, step_code, priority, workflow_id, workgroup_id,
+            (ticket_code, title, description, project_id, step_code, priority, workflow_id, workgroup_id,
              module_id, responsible_employee_id, due_date, start_date, initiate_date, completed_at, created_at, updated_at, created_by)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
           RETURNING id, ticket_code
         `,
         [
           code,
           title,
           safeDescription,
+          project_id,
           step_code,
           priority,
           workflow_id,
-          workgroup_id,
+          resolvedWorkgroupId,
           module_id,
           responsible_employee_id,
           normalizeDate(due_date),
@@ -501,8 +605,8 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
 
       const ticketId = insertResult.rows[0].id;
 
-      if (tag_ids && Array.isArray(tag_ids)) {
-        for (const tag_id of tag_ids) {
+      if (normalizedTagIds && normalizedTagIds.length > 0) {
+        for (const tag_id of normalizedTagIds) {
           await client.query(
             `INSERT INTO ticket_tags (ticket_id, tag_id, created_at) VALUES ($1, $2, NOW())`,
             [ticketId, tag_id]
@@ -534,6 +638,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
 router.put(
   "/:id",
   authenticateToken([1, 2]),
+  ensureProjectAccess,
   ensureTicketIsEditable({ paramKey: "id" }),
   ensureSameWorkgroup,
   async (req, res) => {
@@ -660,6 +765,7 @@ router.put(
 router.delete(
   "/:id",
   authenticateToken([1]),
+  ensureProjectAccess,
   ensureTicketIsEditable({ paramKey: "id" }),
   async (req, res) => {
   const { id } = req.params;

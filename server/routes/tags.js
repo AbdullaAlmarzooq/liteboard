@@ -2,7 +2,7 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
-const { buildProjectAccessFilter } = require("../utils/projectAccess");
+const { buildProjectAccessFilter, getProjectAccess } = require("../utils/projectAccess");
 
 // Helper function to generate sequential tag ID (e.g., TAG-001, TAG-002, ...)
 const generateTagId = async () => {
@@ -29,8 +29,29 @@ const generateTagId = async () => {
 // --- GET all tags ---
 router.get("/", authenticateToken(), async (req, res) => {
   try {
-    const { clause: projectAccessClause, params: projectAccessParams } =
-      await buildProjectAccessFilter(req.user, "t.project_id");
+    const { project_id: projectId } = req.query;
+
+    if (projectId) {
+      const projectAccess = await getProjectAccess(req.user, projectId, {
+        requireActiveForNonAdmin: true,
+      });
+
+      if (projectAccess.status !== 200) {
+        return res.status(projectAccess.status).json({ error: projectAccess.message });
+      }
+    }
+
+    let projectAccessClause = "";
+    let projectAccessParams = [];
+
+    if (projectId) {
+      projectAccessClause = "\n      AND t.project_id = $1";
+      projectAccessParams = [projectId];
+    } else {
+      const accessFilter = await buildProjectAccessFilter(req.user, "t.project_id");
+      projectAccessClause = accessFilter.clause;
+      projectAccessParams = accessFilter.params;
+    }
 
     const tagsQuery = `
       SELECT t.id, t.label, t.color, t.created_at, t.updated_at

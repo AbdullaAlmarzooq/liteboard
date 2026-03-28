@@ -1,10 +1,23 @@
 import React from 'react';
 import { XCircle, AlertTriangle } from 'lucide-react';
 
-const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
+const ConfirmationModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmLabel = 'Confirm',
+  confirmVariant = 'danger'
+}) => {
   if (!isOpen) {
     return null;
   }
+
+  const confirmButtonClassName =
+    confirmVariant === 'primary'
+      ? 'px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+      : 'px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -36,9 +49,9 @@ const ConfirmationModal = ({ isOpen, onClose, onConfirm, title, message }) => {
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            className={confirmButtonClassName}
           >
-            Delete
+            {confirmLabel}
           </button>
         </div>
       </div>

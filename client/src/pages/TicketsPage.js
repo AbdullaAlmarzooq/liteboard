@@ -3,13 +3,14 @@ import Badge from "../components/Badge"
 import Button from "../components/Button"
 import TicketFilter from "../components/TicketsPage/TicketFilter"
 import useFetch from "../useFetch"
+import ProjectFilterSelect from "../components/ProjectFilterSelect"
 import { useAuth } from "../components/hooks/useAuth"
-import { useRef, useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import SearchBar from "../components/TicketsPage/SearchBar";
 import TicketExporter from "../components/TicketsPage/TicketExporter"
 import Pagination from "../components/TicketsPage/Pagination"
-import { Eye, Edit, Trash2, Plus, AlertTriangle, X } from 'lucide-react';
+import { Eye, Edit, Trash2, AlertTriangle, X } from 'lucide-react';
 
 const isTerminalStatusVariant = (variant) =>
   variant === "new" || variant === "destructive";
@@ -20,14 +21,17 @@ const TicketsPage = () => {
   const canEdit = user && (user.role_id === 1 || user.role_id === 2);
 
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   // Fixed: Updated API endpoint to match server route
   const { data: ticketsData, isPending, error } = useFetch('http://localhost:8000/api/tickets');
+  const { data: projectsData, isPending: projectsPending, error: projectsError } = useFetch('http://localhost:8000/api/projects');
   const [isDeleting, setIsDeleting] = useState(null);
   const [filteredTickets, setFilteredTickets] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState(null);
   const [currentPage, setCurrentPage_] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedProjectId, setSelectedProjectId] = useState(searchParams.get('project_id') || '');
 
   // Transform the data from database format to component format
   const tickets = useMemo(() => {
@@ -36,6 +40,8 @@ const TicketsPage = () => {
     return ticketsData.map(ticket => ({
       id: ticket.id,
       ticketCode: ticket.ticket_code || ticket.ticketCode,
+      projectId: ticket.project_id || ticket.projectId || "",
+      projectName: ticket.project_name || ticket.projectName || "No Project",
       title: ticket.title,
       description: ticket.description,
       status: ticket.current_step_name || ticket.status,
@@ -61,6 +67,8 @@ const TicketsPage = () => {
 
   const getDisplayTicketCode = (ticket) => ticket.ticketCode || ticket.id;
 
+  const projects = useMemo(() => Array.isArray(projectsData) ? projectsData : [], [projectsData]);
+
   // Sort tickets by last updated timestamp (most recently updated first)
   const sortedTickets = useMemo(() => {
     if (!tickets) return [];
@@ -71,8 +79,22 @@ const TicketsPage = () => {
     });
   }, [tickets]);
 
+  const projectScopedTickets = useMemo(() => {
+    if (!selectedProjectId) return sortedTickets;
+    return sortedTickets.filter((ticket) => ticket.projectId === selectedProjectId);
+  }, [sortedTickets, selectedProjectId]);
+
   // Combined tickets to display, filtered first, then sorted
-  const ticketsToDisplay = filteredTickets !== null ? filteredTickets : sortedTickets;
+  const ticketsToDisplay = filteredTickets !== null ? filteredTickets : projectScopedTickets;
+
+  useEffect(() => {
+    const queryProjectId = searchParams.get('project_id') || '';
+    setSelectedProjectId(queryProjectId);
+  }, [searchParams]);
+
+  useEffect(() => {
+    setFilteredTickets(null);
+  }, [selectedProjectId]);
 
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
@@ -171,7 +193,18 @@ const TicketsPage = () => {
     setFilteredTickets(newFilteredTickets);
   };
 
-  if (isPending) {
+  const handleProjectChange = (projectId) => {
+    setSelectedProjectId(projectId);
+    const nextParams = new URLSearchParams(searchParams);
+    if (projectId) {
+      nextParams.set('project_id', projectId);
+    } else {
+      nextParams.delete('project_id');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  if (isPending || projectsPending) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-gray-600 dark:text-gray-400">Loading tickets...</div>
@@ -179,10 +212,27 @@ const TicketsPage = () => {
     );
   }
 
-  if (error) {
+  if (error || projectsError) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-red-600 dark:text-red-400">Error loading tickets: {error}</div>
+        <div className="text-red-600 dark:text-red-400">Error loading tickets: {error || projectsError}</div>
+      </div>
+    );
+  }
+
+  if (!projects.length) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+            Tickets
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            {user?.role_id === 1
+              ? "No projects are available yet."
+              : "No projects assigned to your workgroup. Please contact administration."}
+          </p>
+        </div>
       </div>
     );
   }
@@ -202,12 +252,25 @@ const TicketsPage = () => {
         </div>
       </div>
 
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <ProjectFilterSelect
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onChange={handleProjectChange}
+          allLabel={user?.role_id === 1 ? "All projects" : "All accessible projects"}
+        />
+      </div>
+
       <TicketFilter
-        tickets={sortedTickets}
+        tickets={projectScopedTickets}
         onFilteredTicketsChange={handleFilteredTicketsChange}
+        resetKey={selectedProjectId || "all-projects"}
       />
 
-      <SearchBar />
+      <SearchBar
+        tickets={ticketsToDisplay}
+        resetKey={selectedProjectId || "all-projects"}
+      />
 
       {/* Desktop Table View */}
       <div className="hidden lg:block">

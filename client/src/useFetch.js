@@ -6,6 +6,13 @@ const useFetch = (url) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    if (!url) {
+      setData(null);
+      setIsPending(false);
+      setError(null);
+      return () => {};
+    }
+
     const abortCont = new AbortController();
 
     // --- CRITICAL FIX: Include JWT in Authorization Header ---
@@ -30,17 +37,26 @@ const useFetch = (url) => {
         signal: abortCont.signal,
         headers: headers // Pass the constructed headers
       })
-      .then(res => {
+      .then(async res => {
         // Handle 401/403 responses gracefully
         if (!res.ok) { 
+          const errorBody = await res
+            .clone()
+            .json()
+            .catch(() => null);
+          const serverMessage = errorBody?.error || errorBody?.message || null;
+
           // If the status is 401 or 403, specifically log the auth failure
           if (res.status === 401) {
-             throw Error('Authentication failed (401). Please log in again.');
+             throw Error(serverMessage || 'Authentication failed. Please log in again.');
           }
           if (res.status === 403) {
-             throw Error('Permission denied (403). Insufficient role.');
+             throw Error(serverMessage || "You don't have access to this resource.");
           }
-          throw Error(`Could not fetch the data for that resource. Status: ${res.status}`);
+          if (res.status === 404) {
+             throw Error(serverMessage || 'The requested resource could not be found.');
+          }
+          throw Error(serverMessage || `Could not fetch the data for that resource. Status: ${res.status}`);
         } 
         return res.json();
       })

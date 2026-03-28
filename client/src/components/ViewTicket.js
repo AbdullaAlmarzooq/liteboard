@@ -14,6 +14,39 @@ import 'reactflow/dist/style.css'
 const isTerminalStatusVariant = (variant) =>
   variant === "new" || variant === "destructive";
 
+const getTicketLoadError = (message) => {
+  const normalized = String(message || "").toLowerCase();
+
+  if (normalized.includes("do not have access") || normalized.includes("don't have access")) {
+    return {
+      title: "You don't have access to this ticket",
+      description:
+        "This ticket belongs to a project outside your assigned access. Contact an administrator if you think this is a mistake.",
+    };
+  }
+
+  if (normalized.includes("workgroup")) {
+    return {
+      title: "You don't belong to the required workgroup",
+      description:
+        "Your current workgroup assignment does not allow access to this ticket.",
+    };
+  }
+
+  if (normalized.includes("not found")) {
+    return {
+      title: "Ticket not found",
+      description:
+        "The ticket may have been removed or the link may be incorrect.",
+    };
+  }
+
+  return {
+    title: "Error loading ticket",
+    description: message || "Something went wrong while loading this ticket.",
+  };
+};
+
 
 const WorkflowDiagram = ({ steps, currentStepName }) => {
   if (!steps || steps.length === 0) return null;
@@ -225,10 +258,10 @@ const ticket = useMemo(() => {
   const [isCancelling, setIsCancelling] = useState(false)
   
   // Fetch workflow if ticket has workflowId
-  const [workflow, setWorkflow] = useState(null)
+  const [workflow, setWorkflow] = useState(null)
   useEffect(() => {
     if (ticket?.workflowId) {
-      fetch(`http://localhost:8000/api/workflows/${ticket.workflowId}`)
+      fetchWithAuth(`http://localhost:8000/api/workflows/${ticket.workflowId}`)
         .then(res => {
           if (res.ok) return res.json();
           throw new Error('Workflow not found');
@@ -408,9 +441,17 @@ const renderTag = (tag, index) => {
   if (isPending || isHistoryPending) {
     return <div className="flex items-center justify-center min-h-64 text-gray-500">Loading ticket details...</div>
   }
-  if (error || historyError) {
-    return <div className="flex items-center justify-center min-h-64 text-red-500">Error loading ticket: {error || historyError}</div>
-  }
+  if (error) {
+    const ticketError = getTicketLoadError(error);
+    return (
+      <div className="flex items-center justify-center min-h-64 p-6">
+        <div className="max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 shadow-sm">
+          <h2 className="text-lg font-semibold">{ticketError.title}</h2>
+          <p className="mt-2 text-sm leading-6">{ticketError.description}</p>
+        </div>
+      </div>
+    )
+  }
   if (!ticket) {
     return <div className="flex items-center justify-center min-h-64 text-gray-500">Ticket not found</div>
   }

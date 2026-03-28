@@ -1,16 +1,19 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useFetch from '../../useFetch'
 import { Search } from 'lucide-react';
 
-const SearchBar = () => {
+const SearchBar = ({ tickets: providedTickets = null, resetKey = "default" }) => {
   const navigate = useNavigate()
   
   // Fetch raw tickets data from API
-  const { data: rawTickets, isPending, error } = useFetch('http://localhost:8000/api/tickets')
+  const { data: rawTickets, isPending, error } = useFetch(
+    providedTickets ? null : 'http://localhost:8000/api/tickets'
+  )
   
   // Transform the raw data to match the format expected by the component
   const tickets = useMemo(() => {
+    if (providedTickets) return providedTickets;
     if (!rawTickets) return [];
     
     return rawTickets.map(ticket => ({
@@ -32,13 +35,19 @@ const SearchBar = () => {
       tags: ticket.tags || [],
       dueDate: ticket.due_date,
     }));
-  }, [rawTickets]);
+  }, [providedTickets, rawTickets]);
 
   const getDisplayTicketCode = (ticket) => ticket.ticketCode || ticket.id;
 
   const [searchTerm, setSearchTerm] = useState('')
   const [searchResults, setSearchResults] = useState([])
   const [isModalOpen, setIsModalOpen] = useState(false)
+
+  useEffect(() => {
+    setSearchTerm('')
+    setSearchResults([])
+    setIsModalOpen(false)
+  }, [resetKey])
 
   // Helper function to format initiate date
   const formatInitiateDate = (dateString) => {
@@ -178,8 +187,8 @@ const SearchBar = () => {
     navigate(`/view-ticket/${ticketId}`)
   }
 
-  const isLoading = isPending
-  const hasError = error
+  const isLoading = providedTickets ? false : isPending
+  const hasError = providedTickets ? null : error
   const hasTickets = tickets && tickets.length > 0
 
   return (

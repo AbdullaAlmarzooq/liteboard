@@ -15,6 +15,39 @@ import "react-toastify/dist/ReactToastify.css";
 const isTerminalStatusVariant = (variant) =>
   variant === "new" || variant === "destructive";
 
+const getTicketLoadError = (message) => {
+  const normalized = String(message || "").toLowerCase();
+
+  if (normalized.includes("do not have access") || normalized.includes("don't have access")) {
+    return {
+      title: "You don't have access to this ticket",
+      description:
+        "This ticket belongs to a project outside your assigned access. Contact an administrator if you think this is a mistake.",
+    };
+  }
+
+  if (normalized.includes("workgroup")) {
+    return {
+      title: "You don't belong to the required workgroup",
+      description:
+        "Your current workgroup assignment does not allow editing this ticket.",
+    };
+  }
+
+  if (normalized.includes("not found")) {
+    return {
+      title: "Ticket not found",
+      description:
+        "The ticket may have been removed or the link may be incorrect.",
+    };
+  }
+
+  return {
+    title: "Error loading ticket",
+    description: message || "Something went wrong while loading this ticket.",
+  };
+};
+
 const EditTicket = () => {
   const { ticketId } = useParams();
   const navigate = useNavigate();
@@ -615,9 +648,13 @@ const EditTicket = () => {
   }
 
   if (error) {
+    const ticketError = getTicketLoadError(error);
     return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="text-red-500">Error loading ticket: {error}</div>
+      <div className="flex items-center justify-center min-h-64 p-6">
+        <div className="max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 shadow-sm">
+          <h2 className="text-lg font-semibold">{ticketError.title}</h2>
+          <p className="mt-2 text-sm leading-6">{ticketError.description}</p>
+        </div>
       </div>
     );
   }

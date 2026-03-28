@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Badge from '../Badge';
 
-const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
+const FilterBar = ({ onFilterChange, allTickets, workgroups = [], resetKey = "default" }) => {
   // --- FIX: Safely ensure 'tickets' is an array before attempting .filter() ---
   const tickets = Array.isArray(allTickets) ? allTickets : [];
   const getTicketStepName = (ticket) => ticket.current_step_name || ticket.currentStepName || ticket.status;
@@ -33,6 +33,20 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openDropdown]);
+
+  useEffect(() => {
+    setSelectedWorkGroups([]);
+    setSelectedModules([]);
+    setSelectedWorkflows([]);
+    setSelectedStatuses([]);
+    setOpenDropdown(null);
+    onFilterChange({
+      selectedWorkGroups: [],
+      selectedModules: [],
+      selectedWorkflows: [],
+      selectedStatuses: []
+    });
+  }, [resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handlers for selection
   const handleWorkGroupChange = (e) => {
@@ -145,19 +159,6 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [] }) => {
         selectedWorkflows.includes(t.workflow_name || t.workflowName))
   );
   const allStepNames = [...new Set(statusesTickets.map((t) => getTicketStepName(t)).filter(Boolean))].sort();
-
-  // Final filtered tickets (all 3 filters applied)
-  // Note: Using the sanitized 'tickets' array now
-  const filteredTickets = tickets.filter(
-    (t) =>
-      (!selectedWorkGroups.length ||
-        selectedWorkGroups.includes(t.workgroupId || t.workgroup_id)) &&
-      (!selectedModules.length ||
-        selectedModules.includes(t.module_name || t.module)) &&
-      (!selectedWorkflows.length ||
-        selectedWorkflows.includes(t.workflow_name || t.workflowName)) &&
-      (!selectedStatuses.length || selectedStatuses.includes(getTicketStepName(t)))
-  );
 
   // Reusable dropdown component
   const FilterDropdownButton = ({ category, title, options, selectedValues, onChange }) => {

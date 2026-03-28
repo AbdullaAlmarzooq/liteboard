@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/Auth/ProtectedRoute"
 import LoginPage from "./pages/LoginPage"
 import { ToastContainer } from "react-toastify";
 import ProfileActivity from "./pages/ProfileActivity"
+import ProjectsPage from "./pages/ProjectsPage"
 
 
 function AppLayout() {
@@ -46,6 +47,14 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <TicketsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects"
+            element={
+              <ProtectedRoute>
+                <ProjectsPage />
               </ProtectedRoute>
             }
           />

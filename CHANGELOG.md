@@ -13,12 +13,33 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - New `project_workflows` table for assigning multiple workflows to a project.
 - DB migration script `server/db/migrations/2026-03-28_backfill_default_project.sql` to seed `PRJ-001`, assign all existing workgroups, backfill all existing tickets/tags, and validate that no migrated ticket or tag remains without a project.
 - Nullable `project_id` columns on `tickets` and `tags` to support a staged projects rollout without breaking existing records or queries.
+- Ticket middleware `server/middleware/ensureProjectAccess.js` to enforce project membership on protected ticket routes with admin bypass.
+- Admin-only project management API `server/routes/projects.js` with project CRUD plus dedicated workgroup/workflow assignment endpoints.
+- Project-first ticket creation flow with project-scoped project options, workflows, and tags for the create-ticket experience.
+- Admin Panel `Projects` tab with project create/edit, activation, and assignment management UI.
+- New `/projects` frontend page with project-level ticket analytics cards and click-through navigation to filtered tickets.
+- New `GET /api/projects/dashboard` endpoint for project-level ticket counts by workflow category.
 
 ### Changed
 - Ticket, tag, dashboard, and profile read paths now enforce project visibility for non-admin users via `project_workgroups`, while admins continue to bypass read restrictions.
 - Ticket-adjacent read endpoints (`attachments`, `comments`, `status_history`, `ticket_tags`) now follow the same project visibility rules to prevent side-channel access to hidden tickets.
+- Ticket middleware enforcement now protects `GET /tickets/:id`, `PUT /tickets/:id`, `DELETE /tickets/:id`, and `POST /tickets/:id/transition` through `ensureProjectAccess`.
+- Existing `ensureSameWorkgroup` behavior remains unchanged and continues to govern workgroup-based modification rules.
+- Server now exposes `/api/projects` admin routes for viewing projects, updating project metadata, and managing project workgroup/workflow assignments without changing ticket or workflow execution behavior.
+- Ticket creation now requires `project_id`, validates project access/activity, and rejects workflows or tags that are outside the selected project.
+- `/api/projects/available` now provides project choices for ticket creation, while `/api/workflows` and `/api/tags` support project-scoped filtering through `project_id`.
+- Create Ticket UX now requires project selection first, hides workflows/tags until a project is chosen, and resets workflow/tag/form state when the selected project changes.
+- Project create/update APIs now reject empty workgroup/workflow assignments, and project update can persist metadata plus assignments together for admin management flows.
+- Admin Panel now surfaces projects alongside employees/tags/workgroups/modules/workflows and reflects backend project state, assignment counts, and active/inactive status.
+- `GET /api/projects` now serves readable projects to authenticated users, while still returning full assignment detail for Admin management screens.
+- Dashboard and Tickets pages now support project filtering with project-aware reset behavior for existing filters.
+- Navigation now includes a user-facing `Projects` page, and project cards deep-link into the Tickets page using `?project_id=...`.
 - README now documents the Projects architecture, including the split between project-based ticket visibility and existing workflow-step workgroup edit permissions.
-- README now includes an explicit Access Control section covering project-based read filtering and the unchanged workgroup-based write guard.
+- README now includes updated Middleware and Access Control sections covering project middleware enforcement and the unchanged workgroup-based write guard.
+- README now documents the admin-only project management endpoints and the assignment model for projects, workgroups, and workflows.
+- README now documents the project-based ticket creation flow and the backend validation rules behind it.
+- README now documents the Admin Project Management UI and how workgroup/workflow assignments affect project access and behavior.
+- README now documents project visibility filters, the new Projects overview page, and the new project dashboard API.
 - README now documents the Step 2 default-project migration flow for existing Neon databases.
 - Schema documentation now notes the staged project rollout and the new project-scoped tag/ticket fields.
 

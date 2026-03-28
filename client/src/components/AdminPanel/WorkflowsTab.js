@@ -4,6 +4,7 @@ import { Plus, Edit2 } from 'lucide-react';
 import ReactFlow, { Background } from 'reactflow';
 import 'reactflow/dist/style.css';
 import CreateWorkflowModal from './CreateWorkflowModal';
+import ConfirmationModal from './ConfirmationModal';
 
 const WorkflowDiagram = ({ steps }) => {
   const safeSteps = Array.isArray(steps) ? steps : [];
@@ -63,6 +64,7 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
   const [workflows, setWorkflows] = useState(initialWorkflows);
   const [modalOpen, setModalOpen] = useState(false);
   const [workflowToEdit, setWorkflowToEdit] = useState(null);
+  const [workflowToggleTarget, setWorkflowToggleTarget] = useState(null);
   const [toast, setToast] = useState(null);
 
   useEffect(() => {
@@ -179,7 +181,8 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
     }
   };
 
-  const handleToggleActive = async (workflow) => {
+  const confirmToggleActive = async () => {
+    const workflow = workflowToggleTarget;
     if (!workflow) return;
     const nextActive = !workflow.active;
     try {
@@ -194,6 +197,8 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
       setWorkflows(prev =>
         prev.map(wf => (wf.id === workflow.id ? { ...wf, active: nextActive } : wf))
       );
+      setWorkflowToggleTarget(null);
+      showToast(nextActive ? 'Workflow activated successfully' : 'Workflow deactivated successfully');
     } catch (err) {
       console.error('Failed to toggle workflow:', err);
       showToast('Failed to toggle workflow', 'error');
@@ -247,7 +252,7 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
                 <Edit2 size={16} />
               </button>
               <button
-                onClick={() => handleToggleActive(workflow)}
+                onClick={() => setWorkflowToggleTarget(workflow)}
                 className="relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 style={{
                   backgroundColor: workflow.active ? '#2563eb' : '#e5e7eb',
@@ -280,6 +285,20 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
           workgroups={workgroups}
         />
       )}
+
+      <ConfirmationModal
+        isOpen={!!workflowToggleTarget}
+        onClose={() => setWorkflowToggleTarget(null)}
+        onConfirm={confirmToggleActive}
+        title={workflowToggleTarget?.active ? 'Deactivate Workflow' : 'Activate Workflow'}
+        message={
+          workflowToggleTarget
+            ? `Are you sure you want to ${workflowToggleTarget.active ? 'deactivate' : 'activate'} "${workflowToggleTarget.name}"?`
+            : ''
+        }
+        confirmLabel={workflowToggleTarget?.active ? 'Deactivate' : 'Activate'}
+        confirmVariant={workflowToggleTarget?.active ? 'danger' : 'primary'}
+      />
 
       <div className="mt-4">
         <button

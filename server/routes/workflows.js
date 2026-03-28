@@ -2,12 +2,40 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
+const authenticateToken = require("../middleware/authMiddleware");
+const { getProjectAccess } = require("../utils/projectAccess");
 
 // ----------------------------------------------------------------------
 // GET all active workflows with their steps
 // ----------------------------------------------------------------------
-router.get("/", async (req, res) => {
-  const query = `
+router.get("/", authenticateToken(), async (req, res) => {
+  const { project_id: projectId } = req.query;
+
+  try {
+    if (projectId) {
+      const projectAccess = await getProjectAccess(req.user, projectId, {
+        requireActiveForNonAdmin: true,
+      });
+
+      if (projectAccess.status !== 200) {
+        return res.status(projectAccess.status).json({ error: projectAccess.message });
+      }
+    }
+
+    const params = [];
+    let projectJoin = "";
+    let projectWhere = "";
+
+    if (projectId) {
+      params.push(projectId);
+      projectJoin = `
+        JOIN project_workflows pw
+          ON pw.workflow_id = w.id
+      `;
+      projectWhere = ` AND pw.project_id = $${params.length}`;
+    }
+
+    const query = `
     SELECT 
       w.id AS workflow_id,
       w.name,
@@ -22,14 +50,14 @@ router.get("/", async (req, res) => {
       ws.workgroup_id,
       wg.name AS workgroup_name
     FROM workflows w
+    ${projectJoin}
     LEFT JOIN workflow_steps ws ON w.id = ws.workflow_id
     LEFT JOIN workgroups wg ON ws.workgroup_id = wg.id
     WHERE w.active = true
+    ${projectWhere}
     ORDER BY w.id, ws.step_order
   `;
-
-  try {
-    const { rows } = await db.query(query);
+    const { rows } = await db.query(query, params);
 
     const workflowsMap = {};
     rows.forEach(row => {
@@ -68,7 +96,7 @@ router.get("/", async (req, res) => {
 // ----------------------------------------------------------------------
 // GET single workflow by ID with steps
 // ----------------------------------------------------------------------
-router.get("/:id", async (req, res) => {
+router.get("/:id", authenticateToken(), async (req, res) => {
   const { id } = req.params;
 
   const query = `

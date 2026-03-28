@@ -3,20 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "../Card";
 import Badge from "../Badge";
 import { SlidersHorizontal } from 'lucide-react';
 
-const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
+const createInitialFilters = () => ({
+  status: [],
+  priority: [],
+  workflow: [],
+  workGroup: [],
+  createdBy: [],
+  responsible: [],
+  module: [],
+  tags: [],
+  showOverdue: false
+});
+
+const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "", resetKey = "default" }) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
-  const [filters, setFilters] = useState({
-    status: [],
-    priority: [],
-    workflow: [],
-    workGroup: [],
-    createdBy: [],
-    responsible: [],
-    module: [],
-    tags: [],
-    showOverdue: false
-  });
+  const [filters, setFilters] = useState(createInitialFilters);
 
   const dropdownRefs = useRef({});
 
@@ -32,6 +34,11 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openDropdown]);
+
+  useEffect(() => {
+    setFilters(createInitialFilters());
+    setOpenDropdown(null);
+  }, [resetKey]);
 
   // Extract unique values from tickets for filter options
   const filterOptions = useMemo(() => {
@@ -130,17 +137,7 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "" }) => {
     });
   };
 
-  const clearFilters = () => setFilters({
-    status: [], 
-    priority: [], 
-    workflow: [],
-    workGroup: [], 
-    createdBy: [],
-    responsible: [], 
-    module: [], 
-    tags: [], 
-    showOverdue: false
-  });
+  const clearFilters = () => setFilters(createInitialFilters());
 
   const hasActiveFilters = Object.values(filters).some(f => Array.isArray(f) ? f.length > 0 : f);
   

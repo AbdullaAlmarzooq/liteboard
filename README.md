@@ -117,9 +117,11 @@ server/
 │   └── liteboard.db       # SQLite database file
 ├── middleware/
 │   ├── authMiddleware.js  # JWT verification + role enforcement
+│   ├── ensureProjectAccess.js  # Project-based ticket visibility enforcement
 │   └── ensureSameWorkgroup.js  # Workgroup-based access control
 └── routes/
     ├── auth.js            # Login endpoint
+    ├── projects.js        # Admin-only project management + assignments
     ├── tickets.js         # Ticket CRUD + workflow transitions
     ├── employees.js       # Employee management + password handling
     ├── workflows.js       # Read-only workflow queries
@@ -184,16 +186,22 @@ erDiagram
 | Route | Methods | Auth | Description |
 |-------|---------|------|-------------|
 | `/api/auth/login` | POST | None | User authentication, returns JWT |
+| `/api/projects/available` | GET | Token | List project options for ticket creation (`all` for Admin, accessible active projects for non-admin users) |
+| `/api/projects` | GET, POST | Token / Token + Admin | List readable projects for authenticated users; create a project for Admin |
+| `/api/projects/dashboard` | GET | Token | Project-level ticket counts for the Projects overview page |
+| `/api/projects/:id` | GET, PUT | Token + Admin | Fetch or update one project's metadata |
+| `/api/projects/:id/workgroups` | PUT | Token + Admin | Replace a project's workgroup assignments |
+| `/api/projects/:id/workflows` | PUT | Token + Admin | Replace a project's workflow assignments |
 | `/api/tickets` | GET, POST | Token + Role | List/create tickets |
-| `/api/tickets/:id` | GET, PUT, DELETE | Token + Role + Workgroup | Single ticket operations |
-| `/api/tickets/:id/transition` | POST | Token + Admin/Editor | Workflow state change |
+| `/api/tickets/:id` | GET, PUT, DELETE | Token + Project Access + Role/Workgroup | Single ticket operations |
+| `/api/tickets/:id/transition` | POST | Token + Admin/Editor + Project Access + Workgroup | Workflow state change |
 | `/api/tickets/:id/allowed-steps` | GET | Token | Get valid next steps |
 | `/api/employees` | GET, POST | Token | Employee list/create |
 | `/api/employees/:id` | GET, PUT | Token | Single employee operations |
-| `/api/workflows` | GET | None | List active workflows |
+| `/api/workflows` | GET | Token | List active workflows, with optional `project_id` filtering for project-scoped ticket creation |
 | `/api/workflow_management` | GET, POST, PATCH, DELETE | Token | Admin workflow CRUD |
 | `/api/modules` | GET, POST, PUT, DELETE | Token | Module management |
-| `/api/tags` | GET, POST, PUT, DELETE | Token | Tag management |
+| `/api/tags` | GET, POST, PUT, DELETE | Token | Tag management, with optional `project_id` filtering on reads |
 | `/api/comments` | GET, POST, PUT, DELETE | Token | Ticket comments |
 | `/api/attachments` | GET, POST, DELETE | Token | File attachments |
 | `/api/workgroups` | GET | None | Workgroup list |
@@ -235,7 +243,13 @@ erDiagram
    - Attaches decoded user to `req.user`
    - Optionally enforces role requirements
 
-2. **`ensureSameWorkgroup`**
+2. **`ensureProjectAccess`**
+   - Runs after authentication on ticket read/write routes that need ticket-level enforcement
+   - Admins (role_id=1) bypass check
+   - Resolves the ticket by `id` or `ticket_code`
+   - Confirms the ticket's `project_id` is assigned to the user's workgroup via `project_workgroups`
+
+3. **`ensureSameWorkgroup`**
    - Runs after authentication
    - Admins (role_id=1) bypass check
    - Compares employee's `workgroup_id` with the ticket's `workgroup_id`
@@ -247,14 +261,49 @@ erDiagram
 - A project can include multiple workgroups through `project_workgroups`.
 - A workflow can be reused across multiple projects through `project_workflows`.
 - Tickets and tags now carry nullable `project_id` columns, and the Step 2 backfill migration assigns existing records to `PRJ-001`.
-- Existing route and middleware behavior remains unchanged in this step; schema enforcement and query filtering come in later implementation steps.
+- Read filtering is now active across project-scoped queries, and ticket-level middleware enforcement is active on protected ticket routes.
+- Admin-only project management APIs now allow project creation, project updates, and explicit assignment of workgroups/workflows without changing existing ticket or workflow execution logic.
+
+### Project-Based Ticket Creation
+
+- Ticket creation is now project-first: users must choose a project before workflow or tag inputs are shown.
+- The create-ticket page loads workflows from `GET /api/workflows?project_id=...` and tags from `GET /api/tags?project_id=...` only after a project is selected.
+- Admins can choose from all projects, including inactive ones; non-admin users only receive active projects that are assigned to their workgroup.
+- The backend enforces all create rules even if the request is crafted manually:
+  - `project_id` is required
+  - the project must exist
+  - non-admin users cannot create in inactive or inaccessible projects
+  - the selected workflow must be assigned to the selected project
+  - all selected tags must belong to the selected project
+- Existing workflow-step logic remains in place, and the create route still uses workflow step data to set the ticket's initial workflow state.
+
+### Project Visibility Filters & Overview
+
+- The Dashboard and Tickets pages now include a project selector that defaults to all readable projects combined.
+- Admin users can filter across all projects; non-admin users only receive active projects assigned to their workgroup.
+- Changing the selected project resets page-level filters so workgroup/module/workflow/status options stay aligned with the current project scope.
+- The new `/projects` page presents project cards with ticket counts for Open (`10`), In Progress (`20`), Closed (`30`), and Cancelled (`40`) categories.
+- Clicking a project card opens the Tickets page with that project preselected through `?project_id=...`.
+- When a user has no readable projects, the Dashboard, Tickets, and Projects pages show a clear guidance message instead of empty controls.
+
+### Admin Project Management
+
+- Admin users manage projects from the Admin Panel `Projects` tab.
+- The UI supports creating projects, editing project metadata, activating/deactivating projects, and assigning workgroups/workflows.
+- Workgroup assignments control which non-admin users can see tickets in a project.
+- Workflow assignments control which workflows can be used when creating tickets in that project.
+- The admin UI relies on the backend project APIs for validation and persistence; it does not bypass project-access or assignment rules.
 
 ### Access Control
 
 - Admins bypass project-based read filtering and retain unrestricted visibility across tickets, tags, dashboard data, and profile queries.
 - Non-admin read endpoints now filter project-scoped records by joining the authenticated user's workgroup assignment to `project_workgroups`.
 - This read filtering applies to ticket lists, single-ticket reads, dashboard ticket data, profile ticket/activity/stat queries, tags, and ticket-adjacent read endpoints that expose project-scoped ticket data.
-- Write authorization is intentionally unchanged here: workflow behavior and `ensureSameWorkgroup` still govern ticket modifications and transitions.
+- Ticket-level middleware enforcement now also protects `GET /tickets/:id`, `PUT /tickets/:id`, `DELETE /tickets/:id`, and `POST /tickets/:id/transition` through `ensureProjectAccess`.
+- Workflow behavior remains unchanged, and `ensureSameWorkgroup` is still used exactly as before for modification rules.
+- Project management endpoints are restricted to Admin users (`role_id = 1`) and do not change ticket workflow enforcement rules.
+- Ticket creation is project-scoped on both the frontend and backend, so workflows and tags cannot be mixed across projects.
+- The Admin Panel itself remains protected by the existing admin-only route guard, so non-admin users cannot access project management UI.
 
 ---
 
@@ -287,6 +336,7 @@ client/src/
 ├── pages/
 │   ├── LoginPage.jsx      # Authentication page
 │   ├── Dashboard.js       # Analytics dashboard
+│   ├── ProjectsPage.js    # Project-level overview cards
 │   ├── TicketsPage.js     # Ticket list with filters
 │   ├── CreateTicketPage.js # Ticket creation form
 │   ├── ProfileActivity.jsx # User profile
@@ -364,7 +414,7 @@ const { theme, toggleTheme } = useTheme();
 **Key Operations:**
 1. Loads environment variables via `dotenv`
 2. Initializes Express with CORS and JSON parsing
-3. Registers 17 route modules under `/api/*` prefix
+3. Registers API route modules under `/api/*` prefixes
 4. Starts HTTP server on port 8000
 
 ```javascript
@@ -397,6 +447,28 @@ app.listen(8000, () => console.log("Server running"));
 
 ---
 
+#### `server/routes/projects.js` - Project Access + Admin Management
+
+**Purpose**: Readable project lists for authenticated users plus admin CRUD and assignment APIs
+
+**Endpoints:**
+- `GET /api/projects`: list readable projects (`all` for Admin, active accessible projects for non-admin users)
+- `GET /api/projects/dashboard`: list readable projects with aggregated ticket counts by workflow category
+- `GET /api/projects/:id`: fetch one project with assignment details
+- `POST /api/projects`: create a project, optionally with initial `workgroupCodes` and `workflowIds`
+- `PUT /api/projects/:id`: update project metadata (`name`, `description`, `active`)
+- `PUT /api/projects/:id/workgroups`: replace the project's workgroup assignments
+- `PUT /api/projects/:id/workflows`: replace the project's workflow assignments
+
+**Rules:**
+- `GET /api/projects` and `GET /api/projects/dashboard` require authentication and apply project visibility rules for non-admin users.
+- Admin-only endpoints require `authenticateToken([1])`, so only Admin users can manage projects.
+- Project/workgroup/workflow assignments are validated before insert/update.
+- Assignment updates are transactional, replacing the current mapping set in one operation.
+- Existing ticket visibility and workflow-step write logic remain unchanged.
+
+---
+
 #### `server/middleware/ensureSameWorkgroup.js` - Workgroup Authorization
 
 **Purpose**: Current non-admin workgroup authorization guard for ticket writes
@@ -407,7 +479,20 @@ app.listen(8000, () => console.log("Server running"));
 3. Query ticket's `workgroup_id`
 4. Compare values; return 403 on mismatch
 
-Project-based visibility is being introduced separately through the new project tables; this middleware remains unchanged in Step 1.
+This middleware remains unchanged and continues to enforce workflow-step/workgroup-based write rules alongside project access checks.
+
+---
+
+#### `server/middleware/ensureProjectAccess.js` - Project Authorization
+
+**Purpose**: Enforce ticket-level project visibility on protected ticket routes
+
+**Logic Flow:**
+1. Skip check for Admins (role_id = 1)
+2. Resolve the authenticated user's workgroup code
+3. Resolve the ticket by `id` or `ticket_code`
+4. Verify that the ticket's `project_id` is mapped to the user's workgroup in `project_workgroups`
+5. Return 403 if the ticket belongs to a project outside the user's assigned project scope
 
 ---
 
