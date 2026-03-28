@@ -42,11 +42,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Server now enforces terminal ticket locking by workflow category (`30/40`) across write endpoints (tickets/comments/attachments/tags/status history), including direct URL/API calls.
 - Edit Ticket route now auto-redirects terminal tickets to View Ticket with a clear toast message.
 - Tickets page and View Ticket page now hide edit actions for terminal tickets to match backend locking behavior.
+- Delete ticket actions are now hidden on terminal tickets (category `30/40`) to match the same lock rule as edit.
+- Delete confirmation modal now shows `ticket_code` instead of UUID.
+- Ticket lifecycle now maintains `tickets.completed_at` from workflow category state (`30=closed` sets timestamp, non-closed clears it) in create/update/transition flows.
 
 ### Fixed
 - Edit Ticket preview message under workflow diagram now uses correct workflow step names (`current_step_name`) for from/to text.
 - Dashboard `Tickets by Priority` now includes `Critical` priority in counts.
 - Edit Ticket comment actions now surface backend error messages (e.g., terminal-state lock reason) instead of generic failure text.
+- Added schema trigger function (`sync_ticket_completed_at`) so `completed_at` stays consistent whenever `workflow_id/step_code` changes.
 
 ## [2026-02-13]
 
