@@ -2,7 +2,9 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
+const authenticateToken = require("../middleware/authMiddleware");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
+const { resolveReadableTicketId } = require("../utils/projectAccess");
 
 const resolveTicketId = async (ticketId) => {
   const { rows } = await db.query(
@@ -26,7 +28,7 @@ const resolveTicketIdByCommentId = async (commentId) => {
 };
 
 // GET comments for a ticket
-router.get("/", async (req, res) => {
+router.get("/", authenticateToken(), async (req, res) => {
   const { ticketId } = req.query;
   
   if (!ticketId) {
@@ -34,7 +36,7 @@ router.get("/", async (req, res) => {
   }
   
   try {
-    const resolvedTicketId = await resolveTicketId(ticketId);
+    const resolvedTicketId = await resolveReadableTicketId(req.user, ticketId);
     if (!resolvedTicketId) {
       return res.status(404).json({ error: "Ticket not found" });
     }

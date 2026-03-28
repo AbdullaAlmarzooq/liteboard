@@ -7,6 +7,7 @@ const sanitizeHtml = require("sanitize-html");
 const authenticateToken = require("../middleware/authMiddleware"); 
 const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
+const { buildProjectAccessFilter } = require("../utils/projectAccess");
 
 const CLOSED_CATEGORY_CODE = 30;
 
@@ -232,6 +233,9 @@ router.post(
 // ✅ Fixed: Using authenticateToken()
 router.get("/", authenticateToken(), async (req, res) => {
   try {
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id");
+
     const ticketsQuery = `
       SELECT 
         t.id, t.ticket_code, t.title, t.description, COALESCE(ws.step_name, t.step_code) AS status, t.step_code, t.priority, 
@@ -257,18 +261,20 @@ router.get("/", authenticateToken(), async (req, res) => {
       LEFT JOIN modules m ON t.module_id = m.id
       LEFT JOIN employees e ON t.responsible_employee_id = e.id
       LEFT JOIN employees creator ON t.created_by = creator.id
-      WHERE t.deleted_at IS NULL
+      WHERE t.deleted_at IS NULL${projectAccessClause}
       ORDER BY t.updated_at DESC NULLS LAST, t.created_at DESC NULLS LAST
     `;
-    const { rows: tickets } = await db.query(ticketsQuery);
+    const { rows: tickets } = await db.query(ticketsQuery, projectAccessParams);
 
     const tagsQuery = `
       SELECT tt.ticket_id, tg.id as tag_id, tg.label as tag_name, tg.color as tag_color 
       FROM ticket_tags tt 
-      JOIN tags tg ON tt.tag_id = tg.id 
+      JOIN tags tg ON tt.tag_id = tg.id
+      JOIN tickets t ON tt.ticket_id = t.id
+      WHERE t.deleted_at IS NULL${projectAccessClause}
       ORDER BY tt.ticket_id, tg.label
     `;
-    const { rows: allTags } = await db.query(tagsQuery);
+    const { rows: allTags } = await db.query(tagsQuery, projectAccessParams);
 
     const tagsByTicket = {};
     allTags.forEach(tag => {
@@ -309,6 +315,9 @@ router.get("/:id", authenticateToken(), async (req, res) => {
   const includeBlobs = req.query.include_blobs !== "false";
 
   try {
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id", [id]);
+
     const ticketQuery = `
       SELECT 
         t.id, t.ticket_code, t.title, t.description, COALESCE(ws.step_name, t.step_code) AS status, t.priority, 
@@ -337,9 +346,9 @@ router.get("/:id", authenticateToken(), async (req, res) => {
       LEFT JOIN employees e ON t.responsible_employee_id = e.id
       LEFT JOIN employees creator ON t.created_by = creator.id
 
-      WHERE (t.id::text = $1 OR t.ticket_code = $1) AND t.deleted_at IS NULL
+      WHERE (t.id::text = $1 OR t.ticket_code = $1) AND t.deleted_at IS NULL${projectAccessClause}
     `;
-    const { rows } = await db.query(ticketQuery, [id]);
+    const { rows } = await db.query(ticketQuery, projectAccessParams);
     const ticket = rows[0];
 
     if (!ticket) {

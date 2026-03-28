@@ -30,7 +30,8 @@
 
 - **Customizable Workflows**: Define multi-step approval processes with configurable state transitions
 - **Role-Based Access Control (RBAC)**: Three-tier permission system (Admin, Editor, Viewer)
-- **Workgroup Isolation**: Users can only access tickets within their assigned workgroup
+- **Project-Based Visibility**: Tickets are organized into projects that scope visibility for non-admin users
+- **Workgroup-Governed Actions**: Workflow-step workgroups continue to control who can edit and transition tickets
 - **Real-Time Analytics**: Interactive dashboards with charts for ticket prioritization and status tracking
 - **Dark/Light Theme Support**: System-wide theming with persistence
 
@@ -39,6 +40,7 @@
 | Feature | Description |
 |---------|-------------|
 | **Ticket Management** | Full CRUD operations with tags, attachments, comments, and audit trail |
+| **Projects** | Project containers control ticket visibility, workflow reuse, and project-scoped tag organization |
 | **Workflow Engine** | State machine implementation with valid transition enforcement |
 | **Dashboard Analytics** | 6 chart types (pie, bar, line, stacked) powered by Recharts |
 | **Employee Management** | User provisioning with workgroup assignment and password hashing |
@@ -49,9 +51,21 @@
 
 | Role ID | Role Name | Permissions |
 |---------|-----------|-------------|
-| 1 | Admin | Full access: CRUD all entities, manage workflows, access admin panel |
-| 2 | Editor | Create/Edit tickets within their workgroup |
-| 3 | Viewer | Read-only access to tickets within their workgroup |
+| 1 | Admin | Full access: bypasses project visibility and workflow-step workgroup restrictions |
+| 2 | Editor | Can see tickets in assigned projects and edit only when their workgroup owns the current workflow step |
+| 3 | Viewer | Read-only access to tickets in assigned projects |
+
+### Projects
+
+Projects extend the existing workgroup model rather than replacing it:
+
+- Every ticket belongs to exactly one project at the product level.
+- Admins retain full access and bypass both project visibility checks and workflow-step workgroup restrictions.
+- Non-admin visibility is controlled by project membership via project-to-workgroup assignments.
+- Non-admin modification remains controlled by the existing workflow-step workgroup logic.
+- Tags are scoped per project, and workflows can be shared across multiple projects.
+- Step 1 adds the schema foundation: `projects`, `project_workgroups`, `project_workflows`, plus nullable `project_id` columns on `tickets` and `tags`.
+- Step 2 seeds `PRJ-001` (`Default Project`), assigns all existing workgroups to it, and backfills existing tickets and tags while still leaving `project_id` nullable at the schema level for now.
 
 ---
 
@@ -126,16 +140,21 @@ server/
         └── myPassword.js  # Password change
 ```
 
-### Database Schema (13 Tables)
+### Database Schema (18 Tables)
 
 ```mermaid
 erDiagram
+    PROJECTS ||--o{ PROJECT_WORKGROUPS : grants_visibility_to
+    WORKGROUPS ||--o{ PROJECT_WORKGROUPS : assigned_to
+    PROJECTS ||--o{ PROJECT_WORKFLOWS : allows
+    WORKFLOWS ||--o{ PROJECT_WORKFLOWS : available_in
+    PROJECTS ||--o{ TICKETS : contains
+    PROJECTS ||--o{ TAGS : scopes
     WORKFLOWS ||--o{ WORKFLOW_STEPS : contains
     WORKFLOWS ||--o{ WORKFLOW_TRANSITIONS : defines
     WORKGROUPS ||--o{ EMPLOYEES : belongs_to
     WORKGROUPS ||--o{ WORKFLOW_STEPS : assigned_to
     EMPLOYEES ||--o{ TICKETS : responsible_for
-    EMPLOYEES ||--o{ EMPLOYEE_SKILLS : has
     MODULES ||--o{ TICKETS : categorizes
     TICKETS ||--o{ TICKET_TAGS : tagged_with
     TICKETS ||--o{ COMMENTS : has
@@ -149,8 +168,11 @@ erDiagram
 
 | Table | Purpose | Key Columns |
 |-------|---------|-------------|
-| `employees` | User accounts | `id`, `email`, `password_hash`, `role_id`, `workgroup_code` |
-| `tickets` | Main ticket entity | `id`, `title`, `status`, `priority`, `workflow_id`, `step_code`, `workgroup_id` |
+| `projects` | Ticket visibility and organization container | `id`, `name`, `active`, `created_by` |
+| `project_workgroups` | Non-admin project visibility mapping | `project_id`, `workgroup_code`, `created_by` |
+| `project_workflows` | Workflow availability per project | `project_id`, `workflow_id`, `created_by` |
+| `employees` | User accounts | `id`, `email`, `password_hash`, `role_id`, `workgroup_id` |
+| `tickets` | Main ticket entity | `id`, `title`, `priority`, `workflow_id`, `step_code`, `workgroup_id`, `project_id` |
 | `workflows` | Workflow definitions | `id`, `name`, `active` |
 | `workflow_steps` | Steps in workflow | `step_code`, `step_name`, `step_order`, `category_code` |
 | `workflow_transitions` | Valid state transitions | `from_step_code`, `to_step_code`, `cancel_allowed` |
@@ -216,8 +238,23 @@ erDiagram
 2. **`ensureSameWorkgroup`**
    - Runs after authentication
    - Admins (role_id=1) bypass check
-   - Compares employee's `workgroup_code` with ticket's `workgroup_id`
-   - Blocks cross-workgroup access for non-admins
+   - Compares employee's `workgroup_id` with the ticket's `workgroup_id`
+   - Continues to block unauthorized non-admin ticket modifications
+
+### Projects Architecture
+
+- Projects add a visibility layer on top of roles and workflow-step workgroups.
+- A project can include multiple workgroups through `project_workgroups`.
+- A workflow can be reused across multiple projects through `project_workflows`.
+- Tickets and tags now carry nullable `project_id` columns, and the Step 2 backfill migration assigns existing records to `PRJ-001`.
+- Existing route and middleware behavior remains unchanged in this step; schema enforcement and query filtering come in later implementation steps.
+
+### Access Control
+
+- Admins bypass project-based read filtering and retain unrestricted visibility across tickets, tags, dashboard data, and profile queries.
+- Non-admin read endpoints now filter project-scoped records by joining the authenticated user's workgroup assignment to `project_workgroups`.
+- This read filtering applies to ticket lists, single-ticket reads, dashboard ticket data, profile ticket/activity/stat queries, tags, and ticket-adjacent read endpoints that expose project-scoped ticket data.
+- Write authorization is intentionally unchanged here: workflow behavior and `ensureSameWorkgroup` still govern ticket modifications and transitions.
 
 ---
 
@@ -362,13 +399,15 @@ app.listen(8000, () => console.log("Server running"));
 
 #### `server/middleware/ensureSameWorkgroup.js` - Workgroup Authorization
 
-**Purpose**: Prevent users from accessing tickets outside their workgroup
+**Purpose**: Current non-admin workgroup authorization guard for ticket writes
 
 **Logic Flow:**
 1. Skip check for Admins (role_id = 1)
-2. Query employee's `workgroup_code`
+2. Query employee's `workgroup_id`
 3. Query ticket's `workgroup_id`
 4. Compare values; return 403 on mismatch
+
+Project-based visibility is being introduced separately through the new project tables; this middleware remains unchanged in Step 1.
 
 ---
 
@@ -589,6 +628,18 @@ cd server/db
 sqlite3 liteboard.db < schema.sql
 ```
 
+### Existing Neon Project Migration
+
+For existing PostgreSQL/Neon databases, run [2026-03-28_backfill_default_project.sql](/Users/abdullaalmarzooq/liteboard/server/db/migrations/2026-03-28_backfill_default_project.sql) after the Step 1 schema foundation has been applied.
+
+The migration:
+
+- Inserts `PRJ-001` as the `Default Project`
+- Assigns every current workgroup to that project
+- Backfills every existing ticket and tag to `project_id = 'PRJ-001'`
+- Raises an exception if any ticket or tag still has `NULL project_id`
+- Does not add `NOT NULL` constraints yet
+
 ### Running the Application
 
 **Terminal 1 - Backend:**
@@ -619,7 +670,7 @@ Since there's no registration endpoint, ensure at least one admin user exists in
 |------|----------------|--------|
 | **Password Storage** | bcrypt with salt rounds = 10 | ✅ Good |
 | **Authentication** | JWT with configurable expiration | ✅ Good |
-| **Authorization** | Role + Workgroup middleware | ✅ Good |
+| **Authorization** | Role + project read filtering + workgroup write guard | ✅ Good |
 | **SQL Injection** | Parameterized queries via better-sqlite3 | ✅ Good |
 | **CORS** | Enabled but unrestricted | ⚠️ Needs configuration |
 | **Rate Limiting** | Not implemented | ❌ Missing |

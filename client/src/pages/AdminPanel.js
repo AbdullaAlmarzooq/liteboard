@@ -9,6 +9,7 @@ import CreateModal from '../components/AdminPanel/CreateModal';
 import CreateWorkflowModal from '../components/AdminPanel/CreateWorkflowModal';
 import ConfirmationModal from '../components/AdminPanel/ConfirmationModal';
 import AlertModal from '../components/AdminPanel/AlertModal';
+import fetchWithAuth from '../utils/fetchWithAuth';
 
 const AdminPanel = () => {
   const [activeTab, setActiveTab] = useState('employees');
@@ -40,7 +41,7 @@ const AdminPanel = () => {
     try {
       const [empRes, tagsRes, wgRes, modRes, wfRes, rolesRes] = await Promise.all([
         fetch('http://localhost:8000/api/employees'),
-        fetch('http://localhost:8000/api/tags'),
+        fetchWithAuth('http://localhost:8000/api/tags'),
         fetch('http://localhost:8000/api/workgroups'),
         fetch('http://localhost:8000/api/modules'),
         fetch('http://localhost:8000/api/workflow_management'),

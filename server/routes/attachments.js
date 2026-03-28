@@ -3,7 +3,9 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 const crypto = require("crypto");
+const authenticateToken = require("../middleware/authMiddleware");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
+const { buildProjectAccessFilter, resolveReadableTicketId } = require("../utils/projectAccess");
 
 const resolveTicketId = async (ticketId) => {
   const { rows } = await db.query(
@@ -29,16 +31,22 @@ const resolveTicketIdByAttachmentId = async (attachmentId) => {
 // ----------------------------------------------------------------------
 // GET all attachments for a ticket
 // ----------------------------------------------------------------------
-router.get("/:id/blob", async (req, res) => {
+router.get("/:id/blob", authenticateToken(), async (req, res) => {
   const { id } = req.params;
   try {
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id", [id]);
+
     const { rows } = await db.query(
       `
-        SELECT attachment_id, base64_data
-        FROM attachment_blobs
-        WHERE attachment_id = $1
+        SELECT ab.attachment_id, ab.base64_data
+        FROM attachment_blobs ab
+        JOIN attachments a ON a.id = ab.attachment_id
+        JOIN tickets t ON t.id = a.ticket_id
+        WHERE ab.attachment_id = $1
+          AND t.deleted_at IS NULL${projectAccessClause}
       `,
-      [id]
+      projectAccessParams
     );
     if (!rows[0]) {
       return res.status(404).json({ error: "Attachment blob not found" });
@@ -53,10 +61,10 @@ router.get("/:id/blob", async (req, res) => {
 // ----------------------------------------------------------------------
 // GET all attachments metadata for a ticket
 // ----------------------------------------------------------------------
-router.get("/:ticketId", async (req, res) => {
+router.get("/:ticketId", authenticateToken(), async (req, res) => {
   const { ticketId } = req.params;
   try {
-    const resolvedTicketId = await resolveTicketId(ticketId);
+    const resolvedTicketId = await resolveReadableTicketId(req.user, ticketId);
     if (!resolvedTicketId) {
       return res.status(404).json({ error: "Ticket not found" });
     }

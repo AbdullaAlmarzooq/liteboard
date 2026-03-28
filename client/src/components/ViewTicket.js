@@ -4,6 +4,7 @@ import Badge from "./Badge"
 import Button from "./Button"
 import useFetch from "../useFetch"
 import { useAuth } from "./hooks/useAuth"
+import fetchWithAuth from "../utils/fetchWithAuth"
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
 import ReactFlow, { Background } from 'reactflow'
@@ -242,7 +243,7 @@ const ticket = useMemo(() => {
 
   const fetchAttachmentBlob = async (attachmentId) => {
     if (attachmentBlobs[attachmentId]) return attachmentBlobs[attachmentId];
-    const res = await fetch(`http://localhost:8000/api/attachments/${attachmentId}/blob`);
+    const res = await fetchWithAuth(`http://localhost:8000/api/attachments/${attachmentId}/blob`);
     if (!res.ok) throw new Error("Failed to fetch attachment blob");
     const data = await res.json();
     const base64 = data.base64_data;

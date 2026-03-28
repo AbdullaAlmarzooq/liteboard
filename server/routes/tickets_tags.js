@@ -1,7 +1,9 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
+const authenticateToken = require("../middleware/authMiddleware");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
+const { resolveReadableTicketId } = require("../utils/projectAccess");
 
 const resolveTicketId = async (ticketId) => {
   const { rows } = await db.query(
@@ -15,11 +17,11 @@ const resolveTicketId = async (ticketId) => {
 // GET all tags for a specific ticket
 // Route: /api/ticket_tags/:ticketId
 // ----------------------------------------------------------------------
-router.get("/:ticketId", async (req, res) => {
+router.get("/:ticketId", authenticateToken(), async (req, res) => {
   const { ticketId } = req.params;
 
   try {
-    const resolvedTicketId = await resolveTicketId(ticketId);
+    const resolvedTicketId = await resolveReadableTicketId(req.user, ticketId);
     if (!resolvedTicketId) {
       return res.status(404).json({ error: "Ticket not found" });
     }

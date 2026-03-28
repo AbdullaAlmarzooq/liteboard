@@ -3,21 +3,19 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
+const authenticateToken = require("../middleware/authMiddleware");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
+const { resolveReadableTicketId } = require("../utils/projectAccess");
 
 // --- GET history for a ticket (Previously fixed) ---
-router.get("/", async (req, res) => {
+router.get("/", authenticateToken(), async (req, res) => {
   const { ticketId } = req.query;
   if (!ticketId) {
     return res.status(400).json({ error: "ticketId query parameter is required" });
   }
 
   try {
-    const ticketResult = await db.query(
-      "SELECT id FROM tickets WHERE (id::text = $1 OR ticket_code = $1) AND deleted_at IS NULL",
-      [ticketId]
-    );
-    const resolvedTicketId = ticketResult.rows[0]?.id;
+    const resolvedTicketId = await resolveReadableTicketId(req.user, ticketId);
     if (!resolvedTicketId) {
       return res.status(404).json({ error: "Ticket not found" });
     }

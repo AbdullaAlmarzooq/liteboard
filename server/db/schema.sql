@@ -96,6 +96,21 @@ CREATE TABLE workflows (
 );
 
 -- =====================================================================
+-- 5. PROJECTS TABLE
+-- =====================================================================
+-- Visibility and organization containers for tickets
+CREATE TABLE projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_by TEXT NOT NULL,
+    updated_by TEXT,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- =====================================================================
 -- 6. WORKFLOW STEPS TABLE
 -- =====================================================================
 -- Individual steps within a workflow
@@ -161,7 +176,43 @@ CREATE TABLE workflow_transitions (
 );
 
 -- =====================================================================
--- 8. MODULES TABLE
+-- 8. PROJECT WORKGROUPS TABLE
+-- =====================================================================
+-- Workgroup visibility assignments for projects
+CREATE TABLE project_workgroups (
+    id SERIAL PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    workgroup_code TEXT NOT NULL,  -- References workgroups.ticket_code in the current schema
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_project_workgroups_project FOREIGN KEY (project_id)
+        REFERENCES projects(id),
+    CONSTRAINT fk_project_workgroups_workgroup FOREIGN KEY (workgroup_code)
+        REFERENCES workgroups(ticket_code),
+    CONSTRAINT uq_project_workgroups UNIQUE (project_id, workgroup_code)
+);
+
+-- =====================================================================
+-- 9. PROJECT WORKFLOWS TABLE
+-- =====================================================================
+-- Workflow assignments allowed within a project
+CREATE TABLE project_workflows (
+    id SERIAL PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    workflow_id UUID NOT NULL,  -- workflows.id is UUID in the current schema
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_project_workflows_project FOREIGN KEY (project_id)
+        REFERENCES projects(id),
+    CONSTRAINT fk_project_workflows_workflow FOREIGN KEY (workflow_id)
+        REFERENCES workflows(id),
+    CONSTRAINT uq_project_workflows UNIQUE (project_id, workflow_id)
+);
+
+-- =====================================================================
+-- 10. MODULES TABLE
 -- =====================================================================
 -- Organizational modules for categorizing tickets
 CREATE TABLE modules (
@@ -177,13 +228,14 @@ CREATE TABLE modules (
 );
 
 -- =====================================================================
--- 9. TAGS TABLE
+-- 11. TAGS TABLE
 -- =====================================================================
 -- Reusable labels for tickets
 CREATE TABLE tags (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     label TEXT NOT NULL,
     color TEXT,  -- Hex color code for UI display
+    project_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
@@ -193,7 +245,7 @@ CREATE TABLE tags (
 );
 
 -- =====================================================================
--- 10. TICKETS TABLE
+-- 12. TICKETS TABLE
 -- =====================================================================
 -- Main ticket entity with workflow tracking
 CREATE TABLE tickets (
@@ -215,6 +267,7 @@ CREATE TABLE tickets (
     
     -- Module categorization
     module_id UUID,
+    project_id TEXT,
     
     -- Date tracking
     start_date DATE,
@@ -250,7 +303,7 @@ CREATE TABLE tickets (
 );
 
 -- =====================================================================
--- 11. TICKET TAGS TABLE
+-- 13. TICKET TAGS TABLE
 -- =====================================================================
 -- Many-to-many relationship between tickets and tags
 CREATE TABLE ticket_tags (
@@ -269,7 +322,7 @@ CREATE TABLE ticket_tags (
 );
 
 -- =====================================================================
--- 12. COMMENTS TABLE
+-- 14. COMMENTS TABLE
 -- =====================================================================
 -- Ticket discussion thread
 CREATE TABLE comments (
@@ -293,7 +346,7 @@ CREATE TABLE comments (
 );
 
 -- =====================================================================
--- 13. ATTACHMENTS TABLE
+-- 15. ATTACHMENTS TABLE
 -- =====================================================================
 -- File attachment metadata (actual files stored in Cloudflare R2/S3)
 -- NOTE: Does NOT store file_data BLOB; uses object storage instead
@@ -318,7 +371,7 @@ CREATE TABLE attachments (
 );
 
 -- =====================================================================
--- 14. ATTACHMENT BLOBS TABLE
+-- 16. ATTACHMENT BLOBS TABLE
 -- =====================================================================
 -- Base64 payloads stored separately to keep metadata queries fast
 CREATE TABLE attachment_blobs (
@@ -332,7 +385,7 @@ CREATE TABLE attachment_blobs (
 );
 
 -- =====================================================================
--- 15. STATUS HISTORY TABLE
+-- 17. STATUS HISTORY TABLE
 -- =====================================================================
 -- Comprehensive audit trail for all ticket changes
 CREATE TABLE status_history (
@@ -359,7 +412,7 @@ CREATE TABLE status_history (
 );
 
 -- =====================================================================
--- 16. SYSTEM SETTINGS TABLE
+-- 18. SYSTEM SETTINGS TABLE
 -- =====================================================================
 -- Application-level configuration key-value store
 CREATE TABLE system_settings (
@@ -468,6 +521,9 @@ CREATE TRIGGER update_employees_updated_at BEFORE UPDATE ON employees
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_workflows_updated_at BEFORE UPDATE ON workflows
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_projects_updated_at BEFORE UPDATE ON projects
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_workflow_steps_updated_at BEFORE UPDATE ON workflow_steps
@@ -662,8 +718,11 @@ COMMENT ON TABLE roles IS 'User permission levels (Admin, Editor, Viewer)';
 COMMENT ON TABLE workgroups IS 'Organizational units for ticket isolation';
 COMMENT ON TABLE employees IS 'User accounts with authentication and workgroup assignment';
 COMMENT ON TABLE workflows IS 'Multi-step approval processes';
+COMMENT ON TABLE projects IS 'Visibility and organization containers for tickets';
 COMMENT ON TABLE workflow_steps IS 'Individual steps within workflows';
 COMMENT ON TABLE workflow_transitions IS 'Valid state transitions between workflow steps';
+COMMENT ON TABLE project_workgroups IS 'Workgroup visibility assignments for projects';
+COMMENT ON TABLE project_workflows IS 'Workflow assignments allowed within a project';
 COMMENT ON TABLE modules IS 'Organizational modules for categorizing tickets';
 COMMENT ON TABLE tags IS 'Reusable labels for tickets';
 COMMENT ON TABLE tickets IS 'Main ticket entity with workflow tracking';
@@ -677,8 +736,12 @@ COMMENT ON TABLE system_settings IS 'Application-level configuration';
 COMMENT ON COLUMN attachments.storage_key IS 'Object storage path (e.g., tickets/{ticket_id}/{filename})';
 COMMENT ON COLUMN attachments.storage_bucket IS 'S3/R2 bucket name';
 COMMENT ON COLUMN workflow_steps.category_code IS '10=open, 20=in progress, 30=closed, 40=cancelled terminal state';
+COMMENT ON COLUMN project_workgroups.workgroup_code IS 'Workgroup text identifier mapped to workgroups.ticket_code in the current schema';
+COMMENT ON COLUMN project_workflows.workflow_id IS 'Workflow UUID reference matching workflows.id in the current schema';
 COMMENT ON COLUMN tickets.step_code IS 'Current position in workflow (FK to workflow_steps)';
 COMMENT ON COLUMN tickets.ticket_code IS 'Human-friendly ticket identifier (e.g., TCK-1012)';
+COMMENT ON COLUMN tags.project_id IS 'Nullable project scope for tags during the staged projects rollout';
+COMMENT ON COLUMN tickets.project_id IS 'Nullable project reference during the staged projects rollout';
 COMMENT ON COLUMN employees.password_hash IS 'bcrypt hash with cost factor 10';
 
 -- =====================================================================
@@ -695,4 +758,5 @@ COMMENT ON COLUMN employees.password_hash IS 'bcrypt hash with cost factor 10';
 -- 8. Automatic audit logging via triggers for ticket changes
 -- 9. Full-text search indexes using pg_trgm extension
 -- 10. Views provided for common query patterns
+-- 11. Projects foundation adds visibility containers and project mapping tables
 -- =====================================================================

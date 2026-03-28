@@ -2,12 +2,16 @@ const express = require("express");
 const router = express.Router();
 const db = require("../../db/db");
 const authenticateToken = require("../../middleware/authMiddleware");
+const { buildProjectAccessFilter } = require("../../utils/projectAccess");
 
 // 🔹 GET /api/profile/activity
 router.get("/activity", authenticateToken(), async (req, res) => {
   const userId = req.user.id; // e.g., "EMP-005"
 
   try {
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id", [userId]);
+
     const sql = `
       SELECT 
         sh.id,
@@ -24,12 +28,12 @@ router.get("/activity", authenticateToken(), async (req, res) => {
       FROM status_history sh
       LEFT JOIN tickets t ON sh.ticket_id = t.id
       LEFT JOIN employees e ON sh.changed_by = e.id
-      WHERE sh.changed_by = $1
+      WHERE sh.changed_by = $1${projectAccessClause}
       ORDER BY sh.created_at DESC
       LIMIT 50
     `;
 
-    const { rows } = await db.query(sql, [userId]);
+    const { rows } = await db.query(sql, projectAccessParams);
     res.json(rows);
   } catch (err) {
     console.error("Error fetching user activity:", err);

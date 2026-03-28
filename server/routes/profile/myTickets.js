@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../../db/db");
 const authenticateToken = require("../../middleware/authMiddleware");
+const { buildProjectAccessFilter } = require("../../utils/projectAccess");
 
 // 🔹 GET /api/profile/my-tickets
 router.get("/my-tickets", authenticateToken(), async (req, res) => {
@@ -20,6 +21,8 @@ router.get("/my-tickets", authenticateToken(), async (req, res) => {
     }
 
     const workgroupId = employee.workgroup_id;
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id", [workgroupId]);
 
     // Fetch tickets in the same workgroup that are not closed nor cancelled
     
@@ -55,12 +58,12 @@ router.get("/my-tickets", authenticateToken(), async (req, res) => {
     WHERE 
         t.workgroup_id = $1
         AND t.deleted_at IS NULL
-        AND ws.category_code NOT IN (90)
+        AND ws.category_code NOT IN (90)${projectAccessClause}
     ORDER BY t.updated_at DESC
     LIMIT 20
   `;
 
-    const { rows: tickets } = await db.query(query, [workgroupId]);
+    const { rows: tickets } = await db.query(query, projectAccessParams);
     res.json(tickets);
   } catch (err) {
     console.error("Error fetching my workgroup tickets:", err);

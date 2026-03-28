@@ -3,15 +3,24 @@ const express = require("express");
 const router = express.Router();
 const authenticateToken = require("../../middleware/authMiddleware");
 const db = require("../../db/db");
+const { buildProjectAccessFilter } = require("../../utils/projectAccess");
 
 // 🔹 GET /api/profile/stats
 router.get("/stats", authenticateToken(), async (req, res) => {
   const userId = req.user.id; // e.g., "EMP-007"
 
   try {
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id", [userId]);
+
     const raisedByMeResult = await db.query(
-      "SELECT COUNT(*) AS count FROM tickets WHERE created_by = $1 AND deleted_at IS NULL",
-      [userId]
+      `
+        SELECT COUNT(*) AS count
+        FROM tickets t
+        WHERE t.created_by = $1
+          AND t.deleted_at IS NULL${projectAccessClause}
+      `,
+      projectAccessParams
     );
     const assignedToMeResult = await db.query(
       `
@@ -23,7 +32,7 @@ router.get("/stats", authenticateToken(), async (req, res) => {
         AND t.deleted_at IS NULL
         AND ws.category_code != 90
       `,
-      [userId]
+      projectAccessParams
     );
     const workgroupTicketsResult = await db.query(
       `
@@ -37,7 +46,7 @@ router.get("/stats", authenticateToken(), async (req, res) => {
         AND t.deleted_at IS NULL
         AND ws.category_code != 90
       `,
-      [userId]
+      projectAccessParams
     );
 
     // ✅ Send results

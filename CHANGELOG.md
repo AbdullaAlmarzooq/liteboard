@@ -6,6 +6,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- PostgreSQL schema foundation for project-based organization and visibility:
+  - New `projects` table with audit timestamps and active flag.
+  - New `project_workgroups` table for assigning multiple workgroups to a project.
+  - New `project_workflows` table for assigning multiple workflows to a project.
+- DB migration script `server/db/migrations/2026-03-28_backfill_default_project.sql` to seed `PRJ-001`, assign all existing workgroups, backfill all existing tickets/tags, and validate that no migrated ticket or tag remains without a project.
+- Nullable `project_id` columns on `tickets` and `tags` to support a staged projects rollout without breaking existing records or queries.
+
+### Changed
+- Ticket, tag, dashboard, and profile read paths now enforce project visibility for non-admin users via `project_workgroups`, while admins continue to bypass read restrictions.
+- Ticket-adjacent read endpoints (`attachments`, `comments`, `status_history`, `ticket_tags`) now follow the same project visibility rules to prevent side-channel access to hidden tickets.
+- README now documents the Projects architecture, including the split between project-based ticket visibility and existing workflow-step workgroup edit permissions.
+- README now includes an explicit Access Control section covering project-based read filtering and the unchanged workgroup-based write guard.
+- README now documents the Step 2 default-project migration flow for existing Neon databases.
+- Schema documentation now notes the staged project rollout and the new project-scoped tag/ticket fields.
+
 ## [2026-02-15]
 
 ### Added
