@@ -9,7 +9,6 @@ import TicketPriorityChart from "../components/Dashboard/TicketPriorityChart";
 import TicketStatusChart from "../components/Dashboard/TicketStatusChart";
 import TicketModuleStackedChart from "../components/Dashboard/TicketModuleStackedChart";
 import TicketsCreatedLineChart from "../components/Dashboard/TicketsCreatedLineChart";
-import ProjectFilterSelect from "../components/ProjectFilterSelect";
 import { useAuth } from "../components/hooks/useAuth";
 
 const Dashboard = () => {
@@ -151,7 +150,7 @@ const Dashboard = () => {
 
   return (
     <div className="p-8 space-y-8">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
             Dashboard
@@ -160,13 +159,6 @@ const Dashboard = () => {
             Monitor tickets across {selectedProjectId ? "the selected project" : "all accessible projects"}.
           </p>
         </div>
-
-        <ProjectFilterSelect
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onChange={setSelectedProjectId}
-          allLabel={user?.role_id === 1 ? "All projects" : "All accessible projects"}
-        />
       </div>
 
       <div className="flex justify-start mb-4">
@@ -185,6 +177,10 @@ const Dashboard = () => {
           allTickets={projectScopedTickets}
           workgroups={visibleWorkgroups}
           resetKey={selectedProjectId || "all-projects"}
+          projects={projects}
+          selectedProjectId={selectedProjectId}
+          onProjectChange={setSelectedProjectId}
+          projectAllLabel={user?.role_id === 1 ? "All projects" : "All accessible projects"}
         />
       )}
 

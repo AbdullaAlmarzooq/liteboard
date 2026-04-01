@@ -3,7 +3,6 @@ import Badge from "../components/Badge"
 import Button from "../components/Button"
 import TicketFilter from "../components/TicketsPage/TicketFilter"
 import useFetch from "../useFetch"
-import ProjectFilterSelect from "../components/ProjectFilterSelect"
 import { useAuth } from "../components/hooks/useAuth"
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -245,6 +244,7 @@ const TicketsPage = () => {
             Tickets
           </h1>
           <p className="text-gray-600 dark:text-gray-300">
+            Browse and act on tickets across {selectedProjectId ? "the selected project" : "all accessible projects"}.
           </p>
         </div>
         <div className="flex gap-3">
@@ -252,19 +252,14 @@ const TicketsPage = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <ProjectFilterSelect
-          projects={projects}
-          selectedProjectId={selectedProjectId}
-          onChange={handleProjectChange}
-          allLabel={user?.role_id === 1 ? "All projects" : "All accessible projects"}
-        />
-      </div>
-
       <TicketFilter
         tickets={projectScopedTickets}
         onFilteredTicketsChange={handleFilteredTicketsChange}
         resetKey={selectedProjectId || "all-projects"}
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        onProjectChange={handleProjectChange}
+        projectAllLabel={user?.role_id === 1 ? "All projects" : "All accessible projects"}
       />
 
       <SearchBar

@@ -4,28 +4,6 @@ const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
 const { buildProjectAccessFilter, getProjectAccess } = require("../utils/projectAccess");
 
-// Helper function to generate sequential tag ID (e.g., TAG-001, TAG-002, ...)
-const generateTagId = async () => {
-  const { rows } = await db.query(
-    `
-      SELECT id
-      FROM tags
-      WHERE id LIKE 'TAG-%'
-      ORDER BY CAST(SUBSTRING(id FROM 5) AS INTEGER) DESC
-      LIMIT 1
-    `
-  );
-  const row = rows[0];
-
-  let nextNumber = 1;
-  if (row && row.id) {
-    const lastNumber = parseInt(row.id.replace("TAG-", ""), 10);
-    nextNumber = lastNumber + 1;
-  }
-
-  return `TAG-${String(nextNumber).padStart(3, "0")}`;
-};
-
 // --- GET all tags ---
 router.get("/", authenticateToken(), async (req, res) => {
   try {
@@ -54,10 +32,18 @@ router.get("/", authenticateToken(), async (req, res) => {
     }
 
     const tagsQuery = `
-      SELECT t.id, t.label, t.color, t.created_at, t.updated_at
+      SELECT
+        t.id,
+        t.label,
+        t.color,
+        t.project_id,
+        p.name AS project_name,
+        t.created_at,
+        t.updated_at
       FROM tags t
+      LEFT JOIN projects p ON p.id = t.project_id
       WHERE t.deleted_at IS NULL${projectAccessClause}
-      ORDER BY label ASC
+      ORDER BY COALESCE(p.name, 'Unassigned Project') ASC, t.label ASC
     `;
     const { rows } = await db.query(tagsQuery, projectAccessParams);
 
@@ -70,16 +56,35 @@ router.get("/", authenticateToken(), async (req, res) => {
 
 // --- POST create new tag ---
 router.post("/", async (req, res) => {
-  const { label, color } = req.body;
+  const { label, color, project_id } = req.body;
 
   if (!label) {
     return res.status(400).json({ error: "Tag label is required." });
   }
 
+  if (!project_id) {
+    return res.status(400).json({ error: "project_id is required." });
+  }
+
   try {
+    const projectResult = await db.query(
+      `
+        SELECT id, name
+        FROM projects
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [project_id]
+    );
+    const project = projectResult.rows[0];
+
+    if (!project) {
+      return res.status(404).json({ error: "Project not found." });
+    }
+
     // Check for duplicate tag (case-insensitive)
     const existingResult = await db.query(
-      "SELECT id FROM tags WHERE label ILIKE $1",
+      "SELECT id FROM tags WHERE label ILIKE $1 AND deleted_at IS NULL",
       [label]
     );
     const existing = existingResult.rows[0];
@@ -87,22 +92,23 @@ router.post("/", async (req, res) => {
       return res.status(409).json({ error: "Tag with this label already exists." });
     }
 
-    // Always use auto-generated sequential ID
-    const id = await generateTagId();
-
-    await db.query(
+    const insertResult = await db.query(
       `
-        INSERT INTO tags (id, label, color, created_at, updated_at)
+        INSERT INTO tags (label, color, project_id, created_at, updated_at)
         VALUES ($1, $2, $3, NOW(), NOW())
+        RETURNING id, label, color, project_id
       `,
-      [id, label, color || "#666666"]
+      [label, color || "#666666", project_id]
     );
+    const createdTag = insertResult.rows[0];
 
     res.status(201).json({
       message: "Tag created successfully",
-      id,
-      label,
-      color: color || "#666666",
+      id: createdTag.id,
+      label: createdTag.label,
+      color: createdTag.color,
+      project_id: createdTag.project_id,
+      project_name: project.name,
     });
   } catch (err) {
     console.error("Error creating tag:", err);

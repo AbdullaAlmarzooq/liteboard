@@ -18,10 +18,10 @@ const ModulesTab = ({ modules, editingItem, editForm, handleEdit, handleSave, ha
                   <button onClick={handleSave} className="text-green-600 hover:text-green-800">
                     <Save size={16} />
                   </button>
-                  <button onClick={handleCancel} className="text-red-600 hover:text-red-800">
+                  <button onClick={handleCancel} className="text-gray-600 hover:text-gray-800">
                     <X size={16} />
                   </button>
-                </>
+                </> 
               ) : (
                 <button onClick={() => handleEdit(module)} className="text-blue-600 hover:text-blue-800">
                   <Edit2 size={16} />

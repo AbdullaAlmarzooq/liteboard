@@ -1,6 +1,5 @@
 import React from "react";
 import { Edit2 } from "lucide-react";
-import Badge from "../Badge";
 
 const isProjectActive = (value) =>
   value === true || value === 1 || value === "1" || value === "true";
@@ -28,9 +27,6 @@ const ProjectsTab = ({ projects, onEdit, onToggleActive }) => {
                   <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
                     {project.name}
                   </h3>
-                  <Badge variant={active ? "secondary" : "destructive"}>
-                    {active ? "Active" : "Inactive"}
-                  </Badge>
                   <span className="text-xs text-gray-500 dark:text-gray-400">{project.id}</span>
                 </div>
 
@@ -58,7 +54,7 @@ const ProjectsTab = ({ projects, onEdit, onToggleActive }) => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex space-x-2">
                 <button
                   onClick={() => onEdit(project)}
                   className="text-blue-600 hover:text-blue-800"
@@ -75,17 +71,21 @@ const ProjectsTab = ({ projects, onEdit, onToggleActive }) => {
                   className="relative inline-flex items-center h-6 w-12 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   style={{
                     backgroundColor: active ? '#2563eb' : '#e5e7eb',
-                    cursor: 'pointer'
+                    cursor: active ? 'pointer' : 'not-allowed'
                   }}
                   title={active ? 'Set inactive' : 'Set active'}
+                  aria-label={active ? 'Active' : 'Inactive'}
                 >
                   <span
                     className="inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform duration-200"
                     style={{
-                      transform: active ? 'translateX(22px)' : 'translateX(2px)'
+                      transform: active ? 'translateX(1.6rem)' : 'translateX(0.1rem)'
                     }}
                   />
                 </button>
+                <span className="text-xs text-gray-600 dark:text-gray-300">
+                  {active ? 'Active' : 'Inactive'}
+                </span>
               </div>
             </div>
           </div>

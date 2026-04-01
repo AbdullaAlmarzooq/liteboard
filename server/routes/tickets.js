@@ -334,7 +334,7 @@ router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) =>
 
     const ticketQuery = `
       SELECT 
-        t.id, t.ticket_code, t.title, t.description, COALESCE(ws.step_name, t.step_code) AS status, t.priority, 
+        t.id, t.ticket_code, t.title, t.description, t.project_id, p.name AS project_name, COALESCE(ws.step_name, t.step_code) AS status, t.priority, 
         t.workflow_id,
         t.step_code,
         COALESCE(ws.step_name, t.step_code) AS current_step_name,
@@ -355,6 +355,7 @@ router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) =>
       FROM tickets t
       LEFT JOIN workflow_steps ws
         ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
+      LEFT JOIN projects p ON t.project_id = p.id
       LEFT JOIN workgroups w ON t.workgroup_id = w.id
       LEFT JOIN modules m ON t.module_id = m.id
       LEFT JOIN employees e ON t.responsible_employee_id = e.id
@@ -654,9 +655,16 @@ router.put(
 
   try {
     const safeDescription = sanitizeTicketDescription(description);
-    const ticket = await getTicketByParam(id, "id, workflow_id");
+    const ticket = await getTicketByParam(id, "id, workflow_id, project_id");
     if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
+    }
+
+    const normalizedTagIds = normalizeUuidArray(
+      Array.isArray(tags) ? tags.map((tag) => tag?.id ?? tag) : []
+    );
+    if (tags !== undefined && normalizedTagIds === null) {
+      return res.status(400).json({ error: "tags must be an array of tag IDs" });
     }
 
     const effectiveWorkflowId = workflowId || ticket.workflow_id;
@@ -683,6 +691,26 @@ router.put(
     const client = await db.pool.connect();
     try {
       await client.query("BEGIN");
+
+      if (normalizedTagIds && normalizedTagIds.length > 0) {
+        const tagValidationResult = await client.query(
+          `
+            SELECT id
+            FROM tags
+            WHERE id = ANY($1::uuid[])
+              AND project_id = $2
+              AND deleted_at IS NULL
+          `,
+          [normalizedTagIds, ticket.project_id]
+        );
+
+        if (tagValidationResult.rows.length !== normalizedTagIds.length) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "One or more selected tags do not belong to this ticket's project.",
+          });
+        }
+      }
 
       await client.query(
         `
@@ -725,11 +753,11 @@ router.put(
       );
 
       await client.query(`DELETE FROM ticket_tags WHERE ticket_id = $1`, [ticket.id]);
-      if (tags && Array.isArray(tags)) {
-        for (const tag of tags) {
+      if (normalizedTagIds && normalizedTagIds.length > 0) {
+        for (const tagId of normalizedTagIds) {
           await client.query(
             `INSERT INTO ticket_tags (ticket_id, tag_id, created_at) VALUES ($1, $2, NOW())`,
-            [ticket.id, tag.id]
+            [ticket.id, tagId]
           );
         }
       }

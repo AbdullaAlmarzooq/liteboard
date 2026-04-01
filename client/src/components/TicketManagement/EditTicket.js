@@ -54,7 +54,11 @@ const EditTicket = () => {
   const { user } = useAuth();
   const { data: ticket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}?include_blobs=false`);
   const { data: employees } = useFetch('http://localhost:8000/api/employees'); 
-  const { data: tagsList } = useFetch('http://localhost:8000/api/tags'); 
+  const ticketProjectId = ticket?.project_id || ticket?.projectId || '';
+  const tagsUrl = ticketProjectId
+    ? `http://localhost:8000/api/tags?project_id=${encodeURIComponent(ticketProjectId)}`
+    : null;
+  const { data: tagsList } = useFetch(tagsUrl); 
   const { data: workgroups } = useFetch('http://localhost:8000/api/workgroups');
   const { data: workflows, isPending: workflowsPending } = useFetch('http://localhost:8000/api/workflows');
   const { data: modules } = useFetch('http://localhost:8000/api/modules'); // Fetch modules from API

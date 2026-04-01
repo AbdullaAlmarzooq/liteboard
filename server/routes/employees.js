@@ -98,7 +98,7 @@ router.get("/:id", async (req, res) => {
 // POST create a new employee
 // ----------------------------------------------------------------------
 router.post("/", async (req, res) => {
-  const { name, email, workgroup_id, workgroup_code, role_id, password } = req.body;
+  const { name, email, workgroup_id, workgroup_code, role_id, password, active } = req.body;
   const finalWorkgroupId = workgroup_id || workgroup_code || null;
 
   if (!name || !email || !password) {
@@ -138,14 +138,33 @@ router.post("/", async (req, res) => {
     const result = await db.query(
       `
         INSERT INTO employees
-          (name, email, workgroup_id, role_id, password_hash)
-        VALUES ($1, $2, $3, $4, $5)
+          (name, email, workgroup_id, role_id, password_hash, active)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id
       `,
-      [name, email, finalWorkgroupId, role_id || 3, passwordHash]
+      [name, email, finalWorkgroupId, role_id || 3, passwordHash, active !== undefined ? !!active : true]
+    );
+    const createdEmployeeResult = await db.query(
+      `
+        SELECT 
+          e.id,
+          e.name,
+          e.email,
+          e.workgroup_id AS "workgroupId",
+          e.workgroup_id AS "workgroupCode",
+          w.name AS "workgroupName",
+          e.role_id AS "roleId",
+          r.name AS "roleName",
+          e.active
+        FROM employees e
+        LEFT JOIN workgroups w ON e.workgroup_id = w.id
+        LEFT JOIN roles r ON e.role_id = r.id
+        WHERE e.id = $1
+      `,
+      [result.rows[0].id]
     );
 
-    res.status(201).json({ message: "Employee created successfully", id: result.rows[0].id });
+    res.status(201).json(createdEmployeeResult.rows[0]);
   } catch (err) {
     console.error("Error creating employee:", err);
     res.status(500).json({ error: "Failed to create employee" });

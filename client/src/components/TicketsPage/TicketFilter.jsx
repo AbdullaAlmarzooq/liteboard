@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../Card";
 import Badge from "../Badge";
 import { SlidersHorizontal } from 'lucide-react';
+import ProjectFilterSelect from "../ProjectFilterSelect";
 
 const createInitialFilters = () => ({
   status: [],
@@ -15,7 +16,16 @@ const createInitialFilters = () => ({
   showOverdue: false
 });
 
-const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "", resetKey = "default" }) => {
+const TicketFilter = ({
+  tickets,
+  onFilteredTicketsChange,
+  className = "",
+  resetKey = "default",
+  projects = [],
+  selectedProjectId = "",
+  onProjectChange,
+  projectAllLabel = "All accessible projects"
+}) => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [filters, setFilters] = useState(createInitialFilters);
@@ -207,27 +217,49 @@ const TicketFilter = ({ tickets, onFilteredTicketsChange, className = "", resetK
 
   return (
     <div className={className}>
-      <div className="flex items-center gap-2 mb-4">
-        <button 
-          onClick={() => setIsFilterOpen(!isFilterOpen)}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <SlidersHorizontal />
-          Filter Tickets
-          {hasActiveFilters && (
-            <Badge variant="default" className="text-xs min-w-5 h-5 p-0 flex items-center justify-center">
-              {getActiveFilterCount()}
-            </Badge>
-          )}
-        </button>
-        {hasActiveFilters && (
-          <button 
-            onClick={clearFilters} 
-            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
-          >
-            Clear all filters
-          </button>
-        )}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6 transition-colors duration-200">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:flex-1">
+            <div className="flex-shrink-0 xl:mr-1 xl:border-r xl:pr-4 xl:border-blue-100 xl:dark:border-slate-700">
+              <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/80">
+                <ProjectFilterSelect
+                  projects={projects}
+                  selectedProjectId={selectedProjectId}
+                  onChange={onProjectChange}
+                  allLabel={projectAllLabel}
+                  compact
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button 
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                {isFilterOpen ? "Hide Filters" : "Filter Tickets"}
+                {hasActiveFilters && (
+                  <Badge variant="default" className="text-xs min-w-5 h-5 p-0 flex items-center justify-center">
+                    {getActiveFilterCount()}
+                  </Badge>
+                )}
+              </button>
+              {hasActiveFilters && (
+                <button 
+                  onClick={clearFilters} 
+                  className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 underline"
+                >
+                  Clear all filters
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            {tickets?.length || 0} ticket{tickets?.length === 1 ? "" : "s"} in view
+          </div>
+        </div>
       </div>
 
       {isFilterOpen && (

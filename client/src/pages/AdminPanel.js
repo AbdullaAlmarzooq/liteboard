@@ -6,6 +6,7 @@ import WorkgroupsTab from '../components/AdminPanel/WorkgroupsTab';
 import ModulesTab from '../components/AdminPanel/ModulesTab';
 import WorkflowsTab from '../components/AdminPanel/WorkflowsTab';
 import ProjectsTab from '../components/AdminPanel/ProjectsTab';
+import EmployeeModal from '../components/AdminPanel/EmployeeModal';
 import CreateModal from '../components/AdminPanel/CreateModal';
 import CreateWorkflowModal from '../components/AdminPanel/CreateWorkflowModal';
 import ProjectModal from '../components/AdminPanel/ProjectModal';
@@ -20,6 +21,9 @@ const normalizeProject = (project) => ({
   ...project,
   active: isTruthyProjectActive(project?.active),
 });
+
+const isTruthyEmployeeActive = (value) =>
+  value === true || value === 1 || value === '1' || value === 'true';
 
 const sameMembers = (left = [], right = []) => {
   if (left.length !== right.length) return false;
@@ -54,6 +58,7 @@ const AdminPanel = () => {
   const [createForm, setCreateForm] = useState({});
   const [showCreateWorkflowModal, setShowCreateWorkflowModal] = useState(false);
   const [workflowToEdit, setWorkflowToEdit] = useState(null);
+  const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [projectToggleTarget, setProjectToggleTarget] = useState(null);
@@ -184,6 +189,20 @@ const AdminPanel = () => {
   const handleEdit = (item) => {
     setEditingItem(item.id);
 
+    if (activeTab === 'employees') {
+      setEditForm({
+        id: item.id,
+        name: item.name || '',
+        email: item.email || '',
+        workgroup_code: item.workgroupId || item.workgroup_code || '',
+        role_id: item.roleId || item.role_id || 3,
+        active: isTruthyEmployeeActive(item.active),
+        password: '',
+      });
+      setShowEmployeeModal(true);
+      return;
+    }
+
     if (activeTab === 'tags') {
       setEditForm({
         id: item.id,
@@ -237,12 +256,16 @@ const AdminPanel = () => {
         return;
       }
 
+      if (editForm.password && editForm.password.length < 6) {
+        throw new Error('Password must be at least 6 characters');
+      }
+
       const payload = {
         name: editForm.name,
         email: editForm.email,
         workgroupId: editForm.workgroup_code || null,
         roleId: editForm.role_id || 3,
-        active: editForm.active ? 1 : 0,
+        active: !!editForm.active,
         ...(editForm.password ? { password: editForm.password } : {})
       };
 
@@ -252,7 +275,10 @@ const AdminPanel = () => {
         body: JSON.stringify(payload)
       });
 
-      if (!response.ok) throw new Error('Failed to update employee');
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Failed to update employee');
+      }
 
       // Fetch updated employee from backend to get roleName/workgroupName
       const updatedEmployeeRes = await fetch(`http://localhost:8000/api/employees/${editForm.id}`);
@@ -264,6 +290,7 @@ const AdminPanel = () => {
 
       setEditingItem(null);
       setEditForm({});
+      setShowEmployeeModal(false);
       showToast('Employee updated successfully');
     } catch (error) {
       console.error('Error saving item:', error);
@@ -274,6 +301,52 @@ const AdminPanel = () => {
   const handleCancel = () => {
     setEditingItem(null);
     setEditForm({});
+    setShowEmployeeModal(false);
+  };
+
+  const handleDeleteTag = (tag) => {
+    if (!tag?.id) return;
+
+    setItemToDelete({
+      type: 'tag',
+      item: tag,
+    });
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (itemToDelete?.type !== 'tag' || !itemToDelete.item?.id) {
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+      return;
+    }
+
+    const tag = itemToDelete.item;
+
+    if (!tag?.id) return;
+
+    try {
+      const response = await fetchWithAuth(`http://localhost:8000/api/tags/${tag.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Failed to delete tag');
+      }
+
+      setTags((prev) => prev.filter((item) => item.id !== tag.id));
+      if (editingItem === tag.id) {
+        setEditingItem(null);
+        setEditForm({});
+      }
+      setShowDeleteModal(false);
+      setItemToDelete(null);
+      showToast('Tag deleted successfully');
+    } catch (error) {
+      console.error('Error deleting tag:', error);
+      showToast(error.message || 'Failed to delete tag', 'error');
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -288,11 +361,14 @@ const AdminPanel = () => {
         email: '',
         workgroup_code: '',
         role_id: 3,
-        active: 1,
+        active: true,
+        password: '',
         joined_date: new Date().toISOString().split('T')[0]
       });
+      setShowCreateModal(true);
+      return;
     } else if (activeTab === 'tags') {
-      setCreateForm({ label: '' });
+      setCreateForm({ label: '', color: '#666666', project_id: '' });
     } else if (activeTab === 'workgroups' || activeTab === 'modules') {
       setCreateForm({ name: '', description: '' });
     } else if (activeTab === 'projects') {
@@ -311,10 +387,23 @@ const AdminPanel = () => {
     let newItem = { ...createForm };
 
     if (activeTab === 'tags') {
+      if (!newItem.project_id) {
+        setAlertMessage('Select a project for this tag before creating it.');
+        setShowAlertModal(true);
+        return;
+      }
+
       const isDuplicate = tags.some(tag => tag.label.toLowerCase() === newItem.label.toLowerCase());
       if (isDuplicate) {
         setAlertMessage('A tag with this label already exists.');
         setShowAlertModal(true);
+        return;
+      }
+    }
+
+    if (activeTab === 'employees') {
+      if (!newItem.password || newItem.password.length < 6) {
+        showToast('Password must be at least 6 characters', 'error');
         return;
       }
     }
@@ -326,6 +415,11 @@ const AdminPanel = () => {
         body: JSON.stringify(newItem)
       });
 
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || `Failed to create ${activeTab.slice(0, -1) || 'item'}`);
+      }
+
       const createdItem = await response.json();
 
       if (activeTab === 'employees') setEmployees(prev => [...prev, createdItem]);
@@ -335,8 +429,10 @@ const AdminPanel = () => {
 
       setShowCreateModal(false);
       setCreateForm({});
+      showToast(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1, -1)} created successfully`);
     } catch (error) {
       console.error('Error creating item:', error);
+      showToast(error.message || 'Failed to create item', 'error');
     }
   };
 
@@ -490,24 +586,21 @@ const AdminPanel = () => {
             employees={employees}
             workgroups={workgroups}
             roles={roles}
-            editingItem={editingItem}
-            editForm={editForm}
             handleEdit={handleEdit}
-            handleSave={handleSave}
-            handleCancel={handleCancel}
-            handleInputChange={handleInputChange}
           />
         );
       case 'tags':
         return (
           <TagsTab
             tags={tags}
+            projects={projects}
             editingItem={editingItem}
             editForm={editForm}
             handleEdit={handleEdit}
             handleSave={handleSave}
             handleCancel={handleCancel}
             handleInputChange={handleInputChange}
+            handleDelete={handleDeleteTag}
           />
         );
       case 'workgroups':
@@ -612,7 +705,19 @@ const AdminPanel = () => {
         </div>
 
         {/* Create / Workflow / Delete / Alert modals */}
-        {showCreateModal && (
+        {showCreateModal && activeTab === 'employees' && (
+          <EmployeeModal
+            isOpen={showCreateModal}
+            formData={createForm}
+            workgroups={workgroups}
+            roles={roles}
+            onClose={handleCreateCancel}
+            onSave={handleCreateSave}
+            onInputChange={(f, v) => setCreateForm(prev => ({ ...prev, [f]: v }))}
+            mode="create"
+          />
+        )}
+        {showCreateModal && activeTab !== 'employees' && (
           <CreateModal
             activeTab={activeTab}
             createForm={createForm}
@@ -621,6 +726,19 @@ const AdminPanel = () => {
             handleCreateCancel={handleCreateCancel}
             workgroups={workgroups}
             roles={roles}
+            projects={projects}
+          />
+        )}
+        {showEmployeeModal && (
+          <EmployeeModal
+            isOpen={showEmployeeModal}
+            formData={editForm}
+            workgroups={workgroups}
+            roles={roles}
+            onClose={handleCancel}
+            onSave={handleSave}
+            onInputChange={handleInputChange}
+            mode="edit"
           />
         )}
         {showCreateWorkflowModal && (
@@ -645,10 +763,17 @@ const AdminPanel = () => {
         {showDeleteModal && (
           <ConfirmationModal
             isOpen={showDeleteModal}
-            onClose={() => setShowDeleteModal(false)}
-            onConfirm={() => setEmployees(prev => prev.filter(emp => emp.id !== itemToDelete))}
-            title="Confirm Deletion"
-            message="Are you sure you want to delete this item? This action cannot be undone."
+            onClose={() => {
+              setShowDeleteModal(false);
+              setItemToDelete(null);
+            }}
+            onConfirm={confirmDelete}
+            title="Delete Tag"
+            message={
+              itemToDelete?.type === 'tag' && itemToDelete.item
+                ? `Are you sure you want to delete the tag "${itemToDelete.item.label}"? This action cannot be undone.`
+                : 'Are you sure you want to delete this item? This action cannot be undone.'
+            }
             confirmLabel="Delete"
             confirmVariant="danger"
           />
@@ -670,7 +795,7 @@ const AdminPanel = () => {
           <AlertModal
             isOpen={showAlertModal}
             onClose={() => setShowAlertModal(false)}
-            title="Duplicate Tag"
+            title={alertMessage === 'A tag with this label already exists.' ? 'Duplicate Tag' : 'Tag Validation'}
             message={alertMessage}
           />
         )}

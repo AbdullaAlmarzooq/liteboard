@@ -112,21 +112,60 @@ const ProjectModal = ({
                   className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                 />
               </div>
+            </div>
 
-              <div className="flex items-center gap-3 pt-7">
-                <input
-                  id="projectActive"
-                  type="checkbox"
-                  checked={form.active}
-                  onChange={(e) => setForm((prev) => ({ ...prev, active: e.target.checked }))}
-                  className="rounded"
-                />
-                <label htmlFor="projectActive" className="text-sm text-gray-700 dark:text-gray-200">
-                  Project is active
+            <div>
+              <div className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-200">
+                Project Status
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label
+                  className={`cursor-pointer rounded-lg border p-4 transition-colors ${
+                    form.active
+                      ? "border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20"
+                      : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="project-status"
+                      checked={!!form.active}
+                      onChange={() => setForm((prev) => ({ ...prev, active: true }))}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">Active</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Project is available for normal use and assignment.
+                      </p>
+                    </div>
+                  </div>
                 </label>
-                <Badge variant={form.active ? "secondary" : "destructive"}>
-                  {form.active ? "Active" : "Inactive"}
-                </Badge>
+
+                <label
+                  className={`cursor-pointer rounded-lg border p-4 transition-colors ${
+                    !form.active
+                      ? "border-blue-500 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20"
+                      : "border-gray-300 bg-white dark:border-gray-600 dark:bg-gray-800"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="project-status"
+                      checked={!form.active}
+                      onChange={() => setForm((prev) => ({ ...prev, active: false }))}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">Inactive</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Project stays in the system but should not be used for new work.
+                      </p>
+                    </div>
+                  </div>
+                </label>
               </div>
             </div>
 

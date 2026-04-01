@@ -6,6 +6,30 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2026-04-01]
+
+### Added
+- Admin Tag creation modal now requires selecting a project so new tags can be created in the correct project scope.
+- Admin Tag deletion now uses a confirmation modal consistent with other Admin Panel dialogs.
+
+### Changed
+- Dashboard Project filter is now integrated into the main filter bar as the leftmost control with a compact inline layout and refined dark-mode styling.
+- Tickets page Project filter now follows the same unified filter-bar pattern as Dashboard, with matching visual treatment and a refreshed search panel layout.
+- Admin Panel `Tags` tab now uses a project-grouped table view with sticky project divider rows, denser row spacing, and simplified columns/actions for faster scanning.
+- Admin Tag edit actions now use a calmer non-destructive cancel affordance to better distinguish canceling from deleting.
+- Tags API now returns `project_id` and `project_name` so project-scoped Admin views can display and group tags correctly.
+- Tag creation API now persists `project_id` and returns project metadata for newly created tags.
+
+### Fixed
+- Tag creation no longer uses the legacy sequential `TAG-###` ID path and now matches the PostgreSQL UUID-based schema used in Neon.
+- Admin Tags view no longer falls back to `Unassigned Project` for project-owned tags when the backend has valid project assignments.
+- Edit Ticket page now loads only tags that belong to the ticket's project instead of showing tags from all projects.
+- Ticket update flow now validates that submitted tags belong to the ticket's project, preventing cross-project tag assignment through direct requests.
+- Single-ticket API responses now include project metadata needed for project-scoped edit flows.
+
+## [2026-02-29]
+
+
 ### Added
 - PostgreSQL schema foundation for project-based organization and visibility:
   - New `projects` table with audit timestamps and active flag.

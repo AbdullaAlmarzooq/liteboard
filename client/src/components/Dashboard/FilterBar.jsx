@@ -1,7 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Badge from '../Badge';
+import ProjectFilterSelect from '../ProjectFilterSelect';
 
-const FilterBar = ({ onFilterChange, allTickets, workgroups = [], resetKey = "default" }) => {
+const FilterBar = ({
+  onFilterChange,
+  allTickets,
+  workgroups = [],
+  resetKey = "default",
+  projects = [],
+  selectedProjectId = "",
+  onProjectChange,
+  projectAllLabel = "All accessible projects"
+}) => {
   // --- FIX: Safely ensure 'tickets' is an array before attempting .filter() ---
   const tickets = Array.isArray(allTickets) ? allTickets : [];
   const getTicketStepName = (ticket) => ticket.current_step_name || ticket.currentStepName || ticket.status;
@@ -260,35 +270,49 @@ const FilterBar = ({ onFilterChange, allTickets, workgroups = [], resetKey = "de
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-8 flex flex-col gap-4 justify-start transition-colors duration-200">
       {/* Filter Dropdowns Section */}
-      <div className="flex flex-wrap gap-3">
-        <FilterDropdownButton
-          category="workGroup"
-          title="WorkGroup"
-          options={allWorkGroups}
-          selectedValues={selectedWorkGroups}
-          onChange={handleWorkGroupChange}
-        />
-        <FilterDropdownButton
-          category="module"
-          title="Module"
-          options={allModules}
-          selectedValues={selectedModules}
-          onChange={handleModuleChange}
-        />
-        <FilterDropdownButton
-          category="workflow"
-          title="Type"
-          options={allWorkflows}
-          selectedValues={selectedWorkflows}
-          onChange={handleWorkflowChange}
-        />
-        <FilterDropdownButton
-          category="status"
-          title="Status"
-          options={allStepNames}
-          selectedValues={selectedStatuses}
-          onChange={handleStatusChange}
-        />
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="flex-shrink-0 xl:mr-1 xl:border-r xl:pr-4 xl:border-blue-100 xl:dark:border-slate-700">
+          <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/80">
+            <ProjectFilterSelect
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              onChange={onProjectChange}
+              allLabel={projectAllLabel}
+              compact
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <FilterDropdownButton
+            category="workGroup"
+            title="WorkGroup"
+            options={allWorkGroups}
+            selectedValues={selectedWorkGroups}
+            onChange={handleWorkGroupChange}
+          />
+          <FilterDropdownButton
+            category="module"
+            title="Module"
+            options={allModules}
+            selectedValues={selectedModules}
+            onChange={handleModuleChange}
+          />
+          <FilterDropdownButton
+            category="workflow"
+            title="Type"
+            options={allWorkflows}
+            selectedValues={selectedWorkflows}
+            onChange={handleWorkflowChange}
+          />
+          <FilterDropdownButton
+            category="status"
+            title="Status"
+            options={allStepNames}
+            selectedValues={selectedStatuses}
+            onChange={handleStatusChange}
+          />
+        </div>
       </div>
 
       {/* Active Filters and Clear Button Section */}

@@ -192,34 +192,48 @@ const SearchBar = ({ tickets: providedTickets = null, resetKey = "default" }) =>
   const hasTickets = tickets && tickets.length > 0
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm items-center">
-      <input
-        type="text"
-        placeholder={isLoading ? "Loading tickets..." : (hasError ? "Error loading tickets" : "Search tickets by title, ID, workgroup, responsible, module, tags...")}
-        className="flex-grow p-3 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-        disabled={isLoading || hasError || !hasTickets}
-      />
+    <div className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm dark:bg-gray-800">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-white">Search tickets</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Jump quickly by title, ticket code, workgroup, responsible, module, or tags.
+          </p>
+        </div>
+      </div>
 
-      <button
-        onClick={handleSearch}
-        className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed transition-colors"
-        disabled={isLoading || hasError || !hasTickets || !searchTerm.trim()}
-      >
-        {isLoading ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            Loading...
-          </>
-        ) : (
-          <>
-            <Search className="w-4 h-4" />
-            Search
-          </>
-        )}
-      </button>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+          <input
+            type="text"
+            placeholder={isLoading ? "Loading tickets..." : (hasError ? "Error loading tickets" : "Search tickets by title, ID, workgroup, responsible, module, tags...")}
+            className="w-full rounded-lg border border-gray-300 bg-white py-3 pl-10 pr-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            disabled={isLoading || hasError || !hasTickets}
+          />
+        </div>
+
+        <button
+          onClick={handleSearch}
+          className="flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-400 sm:min-w-[140px]"
+          disabled={isLoading || hasError || !hasTickets || !searchTerm.trim()}
+        >
+          {isLoading ? (
+            <>
+              <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+              Loading...
+            </>
+          ) : (
+            <>
+              <Search className="w-4 h-4" />
+              Search
+            </>
+          )}
+        </button>
+      </div>
 
       {isModalOpen && (
         <div 

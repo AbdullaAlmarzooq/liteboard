@@ -15,7 +15,8 @@ const CreateModal = ({
   handleCreateSave,
   handleCreateCancel,
   workgroups,
-  roles // Roles prop
+  roles, // Roles prop
+  projects = []
 }) => {
 
   const getTitle = () => {
@@ -113,6 +114,21 @@ const CreateModal = ({
                     placeholder="Enter tag label"
                     className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Project</label>
+                  <select
+                    value={createForm.project_id || ''}
+                    onChange={(e) => handleCreateInputChange('project_id', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black dark:text-white dark:bg-gray-800"
+                  >
+                    <option value="">Select project</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">Select Color</label>
