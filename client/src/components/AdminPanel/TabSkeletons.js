@@ -153,16 +153,7 @@ export const WorkflowsTabSkeleton = () => (
           </div>
         </div>
 
-        <SkeletonBlock className="h-4 w-16 mb-4" />
-        <div className="mt-4 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden p-4">
-          <div className="flex items-center justify-between gap-4">
-            <SkeletonBlock className="h-12 flex-1 rounded-md" />
-            <SkeletonBlock className="h-px flex-1 rounded-none" />
-            <SkeletonBlock className="h-12 flex-1 rounded-md" />
-            <SkeletonBlock className="h-px flex-1 rounded-none" />
-            <SkeletonBlock className="h-12 flex-1 rounded-md" />
-          </div>
-        </div>
+        <SkeletonBlock className="h-4 w-16" />
       </div>
     ))}
   </div>

@@ -4,6 +4,14 @@ import { Edit2 } from "lucide-react";
 const isProjectActive = (value) =>
   value === true || value === 1 || value === "1" || value === "true";
 
+const getProjectCount = (project, field, fallbackArray) =>
+  Number.parseInt(
+    project?.[field] ??
+      project?.[field.replace(/_([a-z])/g, (_, char) => char.toUpperCase())] ??
+      (Array.isArray(project?.[fallbackArray]) ? project[fallbackArray].length : 0),
+    10
+  ) || 0;
+
 const ProjectsTab = ({ projects, onEdit, onToggleActive }) => {
   if (!projects.length) {
     return <div className="text-center py-8 text-gray-500">No projects found</div>;
@@ -13,8 +21,8 @@ const ProjectsTab = ({ projects, onEdit, onToggleActive }) => {
     <div className="grid gap-4">
       {projects.map((project) => {
         const active = isProjectActive(project.active);
-        const workgroupCount = Array.isArray(project.workgroups) ? project.workgroups.length : 0;
-        const workflowCount = Array.isArray(project.workflows) ? project.workflows.length : 0;
+        const workgroupCount = getProjectCount(project, "workgroup_count", "workgroups");
+        const workflowCount = getProjectCount(project, "workflow_count", "workflows");
 
         return (
           <div

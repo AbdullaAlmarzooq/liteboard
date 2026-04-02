@@ -1,64 +1,16 @@
 // WorkflowsTab.js
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit2 } from 'lucide-react';
-import ReactFlow, { Background } from 'reactflow';
-import 'reactflow/dist/style.css';
 import CreateWorkflowModal from './CreateWorkflowModal';
 import ConfirmationModal from './ConfirmationModal';
 
-const WorkflowDiagram = ({ steps }) => {
-  const safeSteps = Array.isArray(steps) ? steps : [];
+const WORKFLOW_LIST_ENDPOINT = 'http://localhost:8000/api/workflow_management/list';
 
-  const isDark = document.documentElement.classList.contains('dark');
-
-  const nodes = useMemo(() => safeSteps.map((step, i) => {
-    const stepLabel = step.stepName || step.step_name || 'Unnamed';
-    return {
-      id: `step-${i}`,
-      position: { x: i * 200, y: 50 },
-      data: { label: stepLabel },
-      style: {
-        border: '1px solid #777',
-        borderRadius: '8px',
-        padding: '10px',
-        background: isDark ? '#1f2937' : '#fff',
-        color: isDark ? '#fff' : '#000',
-        fontSize: '12px',
-      },
-      sourcePosition: 'right',
-      targetPosition: 'left',
-    };
-  }), [safeSteps, isDark]);
-
-  const edges = useMemo(() => safeSteps.slice(0, -1).map((_, i) => ({
-    id: `edge-${i}`,
-    source: `step-${i}`,
-    target: `step-${i + 1}`,
-    type: 'smoothstep',
-  })), [safeSteps]);
-
-  if (safeSteps.length === 0) return null;
-
-  return (
-    <div style={{ height: 200 }} className="mt-4 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        panOnDrag={false}
-        zoomOnScroll={false}
-        zoomOnPinch={false}
-        zoomOnDoubleClick={false}
-      >
-        <Background color={isDark ? '#555' : '#eee'} />
-      </ReactFlow>
-    </div>
-  );
-};
+const getWorkflowStepCount = (workflow) =>
+  Number.parseInt(
+    workflow?.step_count ?? workflow?.stepCount ?? workflow?.steps?.length ?? 0,
+    10
+  ) || 0;
 
 const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentOnEdit }) => {
   const [workflows, setWorkflows] = useState(initialWorkflows);
@@ -66,6 +18,7 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
   const [workflowToEdit, setWorkflowToEdit] = useState(null);
   const [workflowToggleTarget, setWorkflowToggleTarget] = useState(null);
   const [toast, setToast] = useState(null);
+  const [isLoadingWorkflowDetail, setIsLoadingWorkflowDetail] = useState(false);
 
   useEffect(() => {
     setWorkflows(initialWorkflows);
@@ -100,7 +53,7 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
 
   const refreshWorkflows = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/workflow_management');
+      const res = await fetch(WORKFLOW_LIST_ENDPOINT);
       if (!res.ok) throw new Error('Failed to refresh workflows');
       const data = await res.json();
       setWorkflows(data);
@@ -114,14 +67,34 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
     setModalOpen(true);
   };
 
-  const handleEditClick = (workflow) => {
+  const handleEditClick = async (workflow) => {
+    setIsLoadingWorkflowDetail(true);
     setWorkflowToEdit(workflow);
     setModalOpen(true);
+
+    try {
+      const res = await fetch(`http://localhost:8000/api/workflow_management/${workflow.id}`);
+      if (!res.ok) {
+        const errorBody = await res.json().catch(() => ({}));
+        throw new Error(errorBody.detail || errorBody.error || 'Failed to load workflow details');
+      }
+
+      const detailedWorkflow = await res.json();
+      setWorkflowToEdit(detailedWorkflow);
+    } catch (err) {
+      console.error('Failed to load workflow details:', err);
+      showToast(err.message || 'Failed to load workflow details', 'error');
+      setModalOpen(false);
+      setWorkflowToEdit(null);
+    } finally {
+      setIsLoadingWorkflowDetail(false);
+    }
   };
 
   const handleModalClose = () => {
     setModalOpen(false);
     setWorkflowToEdit(null);
+    setIsLoadingWorkflowDetail(false);
   };
 
   const handleSaveWorkflow = async (workflow) => {
@@ -272,18 +245,40 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
             </div>
           </div>
 
-          <p className="text-sm text-gray-600 dark:text-gray-300">Steps: {workflow.steps.length}</p>
-          <WorkflowDiagram steps={workflow.steps} />
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Steps: {getWorkflowStepCount(workflow)}
+          </p>
         </div>
       ))}
 
       {modalOpen && (
-        <CreateWorkflowModal
-          workflowToEdit={workflowToEdit}
-          onClose={handleModalClose}
-          onSave={handleSaveWorkflow}
-          workgroups={workgroups}
-        />
+        isLoadingWorkflowDetail ? (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Loading Workflow
+                </h3>
+                <button
+                  onClick={handleModalClose}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Fetching workflow steps and transitions...
+              </p>
+            </div>
+          </div>
+        ) : (
+          <CreateWorkflowModal
+            workflowToEdit={workflowToEdit}
+            onClose={handleModalClose}
+            onSave={handleSaveWorkflow}
+            workgroups={workgroups}
+          />
+        )
       )}
 
       <ConfirmationModal

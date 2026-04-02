@@ -22,12 +22,17 @@ import ConfirmationModal from '../components/AdminPanel/ConfirmationModal';
 import AlertModal from '../components/AdminPanel/AlertModal';
 import fetchWithAuth from '../utils/fetchWithAuth';
 
+const WORKFLOW_LIST_ENDPOINT = 'http://localhost:8000/api/workflow_management/list';
+const PROJECT_LIST_ENDPOINT = 'http://localhost:8000/api/projects/list';
+
 const isTruthyProjectActive = (value) =>
   value === true || value === 1 || value === '1' || value === 'true';
 
 const normalizeProject = (project) => ({
   ...project,
   active: isTruthyProjectActive(project?.active),
+  workgroup_count: Number.parseInt(project?.workgroup_count ?? project?.workgroupCount ?? 0, 10) || 0,
+  workflow_count: Number.parseInt(project?.workflow_count ?? project?.workflowCount ?? 0, 10) || 0,
 });
 
 const isTruthyEmployeeActive = (value) =>
@@ -71,6 +76,7 @@ const AdminPanel = () => {
   const [projectToEdit, setProjectToEdit] = useState(null);
   const [projectToggleTarget, setProjectToggleTarget] = useState(null);
   const [isProjectSaving, setIsProjectSaving] = useState(false);
+  const [isProjectDetailLoading, setIsProjectDetailLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemToDelete, setItemToDelete] = useState(null);
   const [showAlertModal, setShowAlertModal] = useState(false);
@@ -89,8 +95,8 @@ const AdminPanel = () => {
         fetchWithAuth('http://localhost:8000/api/tags'),
         fetch('http://localhost:8000/api/workgroups'),
         fetch('http://localhost:8000/api/modules'),
-        fetch('http://localhost:8000/api/workflow_management'),
-        fetchWithAuth('http://localhost:8000/api/projects'),
+        fetch(WORKFLOW_LIST_ENDPOINT),
+        fetchWithAuth(PROJECT_LIST_ENDPOINT),
         fetch('http://localhost:8000/api/employees/roles')
       ]);
 
@@ -114,7 +120,7 @@ const AdminPanel = () => {
 
   const refreshWorkflows = async () => {
     try {
-      const wfRes = await fetch('http://localhost:8000/api/workflow_management');
+      const wfRes = await fetch(WORKFLOW_LIST_ENDPOINT);
       const data = await wfRes.json();
       setWorkflows(data);
     } catch (error) {
@@ -124,7 +130,7 @@ const AdminPanel = () => {
 
   const refreshProjects = async () => {
     try {
-      const res = await fetchWithAuth('http://localhost:8000/api/projects');
+      const res = await fetchWithAuth(PROJECT_LIST_ENDPOINT);
       if (!res.ok) throw new Error('Failed to refresh projects');
       const data = await res.json();
       const normalized = data.map(normalizeProject);
@@ -462,11 +468,28 @@ const AdminPanel = () => {
   const handleProjectEdit = (project) => {
     setProjectToEdit(project);
     setShowProjectModal(true);
+    setIsProjectDetailLoading(true);
+
+    fetchWithAuth(`http://localhost:8000/api/projects/${project.id}`)
+      .then(async (response) => {
+        const data = await parseApiResponse(response, 'Failed to load project details');
+        setProjectToEdit(normalizeProject(data));
+      })
+      .catch((error) => {
+        console.error('Error loading project details:', error);
+        showToast(error.message || 'Failed to load project details', 'error');
+        setShowProjectModal(false);
+        setProjectToEdit(null);
+      })
+      .finally(() => {
+        setIsProjectDetailLoading(false);
+      });
   };
 
   const handleProjectModalClose = () => {
     setShowProjectModal(false);
     setProjectToEdit(null);
+    setIsProjectDetailLoading(false);
   };
 
   const saveProject = async (projectForm) => {
@@ -517,16 +540,14 @@ const AdminPanel = () => {
         );
       }
 
-      const refreshedProjects = await refreshProjects();
+      await refreshProjects();
 
       if (isEditing) {
-        const refreshedProject = refreshedProjects?.find(
-          (project) => project.id === projectForm.id
+        const refreshedProjectResponse = await fetchWithAuth(`http://localhost:8000/api/projects/${projectForm.id}`);
+        const refreshedProject = await parseApiResponse(
+          refreshedProjectResponse,
+          'Project updated, but the refreshed project record could not be loaded.'
         );
-
-        if (!refreshedProject) {
-          throw new Error('Project updated, but the refreshed project record could not be found.');
-        }
 
         const savedWorkgroupCodes = (refreshedProject.workgroups || []).map((workgroup) => workgroup.code);
         const savedWorkflowIds = (refreshedProject.workflows || []).map((workflow) => workflow.id);
@@ -775,15 +796,36 @@ const AdminPanel = () => {
           />
         )}
         {showProjectModal && (
-          <ProjectModal
-            isOpen={showProjectModal}
-            project={projectToEdit}
-            workgroups={workgroups}
-            workflows={workflows}
-            isSaving={isProjectSaving}
-            onClose={handleProjectModalClose}
-            onSave={saveProject}
-          />
+          isProjectDetailLoading ? (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Loading Project
+                  </h3>
+                  <button
+                    onClick={handleProjectModalClose}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  >
+                    Cancel
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Fetching project workgroups and workflows...
+                </p>
+              </div>
+            </div>
+          ) : (
+            <ProjectModal
+              isOpen={showProjectModal}
+              project={projectToEdit}
+              workgroups={workgroups}
+              workflows={workflows}
+              isSaving={isProjectSaving}
+              onClose={handleProjectModalClose}
+              onSave={saveProject}
+            />
+          )
         )}
         {showDeleteModal && (
           <ConfirmationModal

@@ -30,6 +30,146 @@ const upsertTransition = async (client, workflowId, fromStepCode, toStepCode, ca
   );
 };
 
+const CATEGORY_NAME_SQL = `
+  CASE ws.category_code
+    WHEN 10 THEN 'Open'
+    WHEN 20 THEN 'In Progress'
+    WHEN 30 THEN 'Closed'
+    WHEN 40 THEN 'Cancelled'
+    ELSE 'Open'
+  END
+`;
+
+const attachTransitionsToSteps = (stepsRows, transitionRows) => {
+  const stepMap = new Map();
+  const steps = stepsRows.map((step) => {
+    const hydratedStep = {
+      ...step,
+      workgroupCode: step.workgroup_id,
+      allowedNextSteps: [],
+      allowedPreviousSteps: [],
+    };
+
+    stepMap.set(step.step_code, hydratedStep);
+    return hydratedStep;
+  });
+
+  for (const transition of transitionRows) {
+    const fromStep = stepMap.get(transition.from_step_code);
+    const toStep = stepMap.get(transition.to_step_code);
+
+    if (fromStep && transition.to_step_name) {
+      fromStep.allowedNextSteps.push(transition.to_step_name);
+    }
+
+    if (toStep && transition.from_step_name) {
+      toStep.allowedPreviousSteps.push(transition.from_step_name);
+    }
+  }
+
+  return steps;
+};
+
+const fetchWorkflowSteps = async (workflowIds) => {
+  if (!workflowIds.length) {
+    return [];
+  }
+
+  const { rows } = await db.query(
+    `
+      SELECT
+        ws.*,
+        ${CATEGORY_NAME_SQL} AS category_name
+      FROM workflow_steps ws
+      WHERE ws.workflow_id = ANY($1::uuid[])
+      ORDER BY ws.workflow_id, ws.step_order
+    `,
+    [workflowIds]
+  );
+
+  return rows;
+};
+
+const fetchWorkflowTransitions = async (workflowIds) => {
+  if (!workflowIds.length) {
+    return [];
+  }
+
+  const { rows } = await db.query(
+    `
+      SELECT
+        wt.workflow_id,
+        wt.from_step_code,
+        wt.to_step_code,
+        from_ws.step_name AS from_step_name,
+        to_ws.step_name AS to_step_name
+      FROM workflow_transitions wt
+      JOIN workflow_steps from_ws
+        ON from_ws.workflow_id = wt.workflow_id
+       AND from_ws.step_code = wt.from_step_code
+      JOIN workflow_steps to_ws
+        ON to_ws.workflow_id = wt.workflow_id
+       AND to_ws.step_code = wt.to_step_code
+      WHERE wt.workflow_id = ANY($1::uuid[])
+      ORDER BY wt.workflow_id, from_ws.step_order, to_ws.step_order
+    `,
+    [workflowIds]
+  );
+
+  return rows;
+};
+
+const buildWorkflowDetails = (workflowRows, stepsRows, transitionRows) => {
+  const stepsByWorkflow = new Map();
+  for (const step of stepsRows) {
+    const existing = stepsByWorkflow.get(step.workflow_id) || [];
+    existing.push(step);
+    stepsByWorkflow.set(step.workflow_id, existing);
+  }
+
+  const transitionsByWorkflow = new Map();
+  for (const transition of transitionRows) {
+    const existing = transitionsByWorkflow.get(transition.workflow_id) || [];
+    existing.push(transition);
+    transitionsByWorkflow.set(transition.workflow_id, existing);
+  }
+
+  return workflowRows.map((workflow) => ({
+    ...workflow,
+    steps: attachTransitionsToSteps(
+      stepsByWorkflow.get(workflow.id) || [],
+      transitionsByWorkflow.get(workflow.id) || []
+    ),
+  }));
+};
+
+// ----------------------------------------------------------------------
+// GET workflow summaries for Admin Panel list view
+// ----------------------------------------------------------------------
+router.get("/list", async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `
+        SELECT
+          w.id,
+          w.name,
+          w.active,
+          COUNT(ws.step_code)::int AS step_count
+        FROM workflows w
+        LEFT JOIN workflow_steps ws
+          ON ws.workflow_id = w.id
+        GROUP BY w.id, w.name, w.active
+        ORDER BY w.name ASC, w.id ASC
+      `
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error("Failed to fetch workflow summaries:", err);
+    res.status(500).json({ error: "Failed to fetch workflow summaries" });
+  }
+});
+
 // ----------------------------------------------------------------------
 // GET all workflows with steps and transitions for Admin Panel
 // ----------------------------------------------------------------------
@@ -37,64 +177,17 @@ router.get("/", async (req, res) => {
   try {
     const workflowsResult = await db.query(`
       SELECT * FROM workflows
+      ORDER BY name ASC, id ASC
     `);
-    const workflowsRows = workflowsResult.rows;
+    const workflowRows = workflowsResult.rows;
+    const workflowIds = workflowRows.map((workflow) => workflow.id);
 
-    const workflows = [];
-    for (const wf of workflowsRows) {
-      const stepsResult = await db.query(
-        `
-          SELECT ws.*,
-                 CASE ws.category_code
-                   WHEN 10 THEN 'Open'
-                   WHEN 20 THEN 'In Progress'
-                   WHEN 30 THEN 'Closed'
-                   WHEN 40 THEN 'Cancelled'
-                   ELSE 'Open'
-                 END AS category_name
-          FROM workflow_steps ws
-          WHERE ws.workflow_id = $1
-          ORDER BY ws.step_order
-        `,
-        [wf.id]
-      );
-      const steps = stepsResult.rows;
+    const [stepsRows, transitionRows] = await Promise.all([
+      fetchWorkflowSteps(workflowIds),
+      fetchWorkflowTransitions(workflowIds),
+    ]);
 
-      // Get transitions for each step
-      for (const step of steps) {
-        step.workgroupCode = step.workgroup_id;
-        const nextStepsResult = await db.query(
-          `
-            SELECT ws.step_name
-            FROM workflow_transitions wt
-            JOIN workflow_steps ws
-              ON wt.workflow_id = ws.workflow_id AND wt.to_step_code = ws.step_code
-            WHERE wt.workflow_id = $1 AND wt.from_step_code = $2
-          `,
-          [wf.id, step.step_code]
-        );
-        const nextSteps = nextStepsResult.rows.map(r => r.step_name);
-
-        const prevStepsResult = await db.query(
-          `
-            SELECT ws.step_name
-            FROM workflow_transitions wt
-            JOIN workflow_steps ws
-              ON wt.workflow_id = ws.workflow_id AND wt.from_step_code = ws.step_code
-            WHERE wt.workflow_id = $1 AND wt.to_step_code = $2
-          `,
-          [wf.id, step.step_code]
-        );
-        const prevSteps = prevStepsResult.rows.map(r => r.step_name);
-
-        step.allowedNextSteps = nextSteps;
-        step.allowedPreviousSteps = prevSteps;
-      }
-
-      workflows.push({ ...wf, steps });
-    }
-
-    res.json(workflows);
+    res.json(buildWorkflowDetails(workflowRows, stepsRows, transitionRows));
   } catch (err) {
     console.error("Failed to fetch workflows:", err);
     res.status(500).json({ error: "Failed to fetch workflows" });
@@ -116,52 +209,13 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ error: "Workflow not found" });
     }
 
-    const stepsResult = await db.query(
-      `
-        SELECT ws.*,
-               CASE ws.category_code
-                 WHEN 10 THEN 'Open'
-                 WHEN 20 THEN 'In Progress'
-                 WHEN 30 THEN 'Closed'
-                 WHEN 40 THEN 'Cancelled'
-                 ELSE 'Open'
-               END AS category_name
-        FROM workflow_steps ws
-        WHERE ws.workflow_id = $1
-        ORDER BY ws.step_order
-      `,
-      [workflowId]
-    );
-    const steps = stepsResult.rows;
+    const [stepsRows, transitionRows] = await Promise.all([
+      fetchWorkflowSteps([workflowId]),
+      fetchWorkflowTransitions([workflowId]),
+    ]);
 
-    for (const step of steps) {
-      step.workgroupCode = step.workgroup_id;
-      const nextStepsResult = await db.query(
-        `
-          SELECT ws.step_name
-          FROM workflow_transitions wt
-          JOIN workflow_steps ws
-            ON wt.workflow_id = ws.workflow_id AND wt.to_step_code = ws.step_code
-          WHERE wt.workflow_id = $1 AND wt.from_step_code = $2
-        `,
-        [workflowId, step.step_code]
-      );
-      step.allowedNextSteps = nextStepsResult.rows.map(r => r.step_name);
-
-      const prevStepsResult = await db.query(
-        `
-          SELECT ws.step_name
-          FROM workflow_transitions wt
-          JOIN workflow_steps ws
-            ON wt.workflow_id = ws.workflow_id AND wt.from_step_code = ws.step_code
-          WHERE wt.workflow_id = $1 AND wt.to_step_code = $2
-        `,
-        [workflowId, step.step_code]
-      );
-      step.allowedPreviousSteps = prevStepsResult.rows.map(r => r.step_name);
-    }
-
-    res.json({ ...workflow, steps });
+    const [workflowDetail] = buildWorkflowDetails([workflow], stepsRows, transitionRows);
+    res.json(workflowDetail);
   } catch (err) {
     console.error("Failed to fetch workflow:", err);
     res.status(500).json({ error: "Failed to fetch workflow" });

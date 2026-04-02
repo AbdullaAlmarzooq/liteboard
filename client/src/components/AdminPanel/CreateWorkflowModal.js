@@ -1,7 +1,102 @@
 // CreateWorkflowModal.js - CORRECTED VERSION
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Trash2, Info } from 'lucide-react';
+import ReactFlow, { Background } from 'reactflow';
+import 'reactflow/dist/style.css';
 import { WORKFLOW_CATEGORIES } from '../../constants/statuses';
+
+const WorkflowPreview = ({ steps, getCategoryName }) => {
+  const safeSteps = Array.isArray(steps) ? steps : [];
+  const isDark = document.documentElement.classList.contains('dark');
+
+  const nodes = useMemo(
+    () =>
+      safeSteps.map((step, index) => ({
+        id: step.stepCode || step.stepName || `step-${index}`,
+        position: { x: index * 220, y: 50 },
+        data: {
+          label: (
+            <div className="text-center">
+              <div className="font-medium">{step.stepName || 'Unnamed Step'}</div>
+              <div className="mt-1 text-[11px] opacity-80">
+                {getCategoryName(step.categoryCode)}
+              </div>
+            </div>
+          ),
+        },
+        style: {
+          border: '1px solid #777',
+          borderRadius: '8px',
+          padding: '10px',
+          background: isDark ? '#1f2937' : '#fff',
+          color: isDark ? '#fff' : '#000',
+          fontSize: '12px',
+          minWidth: '140px',
+        },
+        sourcePosition: 'right',
+        targetPosition: 'left',
+      })),
+    [safeSteps, isDark, getCategoryName]
+  );
+
+  const edges = useMemo(() => {
+    const edgesList = [];
+    const seen = new Set();
+
+    safeSteps.forEach((step, index) => {
+      const sourceId = step.stepCode || step.stepName || `step-${index}`;
+      const allowedNextSteps = Array.isArray(step.allowedNextSteps) ? step.allowedNextSteps : [];
+
+      allowedNextSteps.forEach((nextStepName) => {
+        const targetIndex = safeSteps.findIndex((candidate) => candidate.stepName === nextStepName);
+        if (targetIndex === -1) return;
+
+        const targetStep = safeSteps[targetIndex];
+        const targetId = targetStep.stepCode || targetStep.stepName || `step-${targetIndex}`;
+        const edgeKey = `${sourceId}->${targetId}`;
+        if (seen.has(edgeKey)) return;
+
+        seen.add(edgeKey);
+        edgesList.push({
+          id: edgeKey,
+          source: sourceId,
+          target: targetId,
+          type: 'smoothstep',
+          animated: false,
+        });
+      });
+    });
+
+    return edgesList;
+  }, [safeSteps]);
+
+  if (!safeSteps.length) {
+    return null;
+  }
+
+  return (
+    <div
+      style={{ height: 240 }}
+      className="mb-6 border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden"
+    >
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        panOnDrag={false}
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
+      >
+        <Background color={isDark ? '#555' : '#eee'} />
+      </ReactFlow>
+    </div>
+  );
+};
 
 const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) => {
   const normalizeCategoryCode = (value) => {
@@ -42,8 +137,19 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
     if (!workflowToEdit?.id) return;
 
     let cancelled = false;
+    const hasDetailedSteps = Array.isArray(workflowToEdit.steps) && workflowToEdit.steps.length > 0;
+
+    if (hasDetailedSteps) {
+      setForm(mapWorkflowToForm(workflowToEdit));
+      return undefined;
+    }
+
     // Show current row data immediately, then refresh from DB.
-    setForm(mapWorkflowToForm(workflowToEdit));
+    setForm({
+      id: workflowToEdit.id,
+      name: workflowToEdit.name || '',
+      steps: []
+    });
 
     const loadLatestWorkflow = async () => {
       try {
@@ -209,6 +315,20 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
               className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
           </div>
+
+          {form.steps.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-md font-semibold text-gray-900 dark:text-white">
+                  Workflow Preview
+                </h4>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Live preview from current steps and transitions
+                </span>
+              </div>
+              <WorkflowPreview steps={form.steps} getCategoryName={getCategoryName} />
+            </div>
+          )}
 
           {/* Workflow Steps */}
           <div className="mt-4">

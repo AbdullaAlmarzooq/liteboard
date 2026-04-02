@@ -120,6 +120,40 @@ const listReadableProjects = async (user, { includeAssignments = false } = {}) =
   return rows.map((row) => projectMap.get(row.id));
 };
 
+const listProjectSummaries = async () => {
+  const { rows } = await db.query(
+    `
+      SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.created_by,
+        p.updated_by,
+        p.active,
+        p.created_at,
+        p.updated_at,
+        COALESCE(wg_counts.workgroup_count, 0)::int AS workgroup_count,
+        COALESCE(wf_counts.workflow_count, 0)::int AS workflow_count
+      FROM projects p
+      LEFT JOIN (
+        SELECT project_id, COUNT(*)::int AS workgroup_count
+        FROM project_workgroups
+        GROUP BY project_id
+      ) wg_counts
+        ON wg_counts.project_id = p.id
+      LEFT JOIN (
+        SELECT project_id, COUNT(*)::int AS workflow_count
+        FROM project_workflows
+        GROUP BY project_id
+      ) wf_counts
+        ON wf_counts.project_id = p.id
+      ORDER BY p.active DESC, p.name ASC, p.id ASC
+    `
+  );
+
+  return rows;
+};
+
 router.get("/available", authenticateToken(), async (req, res) => {
   try {
     const rows = await listReadableProjects(req.user, { includeAssignments: false });
@@ -183,6 +217,16 @@ router.get("/dashboard", authenticateToken(), async (req, res) => {
 });
 
 router.use(authenticateToken([1]));
+
+router.get("/list", async (req, res) => {
+  try {
+    const projects = await listProjectSummaries();
+    res.json(projects);
+  } catch (err) {
+    console.error("Failed to fetch project summaries:", err);
+    res.status(500).json({ error: "Failed to fetch project summaries" });
+  }
+});
 
 const normalizeBoolean = (value, fallback) => {
   if (typeof value === "boolean") return value;
