@@ -148,7 +148,6 @@ CREATE TABLE workflow_steps (
 -- 7. WORKFLOW TRANSITIONS TABLE
 -- =====================================================================
 -- Defines valid state transitions between workflow steps
--- This table was missing from SQLite schema but referenced in README
 CREATE TABLE workflow_transitions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     workflow_id UUID NOT NULL,
@@ -751,7 +750,7 @@ COMMENT ON COLUMN employees.password_hash IS 'bcrypt hash with cost factor 10';
 -- 1. This schema uses UUID primary keys instead of TEXT/INTEGER
 -- 2. Soft deletion is implemented via deleted_at column
 -- 3. Attachments no longer store BLOBs; use object storage instead
--- 4. Added workflow_transitions table (was missing in SQLite)
+-- 4. Added workflow_transitions table
 -- 5. Added created_by and updated_by audit fields where appropriate
 -- 6. Email format validation added via CHECK constraint
 -- 7. Partial indexes ensure unique constraints ignore soft-deleted rows

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import Pagination from "../Profile/Pagination.jsx";
 import { useAuth } from "../hooks/useAuth";
+import { ProfileSectionCardSkeleton } from "../PageSkeletons";
 
 const RecentActivity = () => {
   const { user } = useAuth();
@@ -39,7 +40,9 @@ const RecentActivity = () => {
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentItems = activity.slice(indexOfFirstItem, indexOfLastItem);
 
-  if (isLoading) return <div>Loading activity...</div>;
+  if (isLoading) {
+    return <ProfileSectionCardSkeleton titleWidth="w-40" columns={6} rows={4} />;
+  }
   if (error) return <div className="text-red-600">Failed to load activity data</div>;
 
   return (

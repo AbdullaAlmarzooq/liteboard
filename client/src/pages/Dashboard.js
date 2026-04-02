@@ -10,6 +10,7 @@ import TicketStatusChart from "../components/Dashboard/TicketStatusChart";
 import TicketModuleStackedChart from "../components/Dashboard/TicketModuleStackedChart";
 import TicketsCreatedLineChart from "../components/Dashboard/TicketsCreatedLineChart";
 import { useAuth } from "../components/hooks/useAuth";
+import { DashboardPageSkeleton } from "../components/PageSkeletons";
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -117,7 +118,7 @@ const Dashboard = () => {
   };
 
   if (ticketsPending || workgroupsPending || projectsPending) {
-    return <p className="p-8 text-center text-lg text-blue-600 dark:text-blue-400">Loading Dashboard data...</p>;
+    return <DashboardPageSkeleton />;
   }
 
   const error = ticketsError || workgroupsError || projectsError;

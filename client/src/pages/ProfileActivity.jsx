@@ -6,6 +6,7 @@ import MyTickets from "../components/Profile/MyTickets";
 import ChangePasswordModal from "../components/Profile/ChangePasswordModal";
 import AssignedWorkflowBarChart from "../components/Profile/AssignedWorkflowBarChart";
 import WorkgroupStatusPieChart from "../components/Profile/WorkgroupStatusPieChart";
+import { ProfilePageSkeleton } from "../components/PageSkeletons";
 
 const ProfileActivity = () => {
   const [stats, setStats] = useState({
@@ -13,6 +14,8 @@ const ProfileActivity = () => {
     assigned_to_me: 0,
     workgroup_tickets: 0,
   });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [userDetailsLoading, setUserDetailsLoading] = useState(true);
 
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem("user");
@@ -44,16 +47,25 @@ const ProfileActivity = () => {
         setStats(data);
       } catch (err) {
         console.error("Error fetching profile stats:", err);
+      } finally {
+        setStatsLoading(false);
       }
     };
 
-    if (token) fetchStats();
+    if (token) {
+      fetchStats();
+    } else {
+      setStatsLoading(false);
+    }
   }, [token]);
 
   // Refresh user details (role/workgroup names) from API
   useEffect(() => {
     const fetchUserDetails = async () => {
-      if (!user?.id || !token) return;
+      if (!user?.id || !token) {
+        setUserDetailsLoading(false);
+        return;
+      }
       try {
         const response = await fetch(`http://localhost:8000/api/employees/${user.id}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -71,6 +83,8 @@ const ProfileActivity = () => {
         localStorage.setItem("user", JSON.stringify(merged));
       } catch (err) {
         console.error("Error fetching user details:", err);
+      } finally {
+        setUserDetailsLoading(false);
       }
     };
 
@@ -83,6 +97,10 @@ const ProfileActivity = () => {
         No user found. Please log in again.
       </div>
     );
+  }
+
+  if (statsLoading || userDetailsLoading || ticketsPending) {
+    return <ProfilePageSkeleton />;
   }
 
   const myAssignedTickets = Array.isArray(ticketsData)
@@ -160,11 +178,7 @@ const ProfileActivity = () => {
 
       {/* === Profile Charts === */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {ticketsPending ? (
-          <div className="col-span-1 md:col-span-2 text-center text-sm text-gray-500 dark:text-gray-400">
-            Loading ticket charts...
-          </div>
-        ) : ticketsError ? (
+        {ticketsError ? (
           <div className="col-span-1 md:col-span-2 text-center text-sm text-red-600 dark:text-red-400">
             Failed to load ticket data for charts.
           </div>

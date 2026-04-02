@@ -4,6 +4,7 @@ import Button from "../components/Button"
 import TicketFilter from "../components/TicketsPage/TicketFilter"
 import useFetch from "../useFetch"
 import { useAuth } from "../components/hooks/useAuth"
+import { TicketsPageSkeleton } from "../components/PageSkeletons"
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import SearchBar from "../components/TicketsPage/SearchBar";
@@ -204,11 +205,7 @@ const TicketsPage = () => {
   };
 
   if (isPending || projectsPending) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600 dark:text-gray-400">Loading tickets...</div>
-      </div>
-    );
+    return <TicketsPageSkeleton />;
   }
 
   if (error || projectsError) {

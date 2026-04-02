@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
 import Pagination from "../Profile/Pagination.jsx";
+import { ProfileSectionCardSkeleton } from "../PageSkeletons";
 
 const MyTickets = () => {
   const { user } = useAuth();
@@ -41,11 +42,7 @@ const MyTickets = () => {
   const currentItems = tickets.slice(indexOfFirstItem, indexOfLastItem);
 
   if (loading) {
-    return (
-      <Card className="bg-white dark:bg-gray-800 text-center p-6">
-        <CardTitle>Loading My Workgroup Tickets...</CardTitle>
-      </Card>
-    );
+    return <ProfileSectionCardSkeleton titleWidth="w-52" columns={6} rows={4} />;
   }
 
   if (error) {

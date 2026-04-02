@@ -8,6 +8,10 @@ import useFetch from "../useFetch"
 import TicketEditor from "../components/TicketManagement/TicketEditor"
 import { useAuth } from "../components/hooks/useAuth"
 import fetchWithAuth from "../utils/fetchWithAuth"
+import {
+  CreateTicketPageSkeleton,
+  CreateTicketStepDetailsSkeleton,
+} from "../components/PageSkeletons"
 import { AlertCircle, CheckCircle, X } from "lucide-react"
 
 const createInitialFormData = (projectId = "") => ({
@@ -349,16 +353,7 @@ const CreateTicketPage = () => {
   const noProjects = !projectsLoading && Array.isArray(projects) && projects.length === 0
 
   if (isBaseLoading) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Create New Ticket
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
-        </div>
-      </div>
-    )
+    return <CreateTicketPageSkeleton />
   }
 
   if (baseError) {
@@ -463,7 +458,7 @@ const CreateTicketPage = () => {
           </CardHeader>
           <CardContent className="space-y-6">
             {isProjectDataLoading ? (
-              <p className="text-gray-600 dark:text-gray-300">Loading project workflows and tags...</p>
+              <CreateTicketStepDetailsSkeleton />
             ) : projectDataError ? (
               <p className="text-red-600 dark:text-red-400">
                 Error loading project data: {projectDataError}

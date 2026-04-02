@@ -6,6 +6,14 @@ import WorkgroupsTab from '../components/AdminPanel/WorkgroupsTab';
 import ModulesTab from '../components/AdminPanel/ModulesTab';
 import WorkflowsTab from '../components/AdminPanel/WorkflowsTab';
 import ProjectsTab from '../components/AdminPanel/ProjectsTab';
+import {
+  EmployeesTabSkeleton,
+  TagsTabSkeleton,
+  WorkgroupsTabSkeleton,
+  ModulesTabSkeleton,
+  WorkflowsTabSkeleton,
+  ProjectsTabSkeleton,
+} from '../components/AdminPanel/TabSkeletons';
 import EmployeeModal from '../components/AdminPanel/EmployeeModal';
 import CreateModal from '../components/AdminPanel/CreateModal';
 import CreateWorkflowModal from '../components/AdminPanel/CreateWorkflowModal';
@@ -577,7 +585,24 @@ const AdminPanel = () => {
   };
 
   const renderCurrentTabComponent = () => {
-    if (loading) return <div className="text-center py-8">Loading...</div>;
+    if (loading) {
+      switch (activeTab) {
+        case 'employees':
+          return <EmployeesTabSkeleton />;
+        case 'tags':
+          return <TagsTabSkeleton />;
+        case 'workgroups':
+          return <WorkgroupsTabSkeleton />;
+        case 'modules':
+          return <ModulesTabSkeleton />;
+        case 'workflows':
+          return <WorkflowsTabSkeleton />;
+        case 'projects':
+          return <ProjectsTabSkeleton />;
+        default:
+          return null;
+      }
+    }
 
     switch (activeTab) {
       case 'employees':

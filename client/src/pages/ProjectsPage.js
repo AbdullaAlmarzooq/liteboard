@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/Card";
 import Badge from "../components/Badge";
 import useFetch from "../useFetch";
 import { useAuth } from "../components/hooks/useAuth";
+import { ProjectsPageSkeleton } from "../components/PageSkeletons";
 
 const STAT_ITEMS = [
   { key: "open_count", label: "Open", variant: "default" },
@@ -30,11 +31,7 @@ const ProjectsPage = () => {
   );
 
   if (isPending) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-gray-600 dark:text-gray-400">Loading projects overview...</div>
-      </div>
-    );
+    return <ProjectsPageSkeleton />;
   }
 
   if (error) {
