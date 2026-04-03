@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2026-04-03]
+
+
 ### Changed
 - Dashboard `Active Tickets` now counts workflow categories `Open` and `In Progress` from ticket step category data instead of excluding only `Closed` and `Cancelled` by display status text.
 - Dashboard `Active Tickets by WorkGroup` now counts workflow categories `Open` and `In Progress` from ticket step category data instead of display status text.
