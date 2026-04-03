@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- Dashboard `Active Tickets` now counts workflow categories `Open` and `In Progress` from ticket step category data instead of excluding only `Closed` and `Cancelled` by display status text.
+- Dashboard `Active Tickets by WorkGroup` now counts workflow categories `Open` and `In Progress` from ticket step category data instead of display status text.
+- Dashboard `Tickets by Priority` now counts only active tickets in workflow categories `Open` and `In Progress`, excluding closed and cancelled tickets.
+- Dashboard `Pending Tickets by Module` now matches the bar-chart visual style used by `Pending Tickets Per Type` and `Pending Tickets by Status`, and counts only active tickets.
+- Profile `Tickets Assigned to Me` and `Workgroup Tickets` now show only active tickets in workflow categories `Open` and `In Progress`, matching the filtered profile charts.
+- Profile `My Recent Activity` and `Pending Workgroup Tickets` now use server-side pagination with a default first page of 10 items instead of front-loading larger result sets.
+- ProfileActivity now uses a dedicated `/api/profile/overview` endpoint for its cards and charts instead of the heavier `/api/tickets` payload.
+- ProfileActivity no longer blocks the full page on overview loading, `/api/profile/overview` now includes user metadata so the extra employee fetch is gone, and the overview backend was collapsed into a single summary query.
+
 ## [2026-04-01]
 
 ### Added

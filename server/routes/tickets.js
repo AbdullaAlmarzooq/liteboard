@@ -252,6 +252,7 @@ router.get("/", authenticateToken(), async (req, res) => {
       SELECT 
         t.id, t.ticket_code, t.title, t.description, t.project_id, p.name AS project_name,
         COALESCE(ws.step_name, t.step_code) AS status, t.step_code, t.priority,
+        ws.category_code AS step_category_code,
         t.workflow_id, wf.name AS workflow_name,
         COALESCE(ws.step_name, t.step_code) AS current_step_name,
         CASE ws.category_code
@@ -305,6 +306,7 @@ router.get("/", authenticateToken(), async (req, res) => {
     const ticketsWithTags = tickets.map(ticket => ({
       ...ticket,
       ticketCode: ticket.ticket_code,
+      stepCategoryCode: ticket.step_category_code,
       workGroup: ticket.workgroup_name,
       responsible: ticket.responsible_name,
       createdBy: ticket.created_by_name,
@@ -337,6 +339,7 @@ router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) =>
         t.id, t.ticket_code, t.title, t.description, t.project_id, p.name AS project_name, COALESCE(ws.step_name, t.step_code) AS status, t.priority, 
         t.workflow_id,
         t.step_code,
+        ws.category_code AS step_category_code,
         COALESCE(ws.step_name, t.step_code) AS current_step_name,
         CASE ws.category_code
           WHEN 10 THEN 'default'
@@ -429,6 +432,7 @@ router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) =>
     const fullTicket = {
       ...ticket,
       ticketCode: ticket.ticket_code,
+      stepCategoryCode: ticket.step_category_code,
       workGroup: ticket.workgroup_name,
       responsible: ticket.responsible_name,
       module: ticket.module_name,

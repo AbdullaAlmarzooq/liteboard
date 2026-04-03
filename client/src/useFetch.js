@@ -32,7 +32,7 @@ const useFetch = (url) => {
     };
     // --------------------------------------------------------
 
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       fetch(url, { 
         signal: abortCont.signal,
         headers: headers // Pass the constructed headers
@@ -76,7 +76,10 @@ const useFetch = (url) => {
     }, 10);
 
 
-    return () => abortCont.abort();
+    return () => {
+      clearTimeout(timeoutId);
+      abortCont.abort();
+    };
   }, [url])
 
   return { data, isPending, error };

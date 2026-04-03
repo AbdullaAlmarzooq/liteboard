@@ -2,22 +2,47 @@ import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const COLORS = ["#9cc1e0", "#6a9cc6", "#457caa", "#2c6799", "#155081"];
+const ACTIVE_TICKET_CATEGORY_CODES = new Set([10, 20]);
+const ACTIVE_TICKET_CATEGORY_NAMES = new Set(["open", "in progress"]);
+const ACTIVE_TICKET_STATUS_VARIANTS = new Set(["default", "secondary"]);
 
 const PendingTicketsPieChart = ({ tickets = [], workgroups = [] }) => {
   const [data, setData] = useState([]);
 
   useEffect(() => {
     if (tickets.length > 0 && workgroups.length > 0) {
-      // Only Active tickets (not Closed or Cancelled)
-      const activeTickets = tickets.filter(
-        (t) => t.status !== "Closed" && t.status !== "Cancelled"
-      );
+      const activeTickets = tickets.filter((ticket) => {
+        const categoryCode = Number(
+          ticket.step_category_code ?? ticket.stepCategoryCode ?? ticket.category_code ?? ticket.categoryCode
+        );
+
+        if (ACTIVE_TICKET_CATEGORY_CODES.has(categoryCode)) {
+          return true;
+        }
+
+        const statusVariant = String(ticket.status_variant ?? ticket.statusVariant ?? "")
+          .trim()
+          .toLowerCase();
+
+        if (ACTIVE_TICKET_STATUS_VARIANTS.has(statusVariant)) {
+          return true;
+        }
+
+        const categoryName = String(ticket.category ?? ticket.categoryName ?? ticket.status ?? "")
+          .trim()
+          .toLowerCase();
+
+        return ACTIVE_TICKET_CATEGORY_NAMES.has(categoryName);
+      });
   
       // Count tickets per workgroup
       const counts = {};
       activeTickets.forEach((ticket) => {
         const groupName =
-          workgroups.find((w) => w.id === ticket.workgroupId)?.name || ticket.workgroup_name || "Unknown";
+          workgroups.find((w) => w.id === (ticket.workgroupId || ticket.workgroup_id))?.name ||
+          ticket.workgroup_name ||
+          ticket.workgroupName ||
+          "Unknown";
         counts[groupName] = (counts[groupName] || 0) + 1;
       });
   

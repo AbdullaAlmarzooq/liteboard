@@ -1,44 +1,57 @@
-import { useEffect, useState } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts";
+import { useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
 
-const COLORS = ["#9cc1e0", "#6a9cc6", "#457caa", "#2c6799", "#155081"];
+const ACTIVE_TICKET_CATEGORY_CODES = new Set([10, 20]);
+const ACTIVE_TICKET_CATEGORY_NAMES = new Set(["open", "in progress"]);
+const ACTIVE_TICKET_STATUS_VARIANTS = new Set(["default", "secondary"]);
 
 const TicketModuleStackedChart = ({ tickets = [] }) => {
-  const [data, setData] = useState([]);
+  const data = useMemo(() => {
+    const safeTickets = Array.isArray(tickets) ? tickets : [];
 
-  useEffect(() => {
-    if (tickets.length > 0) {
-      // Only count pending tickets
-      const pendingTickets = tickets.filter(
-        (t) => t.status !== "Closed" && t.status !== "Cancelled"
+    const activeTickets = safeTickets.filter((ticket) => {
+      const categoryCode = Number(
+        ticket.step_category_code ?? ticket.stepCategoryCode ?? ticket.category_code ?? ticket.categoryCode
       );
 
-      const counts = {};
-      pendingTickets.forEach((ticket) => {
-        const moduleName = ticket.module_name || "Unknown";
-        counts[moduleName] = (counts[moduleName] || 0) + 1;
-      });
+      if (ACTIVE_TICKET_CATEGORY_CODES.has(categoryCode)) {
+        return true;
+      }
 
-      setData(Object.entries(counts).map(([name, value]) => ({ name, value })));
-    } else {
-      setData([]);
-    }
+      const statusVariant = String(ticket.status_variant ?? ticket.statusVariant ?? "")
+        .trim()
+        .toLowerCase();
+
+      if (ACTIVE_TICKET_STATUS_VARIANTS.has(statusVariant)) {
+        return true;
+      }
+
+      const categoryName = String(ticket.category ?? ticket.categoryName ?? ticket.status ?? "")
+        .trim()
+        .toLowerCase();
+
+      return ACTIVE_TICKET_CATEGORY_NAMES.has(categoryName);
+    });
+
+    const counts = {};
+    activeTickets.forEach((ticket) => {
+      const moduleName = ticket.module_name || ticket.module || "Unknown";
+      counts[moduleName] = (counts[moduleName] || 0) + 1;
+    });
+
+    return Object.entries(counts).map(([name, value]) => ({ name, value }));
   }, [tickets]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-6 dark:bg-gray-800 transition-colors duration-200 text-center flex flex-col justify-center items-center">
-      <h2 className="text-xl font-bold mb-4">Pending Tickets by Module</h2>
+      <h2 className="text-xl font-bold mb-4">Active Tickets by Module</h2>
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-          <XAxis dataKey="name" />
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" interval={0} height={70} tick={{ fontSize: 12, fill: "#6B7280" }} />
           <YAxis allowDecimals={false} />
           <Tooltip />
-          <Legend />
-          <Bar dataKey="value">
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Bar>
+          <Bar dataKey="value" fill="#2c6799" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

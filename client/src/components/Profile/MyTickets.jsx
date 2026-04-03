@@ -1,45 +1,53 @@
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
-import { useAuth } from "../hooks/useAuth";
 import { Link } from "react-router-dom";
 import Pagination from "../Profile/Pagination.jsx";
 import { ProfileSectionCardSkeleton } from "../PageSkeletons";
 
 const MyTickets = () => {
-  const { user } = useAuth();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
+  const [totalItems, setTotalItems] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     const fetchTickets = async () => {
+      setLoading(true);
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch("http://localhost:8000/api/profile/my-tickets", {
+        const params = new URLSearchParams({
+          page: String(currentPage),
+          limit: String(itemsPerPage),
+        });
+        const res = await fetch(`http://localhost:8000/api/profile/my-tickets?${params.toString()}`, {
+          signal: abortController.signal,
           headers: { Authorization: `Bearer ${token}` },
         });
 
         if (!res.ok) throw new Error("Failed to load tickets");
         const data = await res.json();
-        setTickets(data);
+        setTickets(Array.isArray(data.items) ? data.items : []);
+        setTotalItems(Number(data.total) || 0);
+        setError("");
       } catch (err) {
+        if (err.name === "AbortError") return;
         console.error("Error fetching workgroup tickets:", err);
         setError("Failed to load tickets");
+        setTickets([]);
+        setTotalItems(0);
       } finally {
         setLoading(false);
       }
     };
 
     fetchTickets();
-  }, []);
 
-  const totalItems = tickets.length;
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = tickets.slice(indexOfFirstItem, indexOfLastItem);
+    return () => abortController.abort();
+  }, [currentPage, itemsPerPage]);
 
   if (loading) {
     return <ProfileSectionCardSkeleton titleWidth="w-52" columns={6} rows={4} />;
@@ -80,29 +88,30 @@ const MyTickets = () => {
                 {tickets.map((ticket) => {
                   const displayId = ticket.ticketCode || ticket.ticket_code || ticket.id;
                   return (
-                  <tr
-                    key={ticket.id}
-                    className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                  >
-                    <td className="px-4 py-2 font-medium text-blue-600 dark:text-blue-400 hover:underline">
-                      <Link to={`/view-ticket/${displayId}`}>{displayId}</Link>
-                    </td>
-                    <td className="px-4 py-2">{ticket.title}</td>
-                    <td className="px-4 py-2">{ticket.status}</td>
-                    <td className="px-4 py-2">{ticket.priority}</td>
-                    <td className="px-4 py-2">
-                      {ticket.responsible_name || "Unassigned"}
-                    </td>
-                    <td className="px-4 py-2">
-                      {ticket.created_by_name || ticket.created_by || "N/A"}
-                    </td>
-                  </tr>
-                )})}
+                    <tr
+                      key={ticket.id}
+                      className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                    >
+                      <td className="px-4 py-2 font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                        <Link to={`/view-ticket/${displayId}`}>{displayId}</Link>
+                      </td>
+                      <td className="px-4 py-2">{ticket.title}</td>
+                      <td className="px-4 py-2">{ticket.status}</td>
+                      <td className="px-4 py-2">{ticket.priority}</td>
+                      <td className="px-4 py-2">
+                        {ticket.responsible_name || "Unassigned"}
+                      </td>
+                      <td className="px-4 py-2">
+                        {ticket.created_by_name || ticket.created_by || "N/A"}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
-                {totalItems > itemsPerPage && (
+        {totalItems > itemsPerPage && (
           <Pagination
             totalItems={totalItems}
             currentPage={currentPage}
