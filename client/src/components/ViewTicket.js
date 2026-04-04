@@ -8,7 +8,7 @@ import fetchWithAuth from "../utils/fetchWithAuth"
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
 import ReactFlow, { Background } from 'reactflow'
-import { MessageSquare, RefreshCw, Tag, MinusCircle, Edit3, Edit, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Edit } from "lucide-react";
 import 'reactflow/dist/style.css'
 
 const isTerminalStatusVariant = (variant) =>
@@ -218,7 +218,7 @@ const ViewTicket = () => {
   const { data: rawTicket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}?include_blobs=false`)
   
   // Fetch status history - this should work now with your actual table
-  const { data: statusHistory, isPending: isHistoryPending, error: historyError } = useFetch(`http://localhost:8000/api/status_history?ticketId=${ticketId}`)
+  const { data: statusHistory, isPending: isHistoryPending } = useFetch(`http://localhost:8000/api/status_history?ticketId=${ticketId}`)
 
 // Transform raw ticket data to match component expectations
 const ticket = useMemo(() => {
@@ -253,6 +253,9 @@ const ticket = useMemo(() => {
 }, [rawTicket]);
 
   const [attachmentBlobs, setAttachmentBlobs] = useState({});
+  const [activityFilter, setActivityFilter] = useState("all")
+  const [isWorkflowExpanded, setIsWorkflowExpanded] = useState(false)
+  const [isActivityLogExpanded, setIsActivityLogExpanded] = useState(false)
   // Cancel ticket modal state
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -373,39 +376,207 @@ const ticket = useMemo(() => {
     }
   }
 
-  const formatTimestamp = timestamp => {
-    const date = new Date(timestamp)
-    return date.toLocaleString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-  }
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp)
 
-  const formatFieldName = (fieldName) => {
-    switch (fieldName) {
-      case 'workGroup': return 'Work Group'
-      case 'responsible': return 'Responsible Person'
-      case 'dueDate': return 'Due Date'
-      case 'startDate': return 'Start Date'
-      case 'module': return 'Module'
-      case 'title': return 'Title'
-      case 'description': return 'Description'
-      case 'priority': return 'Priority'
-      case 'tags_added': return 'Added Tag'
-      case 'tags_removed': return 'Removed Tag'
-      default: return fieldName
-    }
-  }
+    if (Number.isNaN(date.getTime())) {
+      return "Unknown time"
+    }
 
-  const [timeline, setTimeline] = useState([])
-  useEffect(() => {
-    if (ticket && statusHistory) {
-      const commentsWithTypes = (ticket.comments || []).map(comment => ({
-        ...comment,
-        type: 'comment'
-      }))
-      const combinedTimeline = [...commentsWithTypes, ...statusHistory]
-      combinedTimeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-      setTimeline(combinedTimeline)
-    }
-  }, [ticket, statusHistory])
+    return date.toLocaleString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
+  }
+
+  const formatFieldName = (fieldName, type) => {
+    if (type === "comment") return "Comment"
+    if (type === "status_change") return "Status"
+
+    switch (fieldName) {
+      case "workGroup": return "Work Group"
+      case "responsible": return "Responsible Person"
+      case "dueDate": return "Due Date"
+      case "startDate": return "Start Date"
+      case "module": return "Module"
+      case "title": return "Title"
+      case "description": return "Description"
+      case "priority": return "Priority"
+      case "tags_added":
+      case "tags_removed":
+        return "Tag"
+      default:
+        return fieldName || "Updated Field"
+    }
+  }
+
+  const getActivityTypeMeta = (item) => {
+    if (item.type === "status_change") {
+      return {
+        label: "Status",
+        filterKey: "status",
+        badgeClassName:
+          "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/30",
+        personClassName: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200",
+      }
+    }
+
+    if (item.type === "comment") {
+      return {
+        label: "Comments",
+        filterKey: "comment",
+        badgeClassName:
+          "bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-400/30",
+        personClassName: "bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-200",
+      }
+    }
+
+    if (item.fieldName === "responsible" || item.fieldName === "workGroup") {
+      return {
+        label: "People",
+        filterKey: "people",
+        badgeClassName:
+          "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/30",
+        personClassName: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+      }
+    }
+
+    return {
+      label: "Field",
+      filterKey: "fields",
+      badgeClassName: "border border-gray-300 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300",
+      personClassName: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
+    }
+  }
+
+  const activityFilterOptions = [
+    {
+      key: "all",
+      label: "All",
+      activeClassName: "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900",
+    },
+    {
+      key: "status",
+      label: "Status",
+      activeClassName: "bg-blue-600 text-white dark:bg-blue-500 dark:text-white",
+    },
+    {
+      key: "people",
+      label: "People",
+      activeClassName: "bg-emerald-600 text-white dark:bg-emerald-500 dark:text-white",
+    },
+    {
+      key: "comment",
+      label: "Comments",
+      activeClassName: "bg-teal-600 text-white dark:bg-teal-500 dark:text-white",
+    },
+    {
+      key: "fields",
+      label: "Fields",
+      activeClassName: "bg-gray-600 text-white dark:bg-gray-500 dark:text-white",
+    },
+  ]
+
+  const formatPersonName = (name) => {
+    const trimmedName = String(name || "").trim()
+
+    if (!trimmedName) {
+      return { firstName: "Unknown", initials: "?" }
+    }
+
+    const nameParts = trimmedName.split(/\s+/).filter(Boolean)
+    const initials = nameParts
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("") || "?"
+
+    return {
+      firstName: nameParts[0],
+      initials,
+    }
+  }
+
+  const toPlainText = (value) =>
+    String(value)
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+
+  const formatActivityValue = (value, fieldName) => {
+    if (value === null || value === undefined || value === "") {
+      return "Empty"
+    }
+
+    if ((fieldName === "dueDate" || fieldName === "startDate") && !Number.isNaN(new Date(value).getTime())) {
+      return new Date(value).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    }
+
+    const plainTextValue = toPlainText(value)
+    return plainTextValue || "Empty"
+  }
+
+  const activityGroups = useMemo(() => {
+    const commentItems = (ticket?.comments || []).map((comment, index) => ({
+      id: comment.id || `comment-${index}`,
+      type: "comment",
+      fieldName: "comment",
+      oldValue: null,
+      newValue: comment.text,
+      timestamp: comment.timestamp || comment.created_at,
+      changedBy: comment.author || comment.created_by || "Unknown",
+    }))
+
+    const historyItems = (Array.isArray(statusHistory) ? statusHistory : []).map((item, index) => ({
+      ...item,
+      id: item.id || `history-${index}`,
+      timestamp: item.timestamp || item.created_at,
+      changedBy: item.changedBy || "Unknown",
+    }))
+
+    const combinedTimeline = [...commentItems, ...historyItems].sort(
+      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    )
+
+    return combinedTimeline.reduce((groups, item) => {
+      const label = formatTimestamp(item.timestamp)
+      const previousGroup = groups[groups.length - 1]
+
+      if (!previousGroup || previousGroup.label !== label) {
+        groups.push({
+          key: `${label}-${groups.length}`,
+          label,
+          items: [item],
+        })
+      } else {
+        previousGroup.items.push(item)
+      }
+
+      return groups
+    }, [])
+  }, [ticket, statusHistory])
+
+  const filteredActivityGroups = useMemo(() => {
+    return activityGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => {
+          if (activityFilter === "all") {
+            return true
+          }
+
+          return getActivityTypeMeta(item).filterKey === activityFilter
+        }),
+      }))
+      .filter((group) => group.items.length > 0)
+  }, [activityFilter, activityGroups])
 
   // Helper function to render tags properly
 const renderTag = (tag, index) => {
@@ -435,10 +606,7 @@ const renderTag = (tag, index) => {
   );
 };
 
-  // Check if ticket can be cancelled (not already closed or cancelled)
-  const canCancelTicket = ticket && canEdit && !ticket.isTerminal
-
-  if (isPending || isHistoryPending) {
+  if (isPending || isHistoryPending) {
     return <div className="flex items-center justify-center min-h-64 text-gray-500">Loading ticket details...</div>
   }
   if (error) {
@@ -486,14 +654,7 @@ const renderTag = (tag, index) => {
               <div className="flex flex-wrap gap-2 mt-4">
                 {ticket.tags?.map((tag, index) => renderTag(tag, index))}
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle className="text-xl">Description</CardTitle>
-            </CardHeader>
-            <CardContent>
+              <div className="my-6 border-t border-gray-200 dark:border-gray-700" />
               <div
                 className="text-gray-700 dark:text-gray-200 leading-relaxed break-words
                   [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-4 [&_h1]:mb-2
@@ -514,121 +675,163 @@ const renderTag = (tag, index) => {
           {/* Workflow diagram (only if workflow found) */}
           {workflow && (
             <Card className="bg-white">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-4">
                 <CardTitle className="text-xl">Workflow: {workflow.name}</CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setIsWorkflowExpanded((current) => !current)}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                  aria-expanded={isWorkflowExpanded}
+                >
+                  <span>{isWorkflowExpanded ? "Collapse" : "Expand"}</span>
+                  {isWorkflowExpanded ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </button>
               </CardHeader>
-              <CardContent className="p-0">
-                <WorkflowDiagram
-                  steps={workflow.steps}
-                  currentStepName={ticket.status} // highlight based on current ticket status
-                />
-              </CardContent>
+              {isWorkflowExpanded && (
+                <CardContent className="p-0">
+                  <WorkflowDiagram
+                    steps={workflow.steps}
+                    currentStepName={ticket.status} // highlight based on current ticket status
+                  />
+                </CardContent>
+              )}
             </Card>
           )}
 
           {/* Activity log */}
           <Card className = "bg-white"> 
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-4">
               <CardTitle className="text-xl">Activity Log</CardTitle>
+              <button
+                type="button"
+                onClick={() => setIsActivityLogExpanded((current) => !current)}
+                className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+                aria-expanded={isActivityLogExpanded}
+              >
+                <span>{isActivityLogExpanded ? "Collapse" : "Expand"}</span>
+                {isActivityLogExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
             </CardHeader>
+            {isActivityLogExpanded && (
             <CardContent>
-              {timeline.length > 0 ? (
-                <div className="relative pl-10 sm:pl-12">
-                  {/* Vertical line */}
-                  <div className="absolute left-5 top-0 bottom-0 w-px bg-gray-300 dark:bg-gray-700"></div>
-
-                  <ul className="space-y-6">
-                    {timeline.map((item, index) => {
-                      let Icon, colorClasses;
-                      if (item.type === "comment") {
-                        Icon = MessageSquare;
-                        colorClasses = "bg-green-600 dark:bg-green-500";
-                      } else if (item.type === "status_change") {
-                        Icon = RefreshCw;
-                        colorClasses = "bg-blue-600 dark:bg-blue-500";
-                      } else if (item.fieldName === "tags_added") {
-                        Icon = Tag;
-                        colorClasses = "bg-purple-600 dark:bg-purple-500";
-                      } else if (item.fieldName === "tags_removed") {
-                        Icon = MinusCircle; 
-                        colorClasses = "bg-red-600 dark:bg-red-500";
-                      } else {
-                        Icon = Edit3;
-                        colorClasses = "bg-orange-600 dark:bg-orange-500";
-                      }
+              {activityGroups.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center gap-1">
+                    {activityFilterOptions.map((option) => {
+                      const isActive = activityFilter === option.key
 
                       return (
-                        <li key={index} className="relative">
-                          {/* Timeline node (perfectly centered) */}
-                          <span
-                            className={`absolute left-0 top-1/2 -translate-y-1/2 inline-flex h-10 w-10 items-center justify-center rounded-full text-white shadow ring-4 ring-white dark:ring-gray-900 ${colorClasses}`}
-                          >
-                            <Icon className="h-5 w-5" aria-hidden="true" />
-                            <span className="sr-only">Timeline item</span>
-                          </span>
-
-                          {/* Card */}
-                          <div className="ml-14">
-                            <div className="rounded-xl shadow-sm bg-white dark:bg-gray-800 p-4">
-                              {item.type === "comment" ? (
-                                <>
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                                      {item.author} commented
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {formatTimestamp(item.timestamp)}
-                                    </p>
-                                  </div>
-                                  <p className="mt-2 text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
-                                    {item.text}
-                                  </p>
-                                </>
-                              ) : item.type === "status_change" ? (
-                                <div>
-                                  <p className="text-sm text-gray-900 dark:text-gray-100">
-                                    Status changed from <b>{item.oldValue || "N/A"}</b> to{" "}
-                                    <b>{item.newValue || "N/A"}</b>
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    by {item.changedBy} on {formatTimestamp(item.timestamp)}
-                                  </p>
-                                </div>
-                              ) : item.fieldName === "tags_added" ? (
-                                <div>
-                                  <p className="text-sm text-gray-900 dark:text-gray-100">
-                                    Added tag: <b>{item.newValue}</b>
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    by {item.changedBy} on {formatTimestamp(item.timestamp)}
-                                  </p>
-                                </div>
-                              ) : item.fieldName === "tags_removed" ? (
-                                <div>
-                                  <p className="text-sm text-gray-900 dark:text-gray-100">
-                                    Removed tag: <b>{item.oldValue}</b>
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    by {item.changedBy} on {formatTimestamp(item.timestamp)}
-                                  </p>
-                                </div>
-                              ) : (
-                                <div>
-                                  <p className="text-sm text-gray-900 dark:text-gray-100">
-                                    Changed {formatFieldName(item.fieldName)} from{" "}
-                                    <b>{item.oldValue || "N/A"}</b> to <b>{item.newValue || "N/A"}</b>
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    by {item.changedBy} on {formatTimestamp(item.timestamp)}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </li>
-                      );
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={() => setActivityFilter(option.key)}
+                          className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                            isActive
+                              ? option.activeClassName
+                              : "text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+                          }`}
+                          aria-pressed={isActive}
+                        >
+                          {option.label}
+                        </button>
+                      )
                     })}
-                  </ul>
+                  </div>
+                  {filteredActivityGroups.length > 0 ? (
+                <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-800/70">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Type
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Field
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Change
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            By
+                          </th>
+                        </tr>
+                      </thead>
+                      {filteredActivityGroups.map((group) => (
+                        <tbody key={group.key} className="divide-y divide-gray-200 dark:divide-gray-700">
+                          <tr className="bg-gray-50/80 dark:bg-gray-800/50">
+                            <td
+                              colSpan={4}
+                              className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400"
+                            >
+                              {group.label}
+                            </td>
+                          </tr>
+                          {group.items.map((item, index) => {
+                            const typeMeta = getActivityTypeMeta(item)
+                            const actor = formatPersonName(item.changedBy)
+                            const previousValue = formatActivityValue(item.oldValue, item.fieldName)
+                            const nextValue = formatActivityValue(item.newValue, item.fieldName)
+
+                            return (
+                              <tr
+                                key={`${group.key}-${item.id}-${index}`}
+                                className="transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60"
+                              >
+                                <td className="whitespace-nowrap px-4 py-4 align-top">
+                                  <span
+                                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${typeMeta.badgeClassName}`}
+                                  >
+                                    {typeMeta.label}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-4 align-top text-sm font-medium text-gray-900 dark:text-gray-100">
+                                  {formatFieldName(item.fieldName, item.type)}
+                                </td>
+                                <td className="px-4 py-4 align-top">
+                                  <div className="flex flex-wrap items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
+                                    <span className="break-words text-gray-400 line-through dark:text-gray-500">
+                                      {previousValue}
+                                    </span>
+                                    <span className="text-gray-400 dark:text-gray-500">→</span>
+                                    <span className="break-words font-medium">
+                                      {nextValue}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="whitespace-nowrap px-4 py-4 align-top">
+                                  <div className="flex items-center gap-3" title={item.changedBy || "Unknown"}>
+                                    <span
+                                      className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${typeMeta.personClassName}`}
+                                    >
+                                      {actor.initials}
+                                    </span>
+                                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                      {actor.firstName}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      ))}
+                    </table>
+                  </div>
+                </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                      No activity matches this filter.
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="text-center text-gray-500 dark:text-gray-400">
@@ -636,6 +839,7 @@ const renderTag = (tag, index) => {
                 </div>
               )}
             </CardContent>
+            )}
           </Card>
         </div>
 

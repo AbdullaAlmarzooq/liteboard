@@ -4,6 +4,7 @@ import { Trash2, Edit } from 'lucide-react';
 
 const CommentSection = ({
   comments,
+  currentUserId,
   newCommentText,
   setNewCommentText,
   isAddingComment,
@@ -20,6 +21,9 @@ const CommentSection = ({
   commentToDeleteId,
   confirmDeleteComment,
 }) => {
+  const canManageComment = (comment) =>
+    String(comment?.author_id || "") === String(currentUserId || "")
+
   return (
     <Card className="bg-white">
       <CardHeader>
@@ -31,7 +35,7 @@ const CommentSection = ({
           {comments.length > 0 ? (
             comments.map(comment => (
               <div key={comment.id} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg flex justify-between items-start">
-                {editingCommentId === comment.id ? (
+                {editingCommentId === comment.id && canManageComment(comment) ? (
                   <div className="flex-1 space-y-2">
                     <textarea
                       value={editingCommentText}
@@ -65,25 +69,29 @@ const CommentSection = ({
                       </div>
                     </div>
                     <div className="flex gap-1 ml-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => {
-                          setEditingCommentId(comment.id);
-                          setEditingCommentText(comment.text);
-                        }}
-                        className="text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => handleDeleteComment(comment.id)}
-                        className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {canManageComment(comment) && (
+                        <>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingCommentId(comment.id);
+                              setEditingCommentText(comment.text);
+                            }}
+                            className="text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => handleDeleteComment(comment.id)}
+                            className="text-red-500 hover:bg-red-100 dark:hover:bg-red-900"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </>
                 )}

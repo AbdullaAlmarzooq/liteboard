@@ -414,19 +414,20 @@ const EditTicket = () => {
     return fallbackMessage;
   };
 
+  const canManageComment = (comment) =>
+    String(comment?.author_id || '') === String(user?.id || '');
+
   // Comment handlers
   const handleCommentSubmit = async () => {
     if (!newCommentText.trim()) return;
     setIsAddingComment(true);
     setSubmitError('');
     try {
-      const res = await fetch(`http://localhost:8000/api/comments`, {
+      const res = await fetchWithAuth(`http://localhost:8000/api/comments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ticket_id: ticketId,
           text: newCommentText,
-          author: user?.id || 'Unknown',
         }),
       });
       if (res.ok) {
@@ -434,7 +435,8 @@ const EditTicket = () => {
         setComments([...comments, { 
           id: created.id, 
           text: newCommentText, 
-          author: 'Current User', 
+          author: user?.name || user?.full_name || 'Current User',
+          author_id: user?.id,
           timestamp: new Date().toISOString() 
         }]);
         setNewCommentText('');
@@ -450,10 +452,16 @@ const EditTicket = () => {
 
   const handleSaveCommentEdit = async (commentId) => {
     if (!editingCommentText.trim()) return;
+    const targetComment = comments.find((comment) => comment.id === commentId);
+
+    if (!canManageComment(targetComment)) {
+      setSubmitError('You can only edit your own comments.');
+      return;
+    }
+
     try {
-      const res = await fetch(`http://localhost:8000/api/comments/${commentId}`, {
+      const res = await fetchWithAuth(`http://localhost:8000/api/comments/${commentId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: editingCommentText }),
       });
       if (res.ok) {
@@ -472,8 +480,17 @@ const EditTicket = () => {
 
   const confirmDeleteComment = async () => {
     if (!commentToDeleteId) return;
+    const targetComment = comments.find((comment) => comment.id === commentToDeleteId);
+
+    if (!canManageComment(targetComment)) {
+      setSubmitError('You can only delete your own comments.');
+      setShowDeleteModal(false);
+      setCommentToDeleteId(null);
+      return;
+    }
+
     try {
-      const res = await fetch(`http://localhost:8000/api/comments/${commentToDeleteId}`, {
+      const res = await fetchWithAuth(`http://localhost:8000/api/comments/${commentToDeleteId}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -739,6 +756,7 @@ const EditTicket = () => {
 
             <CommentSection
               comments={comments}
+              currentUserId={user?.id}
               newCommentText={newCommentText}
               setNewCommentText={setNewCommentText}
               isAddingComment={isAddingComment}

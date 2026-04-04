@@ -387,6 +387,7 @@ router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) =>
         SELECT c.id, c.ticket_id, c.text,
                e.name AS author,
                e.name AS created_by,
+               c.author_id,
                c.created_at,
                c.created_at AS timestamp
         FROM comments c

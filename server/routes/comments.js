@@ -14,17 +14,43 @@ const resolveTicketId = async (ticketId) => {
   return rows[0]?.id || null;
 };
 
-const resolveTicketIdByCommentId = async (commentId) => {
+const resolveCommentById = async (commentId) => {
   const { rows } = await db.query(
     `
-      SELECT c.ticket_id
+      SELECT c.id, c.ticket_id, c.author_id
       FROM comments c
       WHERE c.id = $1
       LIMIT 1
     `,
     [commentId]
   );
-  return rows[0]?.ticket_id || null;
+
+  return rows[0] || null;
+};
+
+const resolveTicketIdByCommentId = async (commentId) => {
+  const comment = await resolveCommentById(commentId);
+  return comment?.ticket_id || null;
+};
+
+const ensureCommentOwner = async (req, res, next) => {
+  try {
+    const comment = await resolveCommentById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ error: "Comment not found" });
+    }
+
+    if (String(comment.author_id) !== String(req.user?.id)) {
+      return res.status(403).json({ error: "You can only modify your own comments." });
+    }
+
+    req.commentRecord = comment;
+    next();
+  } catch (err) {
+    console.error("Error validating comment ownership:", err);
+    res.status(500).json({ error: "Failed to validate comment ownership" });
+  }
 };
 
 // GET comments for a ticket
@@ -66,11 +92,11 @@ router.get("/", authenticateToken(), async (req, res) => {
 });
 
 // POST new comment
-router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
-  const { ticket_id, text, author, comment_type } = req.body;
+router.post("/", authenticateToken(), ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
+  const { ticket_id, text, comment_type } = req.body;
   
-  if (!ticket_id || !text || !author) {
-    return res.status(400).json({ error: "ticket_id, text, and author are required" });
+  if (!ticket_id || !text) {
+    return res.status(400).json({ error: "ticket_id and text are required" });
   }
   
   try {
@@ -84,7 +110,7 @@ router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, r
         VALUES ($1, $2, $3, $4, NOW(), NOW())
         RETURNING id
       `,
-      [resolvedTicketId, text, author, comment_type || "comment"]
+      [resolvedTicketId, text, req.user.id, comment_type || "comment"]
     );
 
     res.status(201).json({
@@ -100,9 +126,11 @@ router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, r
 // PUT update comment
 router.put(
   "/:id",
+  authenticateToken(),
   ensureTicketIsEditable({
     resolveTicketRef: async (req) => resolveTicketIdByCommentId(req.params.id),
   }),
+  ensureCommentOwner,
   async (req, res) => {
   const { id } = req.params;
   const { text } = req.body;
@@ -136,9 +164,11 @@ router.put(
 // DELETE comment
 router.delete(
   "/:id",
+  authenticateToken(),
   ensureTicketIsEditable({
     resolveTicketRef: async (req) => resolveTicketIdByCommentId(req.params.id),
   }),
+  ensureCommentOwner,
   async (req, res) => {
   const { id } = req.params;
   
