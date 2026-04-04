@@ -5,7 +5,7 @@
 ![Node.js](https://img.shields.io/badge/Node.js-v18+-green)
 ![React](https://img.shields.io/badge/React-19.1.0-blue)
 ![Express](https://img.shields.io/badge/Express-5.1.0-lightgrey)
-![SQLite](https://img.shields.io/badge/SQLite-3-blue)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue)
 ![License](https://img.shields.io/badge/License-Private-red)
 
 ---
@@ -89,7 +89,7 @@ Projects extend the existing workgroup model rather than replacing it:
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | **Express.js** | 5.1.0 | REST API framework |
-| **better-sqlite3** | 12.4.1 | Synchronous SQLite database driver |
+| **pg** | 8.18.0 | PostgreSQL client and connection pooling |
 | **bcryptjs** | 3.0.2 | Password hashing (cost factor 10) |
 | **jsonwebtoken** | 9.0.2 | JWT authentication with configurable expiry |
 | **cors** | 2.8.5 | Cross-origin resource sharing |
@@ -97,9 +97,10 @@ Projects extend the existing workgroup model rather than replacing it:
 
 ### Database
 
-- **SQLite** via `better-sqlite3` (synchronous, file-based)
-- Location: `server/db/liteboard.db`
+- **PostgreSQL** hosted on **Neon**
+- Connection: `DATABASE_URL`
 - Schema: `server/db/schema.sql`
+- SQL migrations: `server/db/migrations/`
 
 ---
 
@@ -110,11 +111,11 @@ Projects extend the existing workgroup model rather than replacing it:
 ```
 server/
 ├── server.js              # Express app bootstrap & route registration
-├── .env                   # Environment variables (JWT_SECRET)
+├── .env                   # Environment variables (JWT_SECRET, DATABASE_URL)
 ├── db/
-│   ├── db.js              # SQLite connection singleton
+│   ├── db.js              # PostgreSQL pool wrapper
 │   ├── schema.sql         # Complete database schema
-│   └── liteboard.db       # SQLite database file
+│   └── migrations/        # Incremental SQL migrations
 ├── middleware/
 │   ├── authMiddleware.js  # JWT verification + role enforcement
 │   ├── ensureProjectAccess.js  # Project-based ticket visibility enforcement
@@ -702,15 +703,15 @@ npm install
 cd server
 echo "JWT_SECRET=your-super-secret-key-change-in-production" > .env
 echo "JWT_EXPIRES_IN=8h" >> .env
+echo "DATABASE_URL=postgresql://USER:PASSWORD@HOST/DB?sslmode=require" >> .env
 ```
 
 ### Database Initialization
 
-The SQLite database (`server/db/liteboard.db`) should already exist with schema applied. To reinitialize:
+Provision your PostgreSQL database first, then apply the schema:
 
 ```bash
-cd server/db
-sqlite3 liteboard.db < schema.sql
+psql "$DATABASE_URL" -f server/db/schema.sql
 ```
 
 ### Existing Neon Project Migration
@@ -724,6 +725,10 @@ The migration:
 - Backfills every existing ticket and tag to `project_id = 'PRJ-001'`
 - Raises an exception if any ticket or tag still has `NULL project_id`
 - Does not add `NOT NULL` constraints yet
+
+### Legacy SQLite Migration Note
+
+The SQLite-to-PostgreSQL migration utilities have been removed from the active repository because the application now runs directly on PostgreSQL/Neon.
 
 ### Running the Application
 
@@ -756,7 +761,7 @@ Since there's no registration endpoint, ensure at least one admin user exists in
 | **Password Storage** | bcrypt with salt rounds = 10 | ✅ Good |
 | **Authentication** | JWT with configurable expiration | ✅ Good |
 | **Authorization** | Role + project read filtering + workgroup write guard | ✅ Good |
-| **SQL Injection** | Parameterized queries via better-sqlite3 | ✅ Good |
+| **SQL Injection** | Parameterized queries via `pg` | ✅ Good |
 | **CORS** | Enabled but unrestricted | ⚠️ Needs configuration |
 | **Rate Limiting** | Not implemented | ❌ Missing |
 | **Input Validation** | Minimal server-side validation | ⚠️ Needs improvement |
@@ -766,15 +771,15 @@ Since there's no registration endpoint, ensure at least one admin user exists in
 
 | Aspect | Details |
 |--------|---------|
-| **Database** | SQLite (synchronous) - suitable for up to ~1M records |
+| **Database** | PostgreSQL on Neon with pooled connections |
 | **Indexes** | Comprehensive indexes on all foreign keys and search columns |
 | **Triggers** | Automatic `updated_at` timestamp updates |
-| **Query Pattern** | Prepared statements with caching |
+| **Query Pattern** | Parameterized async queries via `pg` |
 | **Frontend** | No SSR; React SPA with client-side rendering |
 
 ### Scalability Limitations
 
-1. **SQLite**: Single-writer lock; not suitable for high-concurrency write loads
+1. **Connection Management**: Performance depends on Neon sizing, connection limits, and pooling configuration
 2. **File Storage**: Attachments stored as BLOBs in database (memory-intensive for large files)
 3. **Session State**: Stateless JWT (no server-side session invalidation)
 4. **API URL**: Hardcoded `localhost:8000` requires configuration for deployment

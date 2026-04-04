@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2026-04-04]
+
+### Changed
+- README was refreshed to reflect the current PostgreSQL/Neon setup, active environment variables, and the removal of old SQLite migration tooling.
+
+### Removed
+- Legacy SQLite migration utilities, tracked SQLite database artifacts, and checked-in frontend build output were removed from the repository to match the current PostgreSQL-only runtime.
+
 ## [2026-04-03]
 
 
