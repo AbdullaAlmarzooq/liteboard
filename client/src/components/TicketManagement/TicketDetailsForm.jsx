@@ -168,6 +168,8 @@ const TicketDetailsForm = ({
   loadingSteps = false,
   workflow = null,
   ticket = null,
+  canEditTitleAndDescription = true,
+  titleDescriptionLockMessage = "",
 }) => {
   const currentStepLabel = ticket?.current_step_name || ticket?.status || ''
 
@@ -188,7 +190,8 @@ const TicketDetailsForm = ({
               value={formData.title}
               onChange={handleInputChange}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              disabled={!canEditTitleAndDescription}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800 dark:disabled:text-gray-400"
             />
           </div>
 
@@ -207,8 +210,15 @@ const TicketDetailsForm = ({
                 })
               }
               placeholder="Describe the ticket details..."
+              readOnly={!canEditTitleAndDescription}
             />
           </div>
+
+          {!canEditTitleAndDescription && titleDescriptionLockMessage && (
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              {titleDescriptionLockMessage}
+            </p>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

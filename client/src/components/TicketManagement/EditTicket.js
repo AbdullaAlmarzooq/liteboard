@@ -497,21 +497,27 @@ const EditTicket = () => {
       }
       
       // Then update other fields via PUT
+      const updatePayload = {
+        ...(canEditTitleAndDescription
+          ? {
+              title: formData.title,
+              description: formData.description,
+            }
+          : {}),
+        status: formData.status,
+        priority: formData.priority,
+        workflowId: formData.workflowId,
+        workgroupId: formData.workgroupId,
+        moduleId: formData.moduleId,
+        responsibleEmployeeId: formData.responsibleEmployeeId,
+        dueDate: formData.dueDate,
+        startDate: formData.startDate,
+        tags: formData.tags,
+      };
+
       const res = await fetchWithAuth(`http://localhost:8000/api/tickets/${ticketId}`, {
         method: 'PUT',
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description,
-          status: formData.status,
-          priority: formData.priority,
-          workflowId: formData.workflowId,
-          workgroupId: formData.workgroupId,
-          moduleId: formData.moduleId,
-          responsibleEmployeeId: formData.responsibleEmployeeId,
-          dueDate: formData.dueDate,
-          startDate: formData.startDate,
-          tags: formData.tags,
-        }),
+        body: JSON.stringify(updatePayload),
       });
       
       if (!res.ok) {
@@ -560,6 +566,11 @@ const EditTicket = () => {
   }
 
   const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
+  const canEditTitleAndDescription =
+    !!ticket?.created_by && String(ticket.created_by) === String(user?.id || '');
+  const titleDescriptionLockMessage = ticket?.created_by
+    ? "Only the ticket creator can edit title and description."
+    : "This is a legacy ticket with no creator record. Title and description are locked for everyone until data is fixed.";
 
   const currentStepCode = formData.stepCode || ticket?.stepCode || ticket?.step_code;
   const originalStepCode = ticket?.stepCode || ticket?.step_code;
@@ -621,6 +632,8 @@ const EditTicket = () => {
               loadingSteps={loadingSteps}
               workflow={workflows?.find(wf => wf.id === formData.workflowId)}
               ticket={ticket}
+              canEditTitleAndDescription={canEditTitleAndDescription}
+              titleDescriptionLockMessage={titleDescriptionLockMessage}
             />
 
             <AttachmentUploader onAttachmentsChange={handleNewAttachmentsChange} />

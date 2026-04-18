@@ -815,10 +815,39 @@ router.put(
   let step_code = stepCode || null;
 
   try {
-    const safeDescription = sanitizeTicketDescription(description);
-    const ticket = await getTicketByParam(id, "id, workflow_id, project_id");
+    const safeDescription =
+      description !== undefined ? sanitizeTicketDescription(description) : undefined;
+    const ticket = await getTicketByParam(
+      id,
+      "id, workflow_id, project_id, created_by, title, description"
+    );
     if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
+    }
+
+    const canEditTitleAndDescription =
+      !!ticket.created_by && String(ticket.created_by) === String(req.user.id);
+    const nextTitle = title !== undefined ? title : ticket.title;
+    const nextDescription =
+      safeDescription !== undefined ? safeDescription : ticket.description;
+    const normalizedCurrentTitle = ticket.title ?? "";
+    const normalizedNextTitle = nextTitle ?? "";
+    const normalizedCurrentDescription = sanitizeTicketDescription(ticket.description ?? "");
+    const normalizedNextDescription = sanitizeTicketDescription(nextDescription ?? "");
+
+    if (!canEditTitleAndDescription) {
+      const isTitleChanged =
+        title !== undefined && normalizedNextTitle !== normalizedCurrentTitle;
+      const isDescriptionChanged =
+        description !== undefined &&
+        normalizedNextDescription !== normalizedCurrentDescription;
+
+      if (isTitleChanged || isDescriptionChanged) {
+        return res.status(403).json({
+          error:
+            "Only the ticket creator can edit title and description. Legacy tickets without a creator cannot edit these fields.",
+        });
+      }
     }
 
     const normalizedTagIds = normalizeUuidArray(
@@ -901,8 +930,8 @@ router.put(
           WHERE id = $12
         `,
         [
-          title,
-          safeDescription,
+          nextTitle,
+          nextDescription,
           priority,
           normalizeUuid(effectiveWorkflowId),
           normalizeUuid(workgroupId),

@@ -7,6 +7,7 @@ const TicketEditor = ({
   onChange,
   placeholder = "Describe the ticket in detail",
   className = "",
+  readOnly = false,
 }) => {
   const editorContainerRef = useRef(null);
   const quillInstanceRef = useRef(null);
@@ -65,9 +66,17 @@ const TicketEditor = ({
 
     const quill = new Quill(editorContainerRef.current, {
       theme: "snow",
-      modules,
+      modules: readOnly
+        ? {
+            toolbar: false,
+            clipboard: {
+              matchVisual: false,
+            },
+          }
+        : modules,
       formats,
       placeholder,
+      readOnly,
     });
 
     quillInstanceRef.current = quill;
@@ -127,12 +136,25 @@ const TicketEditor = ({
     lastEmittedHtmlRef.current = quill.root.innerHTML;
   }, [value]);
 
+  useEffect(() => {
+    const quill = quillInstanceRef.current;
+    if (!quill) return;
+    quill.enable(!readOnly);
+  }, [readOnly]);
+
   return (
     <div
-      className={`ticket-editor rounded-xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-800 ${className}`}
+      className={`ticket-editor ${readOnly ? "read-only" : ""} rounded-xl border border-slate-200 bg-white shadow-sm transition-colors dark:border-slate-700 dark:bg-slate-800 ${className}`}
     >
       <div ref={editorContainerRef} />
       <style>{`
+        .ticket-editor.read-only .ql-toolbar {
+          display: none;
+        }
+        .ticket-editor.read-only .ql-container {
+          border-top-left-radius: 0.75rem;
+          border-top-right-radius: 0.75rem;
+        }
         .ticket-editor .ql-toolbar {
           border: 0;
           border-bottom: 1px solid #e2e8f0;
