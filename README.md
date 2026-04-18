@@ -51,8 +51,8 @@
 
 | Role ID | Role Name | Permissions |
 |---------|-----------|-------------|
-| 1 | Admin | Full access: bypasses project visibility and workflow-step workgroup restrictions |
-| 2 | Editor | Can see tickets in assigned projects and edit only when their workgroup owns the current workflow step |
+| 1 | Admin | Bypasses project visibility and workflow-step workgroup restrictions; still cannot edit ticket `title`/`description` unless they are the ticket creator |
+| 2 | Editor | Can see tickets in assigned projects and edit when their workgroup owns the current workflow step; `title`/`description` are still creator-only |
 | 3 | Viewer | Read-only access to tickets in assigned projects |
 
 ### Projects
@@ -60,7 +60,8 @@
 Projects extend the existing workgroup model rather than replacing it:
 
 - Every ticket belongs to exactly one project at the product level.
-- Admins retain full access and bypass both project visibility checks and workflow-step workgroup restrictions.
+- Admins bypass project visibility checks and workflow-step workgroup restrictions.
+- Ticket `title` and `description` are creator-owned fields and can only be changed by the ticket creator, regardless of role.
 - Non-admin visibility is controlled by project membership via project-to-workgroup assignments.
 - Non-admin modification remains controlled by the existing workflow-step workgroup logic.
 - Tags are scoped per project, and workflows can be shared across multiple projects.
@@ -194,7 +195,7 @@ erDiagram
 | `/api/projects/:id/workgroups` | PUT | Token + Admin | Replace a project's workgroup assignments |
 | `/api/projects/:id/workflows` | PUT | Token + Admin | Replace a project's workflow assignments |
 | `/api/tickets` | GET, POST | Token + Role | List/create tickets |
-| `/api/tickets/:id` | GET, PUT, DELETE | Token + Project Access + Role/Workgroup | Single ticket operations |
+| `/api/tickets/:id` | GET, PUT, DELETE | Token + Project Access + Role/Workgroup | Single ticket operations (`PUT` keeps general management editable for authorized users but restricts `title`/`description` to ticket creator only) |
 | `/api/tickets/:id/transition` | POST | Token + Admin/Editor + Project Access + Workgroup | Workflow state change |
 | `/api/tickets/:id/allowed-steps` | GET | Token | Get valid next steps |
 | `/api/employees` | GET, POST | Token | Employee list/create |
@@ -302,6 +303,8 @@ erDiagram
 - This read filtering applies to ticket lists, single-ticket reads, dashboard ticket data, profile ticket/activity/stat queries, tags, and ticket-adjacent read endpoints that expose project-scoped ticket data.
 - Ticket-level middleware enforcement now also protects `GET /tickets/:id`, `PUT /tickets/:id`, `DELETE /tickets/:id`, and `POST /tickets/:id/transition` through `ensureProjectAccess`.
 - Workflow behavior remains unchanged, and `ensureSameWorkgroup` is still used exactly as before for modification rules.
+- Ticket `title` and `description` are additionally enforced as creator-only update fields for everyone (Admin and Editor included).
+- Legacy tickets with `created_by = NULL` treat `title` and `description` as locked for all users until creator data is corrected.
 - Project management endpoints are restricted to Admin users (`role_id = 1`) and do not change ticket workflow enforcement rules.
 - Ticket creation is project-scoped on both the frontend and backend, so workflows and tags cannot be mixed across projects.
 - The Admin Panel itself remains protected by the existing admin-only route guard, so non-admin users cannot access project management UI.
@@ -480,7 +483,7 @@ app.listen(8000, () => console.log("Server running"));
 3. Query ticket's `workgroup_id`
 4. Compare values; return 403 on mismatch
 
-This middleware remains unchanged and continues to enforce workflow-step/workgroup-based write rules alongside project access checks.
+This middleware remains unchanged and continues to enforce workflow-step/workgroup-based write rules alongside project access checks. Ticket `title`/`description` creator-only validation is enforced separately in the tickets update route.
 
 ---
 
@@ -510,7 +513,7 @@ This middleware remains unchanged and continues to enforce workflow-step/workgro
 | GET `/` | Route | List all tickets with tags, modules, workgroups |
 | GET `/:id` | Route | Single ticket with comments, attachments |
 | POST `/` | Route | Create ticket (Admin/Editor, with transaction) |
-| PUT `/:id` | Route | Update ticket (Admin/Editor + same workgroup) |
+| PUT `/:id` | Route | Update ticket (Admin/Editor + same workgroup; `title`/`description` are creator-only) |
 | DELETE `/:id` | Route | Delete ticket (Admin only, cascading delete) |
 | POST `/:id/transition` | Route | Workflow state change with validation |
 | GET `/:id/allowed-steps` | Route | Get valid next workflow steps |
@@ -760,7 +763,7 @@ Since there's no registration endpoint, ensure at least one admin user exists in
 |------|----------------|--------|
 | **Password Storage** | bcrypt with salt rounds = 10 | ✅ Good |
 | **Authentication** | JWT with configurable expiration | ✅ Good |
-| **Authorization** | Role + project read filtering + workgroup write guard | ✅ Good |
+| **Authorization** | Role + project read filtering + workgroup write guard + creator-only `title`/`description` updates | ✅ Good |
 | **SQL Injection** | Parameterized queries via `pg` | ✅ Good |
 | **CORS** | Enabled but unrestricted | ⚠️ Needs configuration |
 | **Rate Limiting** | Not implemented | ❌ Missing |

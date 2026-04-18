@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2026-04-18]
+
+
+### Changed
+- Ticket edit permissions were tightened so `title` and `description` are now creator-only fields regardless of role. Users who can otherwise manage a ticket (transition status, assignment, tags, dates, comments, attachments, etc.) can still do so, but cannot change those two fields unless they created the ticket.
+- Legacy tickets with `created_by = NULL` now treat `title` and `description` as locked for all users until creator data is backfilled.
+
+### Fixed
+- Edit Ticket UI now disables only `title` and `description` for non-creators while keeping the rest of the ticket-management form interactive.
+- Tickets update API now enforces creator-only edits for `title`/`description` to prevent bypass through direct API requests.
+
 ## [2026-04-04]
 
 ### Changed
