@@ -6,6 +6,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- Profile `My Recent Activity` now summarizes event rows into concise activity sentences (via `activitySummary`) and removes the separate `Type` column/details block from the table view.
+- Profile `Pending Workgroup Tickets` now trims the `Title` column display to 30 characters for denser scanning while keeping the full title on hover.
+- Dashboard and Tickets pages now load project options from `/api/projects/available` so project filtering no longer pulls admin assignment payloads.
+- Tickets page now uses dedicated server-side endpoints for list/search/export:
+  - `GET /api/tickets/list` returns a paginated, lightweight payload
+  - `GET /api/tickets/search` searches across all matching tickets in scope
+  - `GET /api/tickets/export` returns all matching filtered tickets for CSV export
+- Tickets page filters now execute server-side (status/priority/workflow/workgroup/created-by/responsible/module/tags/overdue), and Search/Export now respect those filters across all pages.
+- Tickets CSV export now includes a `Project` column (project name only) and uses plain-text description output (HTML stripped).
+
+### Fixed
+- Profile pagination queries for `/api/profile/my-tickets` and `/api/profile/activity` now use dynamic SQL parameter indexes so non-admin users with project-access filters no longer hit PostgreSQL `LIMIT` type errors.
+- Profile `My Recent Activity` now handles malformed or missing event fields more defensively, including safe timestamp fallback rendering.
+- Tickets pagination no longer collapses to the current 10-row page when no filters are active.
+
 ## [2026-04-18]
 
 

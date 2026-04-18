@@ -29,6 +29,8 @@ router.get("/my-tickets", authenticateToken(), async (req, res) => {
     const workgroupId = employee.workgroup_id;
     const { clause: projectAccessClause, params: projectAccessParams } =
       await buildProjectAccessFilter(req.user, "t.project_id", [workgroupId]);
+    const limitParamIndex = projectAccessParams.length + 1;
+    const offsetParamIndex = projectAccessParams.length + 2;
 
     const totalQuery = `
       SELECT COUNT(*)::int AS total
@@ -75,7 +77,7 @@ router.get("/my-tickets", authenticateToken(), async (req, res) => {
         AND t.deleted_at IS NULL
         AND ws.category_code IN (10, 20)${projectAccessClause}
       ORDER BY t.updated_at DESC
-      LIMIT $2 OFFSET $3
+      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
     `;
 
     const [{ rows: totalRows }, { rows: tickets }] = await Promise.all([

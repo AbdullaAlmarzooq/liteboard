@@ -36,7 +36,7 @@ const Dashboard = () => {
     data: projectsData,
     isPending: projectsPending,
     error: projectsError
-  } = useFetch("http://localhost:8000/api/projects");
+  } = useFetch("http://localhost:8000/api/projects/available");
 
   useEffect(() => {
     if (ticketsData) {

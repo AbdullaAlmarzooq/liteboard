@@ -14,6 +14,9 @@ import {
 } from "../components/PageSkeletons"
 import { AlertCircle, CheckCircle, X } from "lucide-react"
 
+const MAX_TICKET_TITLE_LENGTH = 75
+const MAX_TICKET_DESCRIPTION_LENGTH = 10000
+
 const createInitialFormData = (projectId = "") => ({
   projectId,
   title: "",
@@ -89,8 +92,10 @@ const useToast = () => {
   return { toast, showToast, hideToast }
 }
 
-const stripHtml = (html = "") =>
-  html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim()
+const getPlainDescriptionText = (html = "") =>
+  html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/\u200B/g, "")
+
+const stripHtml = (html = "") => getPlainDescriptionText(html).trim()
 
 const formatDate = (dateString) => {
   if (!dateString) return ""
@@ -161,9 +166,12 @@ const CreateTicketPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target
+    const nextValue =
+      name === "title" ? value.slice(0, MAX_TICKET_TITLE_LENGTH) : value
+
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: nextValue,
     }))
   }
 
@@ -274,8 +282,21 @@ const CreateTicketPage = () => {
       return false
     }
 
+    if (formData.title.trim().length > MAX_TICKET_TITLE_LENGTH) {
+      showToast(`Title must be ${MAX_TICKET_TITLE_LENGTH} characters or fewer.`, "error")
+      return false
+    }
+
     if (!stripHtml(formData.description)) {
       showToast("Please provide a description.", "error")
+      return false
+    }
+
+    if (stripHtml(formData.description).length > MAX_TICKET_DESCRIPTION_LENGTH) {
+      showToast(
+        `Description must be ${MAX_TICKET_DESCRIPTION_LENGTH} characters or fewer.`,
+        "error"
+      )
       return false
     }
 
@@ -351,6 +372,7 @@ const CreateTicketPage = () => {
   const isProjectDataLoading = Boolean(selectedProjectId) && (workflowsLoading || tagsLoading)
   const projectDataError = workflowsError || tagsError
   const noProjects = !projectsLoading && Array.isArray(projects) && projects.length === 0
+  const descriptionCharacterCount = stripHtml(formData.description).length
 
   if (isBaseLoading) {
     return <CreateTicketPageSkeleton />
@@ -479,9 +501,13 @@ const CreateTicketPage = () => {
                       type="text"
                       value={formData.title}
                       onChange={handleInputChange}
+                      maxLength={MAX_TICKET_TITLE_LENGTH}
                       placeholder="Enter ticket title"
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                     />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {formData.title.length}/{MAX_TICKET_TITLE_LENGTH} characters
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -500,7 +526,11 @@ const CreateTicketPage = () => {
                         }))
                       }
                       placeholder="Describe the ticket in detail"
+                      maxLength={MAX_TICKET_DESCRIPTION_LENGTH}
                     />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {descriptionCharacterCount}/{MAX_TICKET_DESCRIPTION_LENGTH} characters
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

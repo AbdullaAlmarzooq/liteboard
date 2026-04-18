@@ -12,6 +12,240 @@ const { insertEvent, mapEventRow } = require("../utils/events");
 const { buildProjectAccessFilter, getProjectAccess } = require("../utils/projectAccess");
 
 const CLOSED_CATEGORY_CODE = 30;
+const MAX_LIST_PAGE_SIZE = 100;
+
+const parsePagination = (query) => {
+  const page = Math.max(1, Number.parseInt(query.page, 10) || 1);
+  const limit = Math.min(
+    MAX_LIST_PAGE_SIZE,
+    Math.max(1, Number.parseInt(query.limit, 10) || 10)
+  );
+  const offset = (page - 1) * limit;
+
+  return { page, limit, offset };
+};
+
+const normalizeQueryArray = (value) => {
+  if (value === undefined || value === null) return [];
+
+  const rawValues = Array.isArray(value) ? value : [value];
+  return [...new Set(
+    rawValues
+      .flatMap((item) => String(item).split(","))
+      .map((item) => item.trim())
+      .filter(Boolean)
+  )];
+};
+
+const normalizeSearchTerm = (value) => {
+  if (typeof value !== "string") return "";
+  return value.trim();
+};
+
+const buildNullableTextFilter = ({
+  column,
+  values,
+  nullToken,
+  clauses,
+  params,
+  paramIndexRef,
+}) => {
+  if (!values.length) return;
+
+  const includesNull = values.includes(nullToken);
+  const concreteValues = values.filter((value) => value !== nullToken);
+
+  if (includesNull && concreteValues.length) {
+    params.push(concreteValues);
+    clauses.push(`(${column} = ANY($${paramIndexRef.value}::text[]) OR ${column} IS NULL)`);
+    paramIndexRef.value += 1;
+    return;
+  }
+
+  if (includesNull) {
+    clauses.push(`${column} IS NULL`);
+    return;
+  }
+
+  params.push(concreteValues);
+  clauses.push(`${column} = ANY($${paramIndexRef.value}::text[])`);
+  paramIndexRef.value += 1;
+};
+
+const buildTicketsFilterClause = (query, startIndex = 1) => {
+  const clauses = [];
+  const params = [];
+  const paramIndexRef = { value: startIndex };
+
+  const projectId = typeof query.project_id === "string" ? query.project_id.trim() : "";
+  if (projectId) {
+    params.push(projectId);
+    clauses.push(`t.project_id = $${paramIndexRef.value}`);
+    paramIndexRef.value += 1;
+  }
+
+  const statusValues = normalizeQueryArray(query.status);
+  if (statusValues.length) {
+    params.push(statusValues);
+    clauses.push(`COALESCE(ws.step_name, t.step_code) = ANY($${paramIndexRef.value}::text[])`);
+    paramIndexRef.value += 1;
+  }
+
+  const priorityValues = normalizeQueryArray(query.priority);
+  if (priorityValues.length) {
+    params.push(priorityValues);
+    clauses.push(`t.priority = ANY($${paramIndexRef.value}::text[])`);
+    paramIndexRef.value += 1;
+  }
+
+  const workflowValues = normalizeQueryArray(query.workflow);
+  if (workflowValues.length) {
+    buildNullableTextFilter({
+      column: "wf.name",
+      values: workflowValues,
+      nullToken: "No Workflow",
+      clauses,
+      params,
+      paramIndexRef,
+    });
+  }
+
+  const workgroupValues = normalizeQueryArray(query.workgroup);
+  if (workgroupValues.length) {
+    buildNullableTextFilter({
+      column: "w.name",
+      values: workgroupValues,
+      nullToken: "Unassigned",
+      clauses,
+      params,
+      paramIndexRef,
+    });
+  }
+
+  const createdByValues = normalizeQueryArray(query.created_by);
+  if (createdByValues.length) {
+    buildNullableTextFilter({
+      column: "creator.name",
+      values: createdByValues,
+      nullToken: "Unknown",
+      clauses,
+      params,
+      paramIndexRef,
+    });
+  }
+
+  const responsibleValues = normalizeQueryArray(query.responsible);
+  if (responsibleValues.length) {
+    buildNullableTextFilter({
+      column: "e.name",
+      values: responsibleValues,
+      nullToken: "Unassigned",
+      clauses,
+      params,
+      paramIndexRef,
+    });
+  }
+
+  const moduleValues = normalizeQueryArray(query.module);
+  if (moduleValues.length) {
+    buildNullableTextFilter({
+      column: "m.name",
+      values: moduleValues,
+      nullToken: "No Module",
+      clauses,
+      params,
+      paramIndexRef,
+    });
+  }
+
+  const tagValues = normalizeQueryArray(query.tag);
+  if (tagValues.length) {
+    params.push(tagValues);
+    clauses.push(`
+      EXISTS (
+        SELECT 1
+        FROM ticket_tags tt_filter
+        JOIN tags tg_filter ON tg_filter.id = tt_filter.tag_id
+        WHERE tt_filter.ticket_id = t.id
+          AND tg_filter.label = ANY($${paramIndexRef.value}::text[])
+      )
+    `);
+    paramIndexRef.value += 1;
+  }
+
+  const showOverdue = String(query.showOverdue).toLowerCase() === "true";
+  if (showOverdue) {
+    clauses.push(`t.due_date IS NOT NULL AND t.due_date < CURRENT_DATE`);
+  }
+
+  const searchTerm = normalizeSearchTerm(query.q || query.search);
+  if (searchTerm) {
+    params.push(`%${searchTerm}%`);
+    const searchParamIndex = paramIndexRef.value;
+    paramIndexRef.value += 1;
+    clauses.push(`
+      (
+        t.ticket_code ILIKE $${searchParamIndex}
+        OR t.title ILIKE $${searchParamIndex}
+        OR regexp_replace(COALESCE(t.description, ''), '<[^>]*>', '', 'g') ILIKE $${searchParamIndex}
+        OR COALESCE(ws.step_name, t.step_code) ILIKE $${searchParamIndex}
+        OR COALESCE(t.priority, '') ILIKE $${searchParamIndex}
+        OR COALESCE(wf.name, '') ILIKE $${searchParamIndex}
+        OR COALESCE(w.name, '') ILIKE $${searchParamIndex}
+        OR COALESCE(m.name, '') ILIKE $${searchParamIndex}
+        OR COALESCE(e.name, '') ILIKE $${searchParamIndex}
+        OR COALESCE(creator.name, '') ILIKE $${searchParamIndex}
+        OR EXISTS (
+          SELECT 1
+          FROM ticket_tags tt_search
+          JOIN tags tg_search ON tg_search.id = tt_search.tag_id
+          WHERE tt_search.ticket_id = t.id
+            AND tg_search.label ILIKE $${searchParamIndex}
+        )
+      )
+    `);
+  }
+
+  return {
+    clause: clauses.length ? ` AND ${clauses.join(" AND ")}` : "",
+    params,
+  };
+};
+
+const fetchTagsByTicketIds = async (ticketIds) => {
+  if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+    return {};
+  }
+
+  const tagsQuery = `
+    SELECT
+      tt.ticket_id,
+      tg.id AS tag_id,
+      tg.label AS tag_name,
+      tg.color AS tag_color
+    FROM ticket_tags tt
+    JOIN tags tg ON tt.tag_id = tg.id
+    WHERE tt.ticket_id = ANY($1::uuid[])
+    ORDER BY tt.ticket_id, tg.label
+  `;
+
+  const { rows } = await db.query(tagsQuery, [ticketIds]);
+
+  const tagsByTicket = {};
+  for (const row of rows) {
+    if (!tagsByTicket[row.ticket_id]) {
+      tagsByTicket[row.ticket_id] = [];
+    }
+
+    tagsByTicket[row.ticket_id].push({
+      id: row.tag_id,
+      name: row.tag_name,
+      color: row.tag_color,
+    });
+  }
+
+  return tagsByTicket;
+};
 
 const normalizeDate = (value) => {
   if (!value) return null;
@@ -328,6 +562,219 @@ router.post(
   }
   }
 );
+
+// ----------------------------------------------------------------------
+// GET lightweight tickets list for Tickets page (any logged-in user)
+// NOTE: Keeps GET /api/tickets unchanged for backward compatibility.
+// ----------------------------------------------------------------------
+router.get("/list", authenticateToken(), async (req, res) => {
+  try {
+    const { page, limit, offset } = parsePagination(req.query);
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id");
+    const { clause: filterClause, params: filterParams } = buildTicketsFilterClause(
+      req.query,
+      projectAccessParams.length + 1
+    );
+    const params = [...projectAccessParams, ...filterParams];
+
+    const totalQuery = `
+      SELECT COUNT(*)::int AS total
+      FROM tickets t
+      LEFT JOIN workflows wf ON t.workflow_id = wf.id
+      LEFT JOIN workflow_steps ws
+        ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
+      LEFT JOIN workgroups w ON t.workgroup_id = w.id
+      LEFT JOIN modules m ON t.module_id = m.id
+      LEFT JOIN employees e ON t.responsible_employee_id = e.id
+      LEFT JOIN employees creator ON t.created_by = creator.id
+      WHERE t.deleted_at IS NULL${projectAccessClause}${filterClause}
+    `;
+    const { rows: totalRows } = await db.query(totalQuery, params);
+
+    const limitParamIndex = params.length + 1;
+    const offsetParamIndex = params.length + 2;
+    const ticketsQuery = `
+      SELECT
+        t.id,
+        t.ticket_code,
+        t.project_id,
+        p.name AS project_name,
+        t.title,
+        COALESCE(ws.step_name, t.step_code) AS status,
+        CASE ws.category_code
+          WHEN 10 THEN 'default'
+          WHEN 20 THEN 'secondary'
+          WHEN 30 THEN 'new'
+          WHEN 40 THEN 'destructive'
+          ELSE 'outline'
+        END AS status_variant,
+        t.priority,
+        wf.name AS workflow_name,
+        w.name AS workgroup_name,
+        m.name AS module_name,
+        t.initiate_date,
+        t.created_at,
+        t.updated_at,
+        e.name AS responsible_name,
+        creator.name AS created_by_name,
+        t.due_date
+      FROM tickets t
+      LEFT JOIN workflows wf ON t.workflow_id = wf.id
+      LEFT JOIN projects p ON t.project_id = p.id
+      LEFT JOIN workflow_steps ws
+        ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
+      LEFT JOIN workgroups w ON t.workgroup_id = w.id
+      LEFT JOIN modules m ON t.module_id = m.id
+      LEFT JOIN employees e ON t.responsible_employee_id = e.id
+      LEFT JOIN employees creator ON t.created_by = creator.id
+      WHERE t.deleted_at IS NULL${projectAccessClause}${filterClause}
+      ORDER BY t.updated_at DESC NULLS LAST, t.created_at DESC NULLS LAST
+      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
+    `;
+
+    const { rows: tickets } = await db.query(ticketsQuery, [...params, limit, offset]);
+    const tagsByTicket = await fetchTagsByTicketIds(tickets.map((ticket) => ticket.id));
+
+    const lightweightTickets = tickets.map((ticket) => ({
+      ...ticket,
+      tags: tagsByTicket[ticket.id] || [],
+    }));
+
+    res.json({
+      items: Array.isArray(lightweightTickets) ? lightweightTickets : [],
+      total: totalRows[0]?.total || 0,
+      page,
+      limit,
+    });
+  } catch (err) {
+    console.error("Error fetching lightweight tickets list:", err);
+    res.status(500).json({ error: "Failed to fetch lightweight tickets list" });
+  }
+});
+
+// ----------------------------------------------------------------------
+// GET search results for Tickets page (any logged-in user)
+// ----------------------------------------------------------------------
+router.get("/search", authenticateToken(), async (req, res) => {
+  try {
+    const q = normalizeSearchTerm(req.query.q);
+    if (!q) {
+      return res.json({ items: [] });
+    }
+
+    const limit = Math.min(200, Math.max(1, Number.parseInt(req.query.limit, 10) || 100));
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id");
+    const { clause: filterClause, params: filterParams } = buildTicketsFilterClause(
+      req.query,
+      projectAccessParams.length + 1
+    );
+    const params = [...projectAccessParams, ...filterParams];
+    const limitParamIndex = params.length + 1;
+
+    const searchQuery = `
+      SELECT
+        t.id,
+        t.ticket_code,
+        t.title,
+        trim(regexp_replace(COALESCE(t.description, ''), '<[^>]*>', '', 'g')) AS description,
+        COALESCE(ws.step_name, t.step_code) AS status,
+        t.priority,
+        wf.name AS workflow_name,
+        w.name AS workgroup_name,
+        m.name AS module_name,
+        t.initiate_date,
+        t.created_at,
+        t.updated_at,
+        e.name AS responsible_name,
+        t.due_date
+      FROM tickets t
+      LEFT JOIN workflows wf ON t.workflow_id = wf.id
+      LEFT JOIN workflow_steps ws
+        ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
+      LEFT JOIN workgroups w ON t.workgroup_id = w.id
+      LEFT JOIN modules m ON t.module_id = m.id
+      LEFT JOIN employees e ON t.responsible_employee_id = e.id
+      LEFT JOIN employees creator ON t.created_by = creator.id
+      WHERE t.deleted_at IS NULL${projectAccessClause}${filterClause}
+      ORDER BY t.updated_at DESC NULLS LAST, t.created_at DESC NULLS LAST
+      LIMIT $${limitParamIndex}
+    `;
+
+    const { rows } = await db.query(searchQuery, [...params, limit]);
+    const tagsByTicket = await fetchTagsByTicketIds(rows.map((ticket) => ticket.id));
+
+    const items = rows.map((ticket) => ({
+      ...ticket,
+      tags: tagsByTicket[ticket.id] || [],
+    }));
+
+    res.json({ items });
+  } catch (err) {
+    console.error("Error searching tickets:", err);
+    res.status(500).json({ error: "Failed to search tickets" });
+  }
+});
+
+// ----------------------------------------------------------------------
+// GET export data for Tickets page CSV (any logged-in user)
+// ----------------------------------------------------------------------
+router.get("/export", authenticateToken(), async (req, res) => {
+  try {
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id");
+    const { clause: filterClause, params: filterParams } = buildTicketsFilterClause(
+      req.query,
+      projectAccessParams.length + 1
+    );
+    const params = [...projectAccessParams, ...filterParams];
+
+    const exportQuery = `
+      SELECT
+        t.id,
+        t.ticket_code,
+        p.name AS project_name,
+        wf.name AS workflow_name,
+        t.title,
+        trim(regexp_replace(COALESCE(t.description, ''), '<[^>]*>', '', 'g')) AS description,
+        COALESCE(ws.step_name, t.step_code) AS status,
+        t.priority,
+        w.name AS workgroup_name,
+        e.name AS responsible_name,
+        m.name AS module_name,
+        t.due_date,
+        COALESCE(t.initiate_date, t.created_at) AS created_at
+      FROM tickets t
+      LEFT JOIN workflows wf ON t.workflow_id = wf.id
+      LEFT JOIN projects p ON t.project_id = p.id
+      LEFT JOIN workflow_steps ws
+        ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
+      LEFT JOIN workgroups w ON t.workgroup_id = w.id
+      LEFT JOIN modules m ON t.module_id = m.id
+      LEFT JOIN employees e ON t.responsible_employee_id = e.id
+      LEFT JOIN employees creator ON t.created_by = creator.id
+      WHERE t.deleted_at IS NULL${projectAccessClause}${filterClause}
+      ORDER BY t.updated_at DESC NULLS LAST, t.created_at DESC NULLS LAST
+    `;
+
+    const { rows } = await db.query(exportQuery, params);
+    const tagsByTicket = await fetchTagsByTicketIds(rows.map((ticket) => ticket.id));
+
+    const items = rows.map((ticket) => ({
+      ...ticket,
+      tags: tagsByTicket[ticket.id] || [],
+    }));
+
+    res.json({
+      items,
+      total: items.length,
+    });
+  } catch (err) {
+    console.error("Error loading ticket export data:", err);
+    res.status(500).json({ error: "Failed to load ticket export data" });
+  }
+});
 
 // ----------------------------------------------------------------------
 // GET all tickets (any logged-in user)

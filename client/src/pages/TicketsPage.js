@@ -5,11 +5,15 @@ import TicketFilter from "../components/TicketsPage/TicketFilter"
 import useFetch from "../useFetch"
 import { useAuth } from "../components/hooks/useAuth"
 import { TicketsPageSkeleton } from "../components/PageSkeletons"
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import SearchBar from "../components/TicketsPage/SearchBar";
 import TicketExporter from "../components/TicketsPage/TicketExporter"
 import Pagination from "../components/TicketsPage/Pagination"
+import {
+  appendTicketFilterParams,
+  createInitialTicketFilters,
+} from "../components/TicketsPage/ticketFilterQuery";
 import { Eye, Edit, Trash2, AlertTriangle, X } from 'lucide-react';
 
 const isTerminalStatusVariant = (variant) =>
@@ -22,89 +26,77 @@ const TicketsPage = () => {
 
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  // Fixed: Updated API endpoint to match server route
-  const { data: ticketsData, isPending, error } = useFetch('http://localhost:8000/api/tickets');
-  const { data: projectsData, isPending: projectsPending, error: projectsError } = useFetch('http://localhost:8000/api/projects');
   const [isDeleting, setIsDeleting] = useState(null);
-  const [filteredTickets, setFilteredTickets] = useState(null);
+  const [activeFilters, setActiveFilters] = useState(createInitialTicketFilters);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState(null);
   const [currentPage, setCurrentPage_] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedProjectId, setSelectedProjectId] = useState(searchParams.get('project_id') || '');
+  const ticketsListUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      limit: String(itemsPerPage),
+    });
+
+    if (selectedProjectId) {
+      params.set('project_id', selectedProjectId);
+    }
+    appendTicketFilterParams(params, activeFilters);
+
+    return `http://localhost:8000/api/tickets/list?${params.toString()}`;
+  }, [currentPage, itemsPerPage, selectedProjectId, activeFilters]);
+  const { data: ticketsData, isPending, error } = useFetch(ticketsListUrl);
+  const { data: projectsData, isPending: projectsPending, error: projectsError } = useFetch('http://localhost:8000/api/projects/available');
 
   // Transform the data from database format to component format
   const tickets = useMemo(() => {
-    if (!ticketsData) return [];
+    const pageItems = Array.isArray(ticketsData?.items) ? ticketsData.items : [];
+    if (!pageItems.length) return [];
     
-    return ticketsData.map(ticket => ({
+    return pageItems.map(ticket => ({
       id: ticket.id,
-      ticketCode: ticket.ticket_code || ticket.ticketCode,
-      projectId: ticket.project_id || ticket.projectId || "",
-      projectName: ticket.project_name || ticket.projectName || "No Project",
+      ticketCode: ticket.ticket_code,
+      projectId: ticket.project_id || "",
+      projectName: ticket.project_name || "No Project",
       title: ticket.title,
-      description: ticket.description,
-      status: ticket.current_step_name || ticket.status,
+      status: ticket.status,
       statusVariant: ticket.status_variant || 'outline',
-      isTerminal: isTerminalStatusVariant(ticket.status_variant || ticket.statusVariant),
+      isTerminal: isTerminalStatusVariant(ticket.status_variant),
       priority: ticket.priority,
-      workflowId: ticket.workflow_id,
-      workflow: ticket.workflow_name || ticket.workflowName || 'No Workflow',
-      workgroupId: ticket.workgroup_id,
+      workflow: ticket.workflow_name || 'No Workflow',
       workGroup: ticket.workgroup_name || 'Unassigned',
-      moduleId: ticket.module_id,
       module: ticket.module_name || 'No Module',
-      initiateDate: ticket.initiate_date || ticket.initiateDate || ticket.created_at || ticket.createdAt,
-      createdAt: ticket.created_at || ticket.createdAt,
-      updatedAt: ticket.updated_at || ticket.updatedAt,
-      createdBy: ticket.created_by_name || ticket.createdBy || 'Unknown',
-      responsibleEmployeeId: ticket.responsible_employee_id,
-      responsible: ticket.responsible_name || 'Unassigned', // Now from employees table
-      tags: ticket.tags || [], // Now from ticket_tags join
-      dueDate: ticket.due_date, // Now from tickets.due_date
+      initiateDate: ticket.initiate_date || ticket.created_at,
+      createdAt: ticket.created_at,
+      updatedAt: ticket.updated_at,
+      createdBy: ticket.created_by_name || 'Unknown',
+      responsible: ticket.responsible_name || 'Unassigned',
+      tags: ticket.tags || [],
+      dueDate: ticket.due_date,
     }));
   }, [ticketsData]);
+  const totalTickets = Number(ticketsData?.total) || 0;
 
   const getDisplayTicketCode = (ticket) => ticket.ticketCode || ticket.id;
 
   const projects = useMemo(() => Array.isArray(projectsData) ? projectsData : [], [projectsData]);
 
-  // Sort tickets by last updated timestamp (most recently updated first)
-  const sortedTickets = useMemo(() => {
-    if (!tickets) return [];
-    return [...tickets].sort((a, b) => {
-      const aUpdated = new Date(a.updatedAt || a.createdAt || 0).getTime();
-      const bUpdated = new Date(b.updatedAt || b.createdAt || 0).getTime();
-      return bUpdated - aUpdated;
-    });
-  }, [tickets]);
-
-  const projectScopedTickets = useMemo(() => {
-    if (!selectedProjectId) return sortedTickets;
-    return sortedTickets.filter((ticket) => ticket.projectId === selectedProjectId);
-  }, [sortedTickets, selectedProjectId]);
-
-  // Combined tickets to display, filtered first, then sorted
-  const ticketsToDisplay = filteredTickets !== null ? filteredTickets : projectScopedTickets;
+  const ticketsToDisplay = tickets;
+  const currentTickets = ticketsToDisplay;
+  const paginationTotalItems = totalTickets;
 
   useEffect(() => {
     const queryProjectId = searchParams.get('project_id') || '';
     setSelectedProjectId(queryProjectId);
+    setCurrentPage_(1);
+    setActiveFilters(createInitialTicketFilters());
   }, [searchParams]);
 
-  useEffect(() => {
-    setFilteredTickets(null);
-  }, [selectedProjectId]);
-
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentTickets = ticketsToDisplay.slice(indexOfFirstItem, indexOfLastItem);
-
-  // Reset to first page when filters or page size change
+  // Reset to first page when page size changes
   useEffect(() => {
     setCurrentPage_(1);
-  }, [ticketsToDisplay, itemsPerPage]);
+  }, [itemsPerPage]);
 
   const handlePageChange = (pageNumber) => {
     setCurrentPage_(pageNumber);
@@ -189,12 +181,9 @@ const TicketsPage = () => {
     navigate(`/view-ticket/${ticketId}`);
   };
 
-  const handleFilteredTicketsChange = (newFilteredTickets) => {
-    setFilteredTickets(newFilteredTickets);
-  };
-
   const handleProjectChange = (projectId) => {
     setSelectedProjectId(projectId);
+    setCurrentPage_(1);
     const nextParams = new URLSearchParams(searchParams);
     if (projectId) {
       nextParams.set('project_id', projectId);
@@ -203,6 +192,11 @@ const TicketsPage = () => {
     }
     setSearchParams(nextParams, { replace: true });
   };
+
+  const handleFiltersChange = useCallback((nextFilters) => {
+    setActiveFilters(nextFilters);
+    setCurrentPage_(1);
+  }, []);
 
   if (isPending || projectsPending) {
     return <TicketsPageSkeleton />;
@@ -245,23 +239,28 @@ const TicketsPage = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <TicketExporter ticketsToExport={ticketsToDisplay} />
+          <TicketExporter
+            selectedProjectId={selectedProjectId}
+            activeFilters={activeFilters}
+            totalItems={totalTickets}
+          />
         </div>
       </div>
 
       <TicketFilter
-        tickets={projectScopedTickets}
-        onFilteredTicketsChange={handleFilteredTicketsChange}
+        tickets={tickets}
         resetKey={selectedProjectId || "all-projects"}
         projects={projects}
         selectedProjectId={selectedProjectId}
         onProjectChange={handleProjectChange}
+        onFiltersChange={handleFiltersChange}
         projectAllLabel={user?.role_id === 1 ? "All projects" : "All accessible projects"}
       />
 
       <SearchBar
-        tickets={ticketsToDisplay}
         resetKey={selectedProjectId || "all-projects"}
+        selectedProjectId={selectedProjectId}
+        activeFilters={activeFilters}
       />
 
       {/* Desktop Table View */}
@@ -530,11 +529,11 @@ const TicketsPage = () => {
       </div>
 
       {/* No tickets message */}
-      {ticketsToDisplay.length === 0 && tickets && tickets.length > 0 && (
+      {ticketsToDisplay.length === 0 && (
         <Card>
           <CardContent className="text-center py-8">
             <p className="text-gray-500 dark:text-gray-400">
-              No tickets match your current filters.
+              No tickets found for the current filters.
             </p>
           </CardContent>
         </Card>
@@ -542,7 +541,7 @@ const TicketsPage = () => {
 
       {/* Add the Pagination component here */}
       <Pagination
-        totalItems={ticketsToDisplay.length}
+        totalItems={paginationTotalItems}
         itemsPerPage={itemsPerPage}
         currentPage={currentPage}
         onPageChange={handlePageChange}

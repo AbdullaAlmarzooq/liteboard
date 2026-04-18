@@ -19,6 +19,7 @@ const createInitialFilters = () => ({
 const TicketFilter = ({
   tickets,
   onFilteredTicketsChange,
+  onFiltersChange,
   className = "",
   resetKey = "default",
   projects = [],
@@ -130,9 +131,19 @@ const TicketFilter = ({
     });
   }, [tickets, filters]);
 
-  useEffect(() => { 
-    onFilteredTicketsChange(filteredTickets); 
-  }, [filteredTickets, onFilteredTicketsChange]);
+  useEffect(() => {
+    if (typeof onFiltersChange === "function") {
+      onFiltersChange(filters);
+    }
+
+    if (typeof onFilteredTicketsChange === "function") {
+      const hasActiveFilters = Object.values(filters).some((value) =>
+        Array.isArray(value) ? value.length > 0 : value
+      );
+
+      onFilteredTicketsChange(hasActiveFilters ? filteredTickets : null);
+    }
+  }, [filteredTickets, filters, onFilteredTicketsChange, onFiltersChange]);
 
   const handleFilterChange = (category, value, checked) => {
     setFilters(prev => {

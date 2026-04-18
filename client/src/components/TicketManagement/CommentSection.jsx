@@ -16,6 +16,7 @@ const CommentSection = ({
   setEditingCommentId,
   editingCommentText,
   setEditingCommentText,
+  commentMaxLength = 5000,
   showDeleteModal,
   setShowDeleteModal,
   commentToDeleteId,
@@ -40,13 +41,18 @@ const CommentSection = ({
                     <textarea
                       value={editingCommentText}
                       onChange={(e) => setEditingCommentText(e.target.value)}
+                      maxLength={commentMaxLength}
                       rows={3}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     />
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {editingCommentText.length}/{commentMaxLength} characters
+                    </p>
                     <div className="flex gap-2">
                       <Button
                         type="button"
                         onClick={() => handleSaveCommentEdit(comment.id)}
+                        disabled={!editingCommentText.trim()}
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
                         Save
@@ -109,11 +115,15 @@ const CommentSection = ({
               name="newComment"
               value={newCommentText}
               onChange={(e) => setNewCommentText(e.target.value)}
+              maxLength={commentMaxLength}
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               placeholder="Write a new comment..."
               disabled={isAddingComment}
             />
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {newCommentText.length}/{commentMaxLength} characters
+            </p>
             <Button
               type="button"
               onClick={handleCommentSubmit}

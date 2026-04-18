@@ -12,6 +12,18 @@ import fetchWithAuth from "../../utils/fetchWithAuth";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+const MAX_TICKET_TITLE_LENGTH = 75;
+const MAX_TICKET_DESCRIPTION_LENGTH = 10000;
+const MAX_COMMENT_LENGTH = 5000;
+
+const getPlainDescriptionText = (html = "") =>
+  String(html)
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\u200B/g, "");
+
+const stripHtml = (html = "") => getPlainDescriptionText(html).trim();
+
 const isTerminalStatusVariant = (variant) =>
   variant === "new" || variant === "destructive";
 
@@ -103,6 +115,8 @@ const EditTicket = () => {
   // Workflow status options
   const [allowedSteps, setAllowedSteps] = useState([]);
   const [loadingSteps, setLoadingSteps] = useState(false);
+  const canEditTitleAndDescription =
+    !!ticket?.created_by && String(ticket.created_by) === String(user?.id || '');
 
   useEffect(() => {
     if (!ticket) return;
@@ -282,6 +296,14 @@ const EditTicket = () => {
       }));
       return;
     }
+
+    if (name === 'title') {
+      setFormData(prev => ({
+        ...prev,
+        title: String(value || '').slice(0, MAX_TICKET_TITLE_LENGTH),
+      }));
+      return;
+    }
     
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -362,9 +384,24 @@ const EditTicket = () => {
   const canManageComment = (comment) =>
     String(comment?.author_id || '') === String(user?.id || '');
 
+  const handleNewCommentTextChange = (value) => {
+    setNewCommentText(String(value || '').slice(0, MAX_COMMENT_LENGTH));
+  };
+
+  const handleEditingCommentTextChange = (value) => {
+    setEditingCommentText(String(value || '').slice(0, MAX_COMMENT_LENGTH));
+  };
+
   // Comment handlers
   const handleCommentSubmit = async () => {
-    if (!newCommentText.trim()) return;
+    const trimmedNewComment = newCommentText.trim();
+    if (!trimmedNewComment) return;
+
+    if (trimmedNewComment.length > MAX_COMMENT_LENGTH) {
+      setSubmitError(`Comment must be ${MAX_COMMENT_LENGTH} characters or fewer.`);
+      return;
+    }
+
     setIsAddingComment(true);
     setSubmitError('');
     try {
@@ -372,14 +409,14 @@ const EditTicket = () => {
         method: 'POST',
         body: JSON.stringify({
           ticket_id: ticketId,
-          text: newCommentText,
+          text: trimmedNewComment,
         }),
       });
       if (res.ok) {
         const created = await res.json();
         setComments([...comments, { 
           id: created.id, 
-          text: newCommentText, 
+          text: trimmedNewComment, 
           author: user?.name || user?.full_name || 'Current User',
           author_id: user?.id,
           timestamp: new Date().toISOString() 
@@ -396,7 +433,14 @@ const EditTicket = () => {
   };
 
   const handleSaveCommentEdit = async (commentId) => {
-    if (!editingCommentText.trim()) return;
+    const trimmedEditingComment = editingCommentText.trim();
+    if (!trimmedEditingComment) return;
+
+    if (trimmedEditingComment.length > MAX_COMMENT_LENGTH) {
+      setSubmitError(`Comment must be ${MAX_COMMENT_LENGTH} characters or fewer.`);
+      return;
+    }
+
     const targetComment = comments.find((comment) => comment.id === commentId);
 
     if (!canManageComment(targetComment)) {
@@ -407,11 +451,11 @@ const EditTicket = () => {
     try {
       const res = await fetchWithAuth(`http://localhost:8000/api/comments/${commentId}`, {
         method: 'PUT',
-        body: JSON.stringify({ text: editingCommentText }),
+        body: JSON.stringify({ text: trimmedEditingComment }),
       });
       if (res.ok) {
         setComments(comments.map(c => 
-          c.id === commentId ? { ...c, text: editingCommentText } : c
+          c.id === commentId ? { ...c, text: trimmedEditingComment } : c
         ));
         setEditingCommentId(null);
         setEditingCommentText('');
@@ -454,6 +498,27 @@ const EditTicket = () => {
   // Submit main ticket form - FIXED WITH COMPLETE LOGGING
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (canEditTitleAndDescription) {
+      const trimmedTitle = formData.title.trim();
+      if (!trimmedTitle) {
+        setSubmitError('Title is required.');
+        return;
+      }
+
+      if (trimmedTitle.length > MAX_TICKET_TITLE_LENGTH) {
+        setSubmitError(`Title must be ${MAX_TICKET_TITLE_LENGTH} characters or fewer.`);
+        return;
+      }
+
+      if (stripHtml(formData.description).length > MAX_TICKET_DESCRIPTION_LENGTH) {
+        setSubmitError(
+          `Description must be ${MAX_TICKET_DESCRIPTION_LENGTH} characters or fewer.`
+        );
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setSubmitError('');
 
@@ -500,7 +565,7 @@ const EditTicket = () => {
       const updatePayload = {
         ...(canEditTitleAndDescription
           ? {
-              title: formData.title,
+              title: formData.title.trim(),
               description: formData.description,
             }
           : {}),
@@ -566,11 +631,10 @@ const EditTicket = () => {
   }
 
   const priorityOptions = ['Low', 'Medium', 'High', 'Critical'];
-  const canEditTitleAndDescription =
-    !!ticket?.created_by && String(ticket.created_by) === String(user?.id || '');
   const titleDescriptionLockMessage = ticket?.created_by
     ? "Only the ticket creator can edit title and description."
     : "This is a legacy ticket with no creator record. Title and description are locked for everyone until data is fixed.";
+  const descriptionCharacterCount = stripHtml(formData.description).length;
 
   const currentStepCode = formData.stepCode || ticket?.stepCode || ticket?.step_code;
   const originalStepCode = ticket?.stepCode || ticket?.step_code;
@@ -634,6 +698,9 @@ const EditTicket = () => {
               ticket={ticket}
               canEditTitleAndDescription={canEditTitleAndDescription}
               titleDescriptionLockMessage={titleDescriptionLockMessage}
+              titleMaxLength={MAX_TICKET_TITLE_LENGTH}
+              descriptionMaxLength={MAX_TICKET_DESCRIPTION_LENGTH}
+              descriptionCharacterCount={descriptionCharacterCount}
             />
 
             <AttachmentUploader onAttachmentsChange={handleNewAttachmentsChange} />
@@ -642,7 +709,7 @@ const EditTicket = () => {
               comments={comments}
               currentUserId={user?.id}
               newCommentText={newCommentText}
-              setNewCommentText={setNewCommentText}
+              setNewCommentText={handleNewCommentTextChange}
               isAddingComment={isAddingComment}
               handleCommentSubmit={handleCommentSubmit}
               handleDeleteComment={(id) => {
@@ -657,7 +724,8 @@ const EditTicket = () => {
               editingCommentId={editingCommentId}
               setEditingCommentId={setEditingCommentId}
               editingCommentText={editingCommentText}
-              setEditingCommentText={setEditingCommentText}
+              setEditingCommentText={handleEditingCommentTextChange}
+              commentMaxLength={MAX_COMMENT_LENGTH}
               showDeleteModal={showDeleteModal}
               setShowDeleteModal={setShowDeleteModal}
               commentToDeleteId={commentToDeleteId}

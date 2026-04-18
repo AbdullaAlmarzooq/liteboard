@@ -19,6 +19,8 @@ router.get("/activity", authenticateToken(), async (req, res) => {
   try {
     const { clause: projectAccessClause, params: projectAccessParams } =
       await buildProjectAccessFilter(req.user, "t.project_id", [userId]);
+    const limitParamIndex = projectAccessParams.length + 1;
+    const offsetParamIndex = projectAccessParams.length + 2;
 
     const totalSql = `
       SELECT COUNT(*)::int AS total
@@ -38,7 +40,7 @@ router.get("/activity", authenticateToken(), async (req, res) => {
       WHERE ev.actor_id = $1
         AND ev.deleted_at IS NULL${projectAccessClause}
       ORDER BY ev.occurred_at DESC, ev.created_at DESC, ev.id DESC
-      LIMIT $2 OFFSET $3
+      LIMIT $${limitParamIndex} OFFSET $${offsetParamIndex}
     `;
 
     const [{ rows: totalRows }, { rows }] = await Promise.all([

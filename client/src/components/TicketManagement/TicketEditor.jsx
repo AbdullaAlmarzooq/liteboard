@@ -8,12 +8,14 @@ const TicketEditor = ({
   placeholder = "Describe the ticket in detail",
   className = "",
   readOnly = false,
+  maxLength = null,
 }) => {
   const editorContainerRef = useRef(null);
   const quillInstanceRef = useRef(null);
   const syncingFromPropsRef = useRef(false);
   const lastEmittedHtmlRef = useRef(value || "");
   const onChangeRef = useRef(onChange);
+  const maxLengthRef = useRef(maxLength);
   const normalizeHtml = (html = "") =>
     String(html)
       .replace(/&nbsp;/g, " ")
@@ -57,6 +59,10 @@ const TicketEditor = ({
   }, [onChange]);
 
   useEffect(() => {
+    maxLengthRef.current = maxLength;
+  }, [maxLength]);
+
+  useEffect(() => {
     if (!editorContainerRef.current || quillInstanceRef.current) return;
     // In React StrictMode/dev remounts, Quill may leave an orphan toolbar sibling.
     const prev = editorContainerRef.current.previousElementSibling;
@@ -89,6 +95,17 @@ const TicketEditor = ({
 
     const handleTextChange = () => {
       if (syncingFromPropsRef.current) return;
+
+      const activeMaxLength = Number(maxLengthRef.current);
+      if (Number.isFinite(activeMaxLength) && activeMaxLength > 0) {
+        const plainText = quill.getText().replace(/\n$/, "");
+        if (plainText.length > activeMaxLength) {
+          const overflowCount = plainText.length - activeMaxLength;
+          const deleteStartIndex = Math.max(0, quill.getLength() - 1 - overflowCount);
+          quill.deleteText(deleteStartIndex, overflowCount, "silent");
+        }
+      }
+
       const html = quill.root.innerHTML;
       lastEmittedHtmlRef.current = html;
       if (typeof onChangeRef.current === "function") {

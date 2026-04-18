@@ -188,13 +188,16 @@ erDiagram
 | Route | Methods | Auth | Description |
 |-------|---------|------|-------------|
 | `/api/auth/login` | POST | None | User authentication, returns JWT |
-| `/api/projects/available` | GET | Token | List project options for ticket creation (`all` for Admin, accessible active projects for non-admin users) |
+| `/api/projects/available` | GET | Token | List readable project options for project selectors (`all` for Admin, accessible active projects for non-admin users) |
 | `/api/projects` | GET, POST | Token / Token + Admin | List readable projects for authenticated users; create a project for Admin |
 | `/api/projects/dashboard` | GET | Token | Project-level ticket counts for the Projects overview page |
 | `/api/projects/:id` | GET, PUT | Token + Admin | Fetch or update one project's metadata |
 | `/api/projects/:id/workgroups` | PUT | Token + Admin | Replace a project's workgroup assignments |
 | `/api/projects/:id/workflows` | PUT | Token + Admin | Replace a project's workflow assignments |
-| `/api/tickets` | GET, POST | Token + Role | List/create tickets |
+| `/api/tickets` | GET, POST | Token + Role | Full ticket list (legacy compatibility) and ticket creation |
+| `/api/tickets/list` | GET | Token | Paginated lightweight ticket list for Tickets page, with project/filter query support |
+| `/api/tickets/search` | GET | Token | Server-side ticket search across the current project/filter scope |
+| `/api/tickets/export` | GET | Token | Export ticket dataset for the current project/filter scope (plain-text description) |
 | `/api/tickets/:id` | GET, PUT, DELETE | Token + Project Access + Role/Workgroup | Single ticket operations (`PUT` keeps general management editable for authorized users but restricts `title`/`description` to ticket creator only) |
 | `/api/tickets/:id/transition` | POST | Token + Admin/Editor + Project Access + Workgroup | Workflow state change |
 | `/api/tickets/:id/allowed-steps` | GET | Token | Get valid next steps |
@@ -283,7 +286,12 @@ erDiagram
 
 - The Dashboard and Tickets pages now include a project selector that defaults to all readable projects combined.
 - Admin users can filter across all projects; non-admin users only receive active projects assigned to their workgroup.
+- Dashboard and Tickets project selectors load project options from `GET /api/projects/available` to avoid pulling admin assignment payloads.
 - Changing the selected project resets page-level filters so workgroup/module/workflow/status options stay aligned with the current project scope.
+- Tickets page list/search/export are server-driven:
+  - List data uses `GET /api/tickets/list` with `page`, `limit`, `project_id`, and filter query parameters.
+  - Search uses `GET /api/tickets/search` and runs across all matching tickets in scope (not only the current visible page).
+  - CSV export uses `GET /api/tickets/export` and includes all matching filtered tickets across pages.
 - The new `/projects` page presents project cards with ticket counts for Open (`10`), In Progress (`20`), Closed (`30`), and Cancelled (`40`) categories.
 - Clicking a project card opens the Tickets page with that project preselected through `?project_id=...`.
 - When a user has no readable projects, the Dashboard, Tickets, and Projects pages show a clear guidance message instead of empty controls.
@@ -333,7 +341,7 @@ client/src/
 │   ├── Auth/
 │   │   └── ProtectedRoute.js  # Route guard with role checking
 │   ├── Dashboard/         # 7 dashboard chart components
-│   ├── Profile/           # 4 profile components
+│   ├── Profile/           # Profile widgets + activity summary helper
 │   ├── AdminPanel/        # 9 admin components
 │   ├── TicketManagement/  # 5 ticket form components
 │   └── TicketsPage/       # 4 ticket list components
@@ -510,7 +518,10 @@ This middleware remains unchanged and continues to enforce workflow-step/workgro
 |----------|----------|-------------|
 | `isValidTransition()` | Helper | Validates workflow state changes |
 | `getAllowedNextSteps()` | Helper | Returns valid next steps for a ticket |
-| GET `/` | Route | List all tickets with tags, modules, workgroups |
+| GET `/` | Route | Full ticket list for compatibility with existing consumers |
+| GET `/list` | Route | Paginated lightweight list for Tickets page with server-side filters |
+| GET `/search` | Route | Search tickets across the current project/filter scope |
+| GET `/export` | Route | Export all tickets matching the current project/filter scope |
 | GET `/:id` | Route | Single ticket with comments, attachments |
 | POST `/` | Route | Create ticket (Admin/Editor, with transaction) |
 | PUT `/:id` | Route | Update ticket (Admin/Editor + same workgroup; `title`/`description` are creator-only) |
@@ -645,6 +656,17 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 - Attachments list with download
 - Status history (audit trail)
 - Edit/Delete actions for authorized users
+
+---
+
+#### `client/src/pages/ProfileActivity.jsx` + `client/src/components/Profile/*` - Profile Experience
+
+**Purpose**: User profile overview, pending workgroup queue, and personal recent activity feed
+
+**Profile UX Notes:**
+- `My Recent Activity` now renders concise human-readable summaries from event payloads via `client/src/components/Profile/activitySummary.js`.
+- The activity table now uses three columns (`Ticket ID`, `Activity`, `Timestamp`) and no longer shows a separate raw event-type column.
+- `Pending Workgroup Tickets` trims ticket title previews to 30 characters for scanability while keeping the full title in a hover tooltip.
 
 ---
 
@@ -806,8 +828,8 @@ Since there's no registration endpoint, ensure at least one admin user exists in
 
 | Issue | Recommendation |
 |-------|----------------|
-| **No pagination** | Add offset/limit for ticket list endpoint |
-| **Missing search** | Add full-text search on ticket title/description |
+| **Legacy full ticket endpoint is heavy** | Migrate remaining list consumers from `/api/tickets` to paginated `/api/tickets/list` with scoped filters where possible |
+| **Search relevance tuning** | Improve search quality (ranking, typo tolerance, optional PostgreSQL FTS indexes) for `/api/tickets/search` |
 | **No caching** | Add Redis for frequently accessed data (workflows, tags) |
 | **File attachments in DB** | Move to file system or object storage (S3) |
 | **No logging** | Add Winston or Pino for structured logging |

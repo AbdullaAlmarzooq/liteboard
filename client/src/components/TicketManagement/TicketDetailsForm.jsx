@@ -170,6 +170,9 @@ const TicketDetailsForm = ({
   ticket = null,
   canEditTitleAndDescription = true,
   titleDescriptionLockMessage = "",
+  titleMaxLength = null,
+  descriptionMaxLength = null,
+  descriptionCharacterCount = 0,
 }) => {
   const currentStepLabel = ticket?.current_step_name || ticket?.status || ''
 
@@ -189,10 +192,16 @@ const TicketDetailsForm = ({
               name="title"
               value={formData.title}
               onChange={handleInputChange}
+              maxLength={titleMaxLength || undefined}
               required
               disabled={!canEditTitleAndDescription}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:disabled:bg-gray-800 dark:disabled:text-gray-400"
             />
+            {canEditTitleAndDescription && titleMaxLength ? (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {formData.title.length}/{titleMaxLength} characters
+              </p>
+            ) : null}
           </div>
 
           <div>
@@ -211,7 +220,13 @@ const TicketDetailsForm = ({
               }
               placeholder="Describe the ticket details..."
               readOnly={!canEditTitleAndDescription}
+              maxLength={descriptionMaxLength}
             />
+            {canEditTitleAndDescription && descriptionMaxLength ? (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {descriptionCharacterCount}/{descriptionMaxLength} characters
+              </p>
+            ) : null}
           </div>
 
           {!canEditTitleAndDescription && titleDescriptionLockMessage && (

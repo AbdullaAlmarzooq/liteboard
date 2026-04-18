@@ -4,6 +4,13 @@ import { Link } from "react-router-dom";
 import Pagination from "../Profile/Pagination.jsx";
 import { ProfileSectionCardSkeleton } from "../PageSkeletons";
 
+const formatTicketTitle = (title, maxLength = 30) => {
+  const safeTitle = typeof title === "string" ? title : "";
+  if (safeTitle.length <= maxLength) return safeTitle;
+  if (maxLength <= 3) return safeTitle.slice(0, maxLength);
+  return `${safeTitle.slice(0, maxLength - 3)}...`;
+};
+
 const MyTickets = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +102,9 @@ const MyTickets = () => {
                       <td className="px-4 py-2 font-medium text-blue-600 dark:text-blue-400 hover:underline">
                         <Link to={`/view-ticket/${displayId}`}>{displayId}</Link>
                       </td>
-                      <td className="px-4 py-2">{ticket.title}</td>
+                      <td className="px-4 py-2" title={ticket.title || "-"}>
+                        {formatTicketTitle(ticket.title || "-", 30)}
+                      </td>
                       <td className="px-4 py-2">{ticket.status}</td>
                       <td className="px-4 py-2">{ticket.priority}</td>
                       <td className="px-4 py-2">

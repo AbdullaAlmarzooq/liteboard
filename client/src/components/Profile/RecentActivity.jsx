@@ -2,6 +2,17 @@ import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import Pagination from "../Profile/Pagination.jsx";
 import { ProfileSectionCardSkeleton } from "../PageSkeletons";
+import { buildActivitySummary } from "./activitySummary";
+
+const formatActivityTimestamp = (value) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
 
 const RecentActivity = () => {
   const [activity, setActivity] = useState([]);
@@ -50,7 +61,22 @@ const RecentActivity = () => {
   if (isLoading) {
     return <ProfileSectionCardSkeleton titleWidth="w-40" columns={6} rows={4} />;
   }
-  if (error) return <div className="text-red-600">Failed to load activity data</div>;
+  if (error) {
+    return (
+      <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
+        <CardHeader>
+          <CardTitle className="text-lg font-semibold">My Recent Activity</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-red-600 dark:text-red-400 text-center py-4">
+            Unable to load activity right now.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const displayActivity = Array.isArray(activity) ? activity : [];
 
   return (
     <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -58,7 +84,7 @@ const RecentActivity = () => {
         <CardTitle className="text-lg font-semibold">My Recent Activity</CardTitle>
       </CardHeader>
       <CardContent>
-        {activity.length === 0 ? (
+        {displayActivity.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-4">No recent activity found.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
@@ -66,50 +92,43 @@ const RecentActivity = () => {
               <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                 <tr>
                   <th className="px-4 py-2 text-left">Ticket ID</th>
-                  <th className="px-4 py-2 text-left">Type</th>
                   <th className="px-4 py-2 text-left">Activity</th>
-                  <th className="px-4 py-2 text-left">Timestamp</th>
+                  <th className="px-4 py-2 text-left">Date & Time</th>
                 </tr>
               </thead>
               <tbody>
-                {activity.map((act) => (
-                  <tr
-                    key={act.id}
-                    className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
-                  >
-                    <td className="px-4 py-2 font-medium">
-                      {act.ticket_id ? (
-                        <a
-                          href={`/view-ticket/${act.ticket_code || act.ticket_id}`}
-                          className="text-blue-600 dark:text-blue-400 hover:underline hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
-                        >
-                          {act.ticket_code || act.ticket_id}
-                        </a>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 capitalize">{act.event_type || "-"}</td>
-                    <td className="px-4 py-2 text-gray-800 dark:text-gray-200">
-                      <div className="space-y-1">
-                        <p>{act.message || "-"}</p>
-                        {Array.isArray(act.detail_lines) && act.detail_lines.length > 0 && (
-                          <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                            {act.detail_lines.map((detailLine, index) => (
-                              <p key={`${act.id}-detail-${index}`}>{detailLine}</p>
-                            ))}
-                          </div>
+                {displayActivity.map((rawActivity, rowIndex) => {
+                  const act =
+                    rawActivity && typeof rawActivity === "object" ? rawActivity : {};
+                  const rowId = act.id || `activity-row-${rowIndex}`;
+                  const ticketRef = act.ticket_code || act.ticket_id || null;
+
+                  return (
+                    <tr
+                      key={rowId}
+                      className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
+                    >
+                      <td className="px-4 py-2 font-medium">
+                        {ticketRef ? (
+                          <a
+                            href={`/view-ticket/${ticketRef}`}
+                            className="text-blue-600 dark:text-blue-400 hover:underline hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                          >
+                            {ticketRef}
+                          </a>
+                        ) : (
+                          <span className="text-gray-400">-</span>
                         )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 text-gray-500 text-xs">
-                      {new Date(act.occurred_at || act.created_at).toLocaleString("en-US", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-2 text-gray-800 dark:text-gray-200">
+                        <p>{buildActivitySummary(act)}</p>
+                      </td>
+                      <td className="px-4 py-2 text-gray-500 text-xs">
+                        {formatActivityTimestamp(act.occurred_at || act.created_at)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
