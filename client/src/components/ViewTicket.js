@@ -47,6 +47,26 @@ const getTicketLoadError = (message) => {
   };
 };
 
+const toPlainText = (value) =>
+  String(value || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+const buildCommentPreview = (value, maxLength = 160) => {
+  const preview = toPlainText(value)
+  if (!preview) {
+    return ""
+  }
+
+  if (preview.length <= maxLength) {
+    return preview
+  }
+
+  return `${preview.slice(0, Math.max(0, maxLength - 1)).trimEnd()}...`
+}
+
 
 const WorkflowDiagram = ({ steps, currentStepName }) => {
   if (!steps || steps.length === 0) return null;
@@ -217,8 +237,7 @@ const ViewTicket = () => {
   // Fetch ticket data with metadata-only attachments
   const { data: rawTicket, isPending, error } = useFetch(`http://localhost:8000/api/tickets/${ticketId}?include_blobs=false`)
   
-  // Fetch status history - this should work now with your actual table
-  const { data: statusHistory, isPending: isHistoryPending } = useFetch(`http://localhost:8000/api/status_history?ticketId=${ticketId}`)
+  const { data: ticketEvents, isPending: isEventsPending } = useFetch(`http://localhost:8000/api/tickets/${ticketId}/events`)
 
 // Transform raw ticket data to match component expectations
 const ticket = useMemo(() => {
@@ -256,6 +275,7 @@ const ticket = useMemo(() => {
   const [activityFilter, setActivityFilter] = useState("all")
   const [isWorkflowExpanded, setIsWorkflowExpanded] = useState(false)
   const [isActivityLogExpanded, setIsActivityLogExpanded] = useState(false)
+  const [expandedCommentIds, setExpandedCommentIds] = useState({})
   // Cancel ticket modal state
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
@@ -392,63 +412,86 @@ const ticket = useMemo(() => {
     })
   }
 
-  const formatFieldName = (fieldName, type) => {
-    if (type === "comment") return "Comment"
-    if (type === "status_change") return "Status"
+  const formatTimeOnly = (timestamp) => {
+    const date = new Date(timestamp)
 
-    switch (fieldName) {
-      case "workGroup": return "Work Group"
-      case "responsible": return "Responsible Person"
-      case "dueDate": return "Due Date"
-      case "startDate": return "Start Date"
-      case "module": return "Module"
-      case "title": return "Title"
-      case "description": return "Description"
-      case "priority": return "Priority"
-      case "tags_added":
-      case "tags_removed":
-        return "Tag"
-      default:
-        return fieldName || "Updated Field"
+    if (Number.isNaN(date.getTime())) {
+      return null
     }
+
+    return date.toLocaleString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+    })
+  }
+
+  const commentsById = useMemo(() => {
+    const entries = (ticket?.comments || []).map((comment) => [String(comment.id), comment])
+    return new Map(entries)
+  }, [ticket?.comments])
+
+  const toggleCommentExpanded = (commentId) => {
+    const key = String(commentId || "")
+    if (!key) {
+      return
+    }
+
+    setExpandedCommentIds((current) => ({
+      ...current,
+      [key]: !current[key],
+    }))
   }
 
   const getActivityTypeMeta = (item) => {
-    if (item.type === "status_change") {
+    if (item.event_type === "ticket.transitioned") {
       return {
         label: "Status",
         filterKey: "status",
         badgeClassName:
           "bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/30",
-        personClassName: "bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-200",
       }
     }
 
-    if (item.type === "comment") {
-      return {
-        label: "Comments",
-        filterKey: "comment",
-        badgeClassName:
-          "bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-400/30",
-        personClassName: "bg-teal-100 text-teal-700 dark:bg-teal-500/20 dark:text-teal-200",
-      }
-    }
-
-    if (item.fieldName === "responsible" || item.fieldName === "workGroup") {
+    if (item.event_type === "ticket.assigned") {
       return {
         label: "People",
         filterKey: "people",
         badgeClassName:
           "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-400/30",
-        personClassName: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200",
+      }
+    }
+
+    if (item.entity_type === "comment") {
+      return {
+        label: "Comments",
+        filterKey: "comment",
+        badgeClassName:
+          "bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200 dark:bg-teal-500/10 dark:text-teal-300 dark:ring-teal-400/30",
+      }
+    }
+
+    if (item.entity_type === "attachment") {
+      return {
+        label: "Attachments",
+        filterKey: "attachment",
+        badgeClassName:
+          "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-400/30",
+      }
+    }
+
+    if (item.entity_type === "tag") {
+      return {
+        label: "Tags",
+        filterKey: "tag",
+        badgeClassName:
+          "bg-fuchsia-50 text-fuchsia-700 ring-1 ring-inset ring-fuchsia-200 dark:bg-fuchsia-500/10 dark:text-fuchsia-300 dark:ring-fuchsia-400/30",
       }
     }
 
     return {
-      label: "Field",
+      label: "Ticket",
       filterKey: "fields",
       badgeClassName: "border border-gray-300 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300",
-      personClassName: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
     }
   }
 
@@ -474,78 +517,79 @@ const ticket = useMemo(() => {
       activeClassName: "bg-teal-600 text-white dark:bg-teal-500 dark:text-white",
     },
     {
+      key: "attachment",
+      label: "Attachments",
+      activeClassName: "bg-amber-600 text-white dark:bg-amber-500 dark:text-white",
+    },
+    {
+      key: "tag",
+      label: "Tags",
+      activeClassName: "bg-fuchsia-600 text-white dark:bg-fuchsia-500 dark:text-white",
+    },
+    {
       key: "fields",
-      label: "Fields",
+      label: "Ticket",
       activeClassName: "bg-gray-600 text-white dark:bg-gray-500 dark:text-white",
     },
   ]
 
-  const formatPersonName = (name) => {
-    const trimmedName = String(name || "").trim()
-
-    if (!trimmedName) {
-      return { firstName: "Unknown", initials: "?" }
-    }
-
-    const nameParts = trimmedName.split(/\s+/).filter(Boolean)
-    const initials = nameParts
-      .slice(0, 2)
-      .map((part) => part[0].toUpperCase())
-      .join("") || "?"
-
-    return {
-      firstName: nameParts[0],
-      initials,
-    }
-  }
-
-  const toPlainText = (value) =>
-    String(value)
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/gi, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-
-  const formatActivityValue = (value, fieldName) => {
-    if (value === null || value === undefined || value === "") {
-      return "Empty"
-    }
-
-    if ((fieldName === "dueDate" || fieldName === "startDate") && !Number.isNaN(new Date(value).getTime())) {
-      return new Date(value).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    }
-
-    const plainTextValue = toPlainText(value)
-    return plainTextValue || "Empty"
-  }
-
   const activityGroups = useMemo(() => {
-    const commentItems = (ticket?.comments || []).map((comment, index) => ({
-      id: comment.id || `comment-${index}`,
-      type: "comment",
-      fieldName: "comment",
-      oldValue: null,
-      newValue: comment.text,
-      timestamp: comment.timestamp || comment.created_at,
-      changedBy: comment.author || comment.created_by || "Unknown",
-    }))
-
-    const historyItems = (Array.isArray(statusHistory) ? statusHistory : []).map((item, index) => ({
+    const rawEventItems = (Array.isArray(ticketEvents) ? ticketEvents : []).map((item, index) => ({
       ...item,
-      id: item.id || `history-${index}`,
-      timestamp: item.timestamp || item.created_at,
-      changedBy: item.changedBy || "Unknown",
+      id: item.id || `event-${index}`,
+      timestamp: item.occurred_at || item.created_at,
     }))
 
-    const combinedTimeline = [...commentItems, ...historyItems].sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+    const latestCommentEditByEntityId = new Map()
+
+    rawEventItems.forEach((item) => {
+      if (item.event_type !== "comment.edited") {
+        return
+      }
+
+      const entityKey = String(item.entity_id || "")
+      if (!entityKey) {
+        return
+      }
+
+      const existingEdit = latestCommentEditByEntityId.get(entityKey)
+      const nextTime = new Date(item.timestamp).getTime()
+      const existingTime = existingEdit ? new Date(existingEdit.timestamp).getTime() : -Infinity
+
+      if (!existingEdit || nextTime > existingTime) {
+        latestCommentEditByEntityId.set(entityKey, item)
+      }
+    })
+
+    const eventItems = rawEventItems
+      .filter((item) => item.event_type !== "comment.edited")
+      .map((item) => {
+        if (item.event_type !== "comment.created") {
+          return item
+        }
+
+        const entityKey = String(item.entity_id || "")
+        const latestEdit = latestCommentEditByEntityId.get(entityKey)
+        const currentComment = commentsById.get(entityKey)
+        const currentCommentText = currentComment?.text || ""
+
+        return {
+          ...item,
+          last_edited_at: latestEdit?.timestamp || null,
+          current_comment_text: currentCommentText,
+          current_comment_preview:
+            buildCommentPreview(currentCommentText) ||
+            item.payload?.preview ||
+            item.detail_lines?.[0] ||
+            "",
+        }
+      })
+
+    const sortedTimeline = [...eventItems].sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
     )
 
-    return combinedTimeline.reduce((groups, item) => {
+    return sortedTimeline.reduce((groups, item) => {
       const label = formatTimestamp(item.timestamp)
       const previousGroup = groups[groups.length - 1]
 
@@ -561,7 +605,7 @@ const ticket = useMemo(() => {
 
       return groups
     }, [])
-  }, [ticket, statusHistory])
+  }, [commentsById, ticketEvents])
 
   const filteredActivityGroups = useMemo(() => {
     return activityGroups
@@ -606,7 +650,7 @@ const renderTag = (tag, index) => {
   );
 };
 
-  if (isPending || isHistoryPending) {
+  if (isPending || isEventsPending) {
     return <div className="flex items-center justify-center min-h-64 text-gray-500">Loading ticket details...</div>
   }
   if (error) {
@@ -755,13 +799,10 @@ const renderTag = (tag, index) => {
                             Type
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Field
+                            Activity
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            Change
-                          </th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                            By
+                            Entity
                           </th>
                         </tr>
                       </thead>
@@ -769,7 +810,7 @@ const renderTag = (tag, index) => {
                         <tbody key={group.key} className="divide-y divide-gray-200 dark:divide-gray-700">
                           <tr className="bg-gray-50/80 dark:bg-gray-800/50">
                             <td
-                              colSpan={4}
+                              colSpan={3}
                               className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400"
                             >
                               {group.label}
@@ -777,9 +818,13 @@ const renderTag = (tag, index) => {
                           </tr>
                           {group.items.map((item, index) => {
                             const typeMeta = getActivityTypeMeta(item)
-                            const actor = formatPersonName(item.changedBy)
-                            const previousValue = formatActivityValue(item.oldValue, item.fieldName)
-                            const nextValue = formatActivityValue(item.newValue, item.fieldName)
+                            const isCommentCreated = item.event_type === "comment.created"
+                            const hasLastEditedAt = isCommentCreated && item.last_edited_at
+                            const commentEntityKey = String(item.entity_id || "")
+                            const isCommentExpanded = Boolean(expandedCommentIds[commentEntityKey])
+                            const commentPreview = isCommentCreated ? item.current_comment_preview : ""
+                            const commentFullText = isCommentCreated ? item.current_comment_text : ""
+                            const detailLines = isCommentCreated ? [] : item.detail_lines
 
                             return (
                               <tr
@@ -793,31 +838,48 @@ const renderTag = (tag, index) => {
                                     {typeMeta.label}
                                   </span>
                                 </td>
-                                <td className="px-4 py-4 align-top text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {formatFieldName(item.fieldName, item.type)}
-                                </td>
                                 <td className="px-4 py-4 align-top">
-                                  <div className="flex flex-wrap items-start gap-2 text-sm text-gray-700 dark:text-gray-200">
-                                    <span className="break-words text-gray-400 line-through dark:text-gray-500">
-                                      {previousValue}
-                                    </span>
-                                    <span className="text-gray-400 dark:text-gray-500">→</span>
-                                    <span className="break-words font-medium">
-                                      {nextValue}
-                                    </span>
+                                  <div className="space-y-2 text-sm text-gray-700 dark:text-gray-200">
+                                    <p className="font-medium text-gray-900 dark:text-gray-100">
+                                      {item.message}
+                                    </p>
+                                    {isCommentCreated && (commentPreview || commentFullText) && (
+                                      <div className="space-y-2">
+                                        <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap break-words">
+                                          {isCommentExpanded && commentFullText ? commentFullText : commentPreview}
+                                        </p>
+                                        {commentFullText && commentFullText !== commentPreview && (
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleCommentExpanded(commentEntityKey)}
+                                            className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                          >
+                                            {isCommentExpanded ? "Hide full comment" : "View full comment"}
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                    {Array.isArray(detailLines) && detailLines.length > 0 && (
+                                      <div className="space-y-1">
+                                        {detailLines.map((detailLine, detailIndex) => (
+                                          <p
+                                            key={`${item.id}-detail-${detailIndex}`}
+                                            className="text-gray-600 dark:text-gray-300"
+                                          >
+                                            {detailLine}
+                                          </p>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {hasLastEditedAt && (
+                                      <p className="text-xs text-gray-400 dark:text-gray-500">
+                                        last edited at {formatTimeOnly(item.last_edited_at)}
+                                      </p>
+                                    )}
                                   </div>
                                 </td>
-                                <td className="whitespace-nowrap px-4 py-4 align-top">
-                                  <div className="flex items-center gap-3" title={item.changedBy || "Unknown"}>
-                                    <span
-                                      className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${typeMeta.personClassName}`}
-                                    >
-                                      {actor.initials}
-                                    </span>
-                                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                      {actor.firstName}
-                                    </span>
-                                  </div>
+                                <td className="px-4 py-4 align-top text-sm text-gray-600 dark:text-gray-300">
+                                  {item.entity_type}
                                 </td>
                               </tr>
                             )

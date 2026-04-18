@@ -8,6 +8,7 @@ const authenticateToken = require("../middleware/authMiddleware");
 const ensureProjectAccess = require("../middleware/ensureProjectAccess");
 const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
+const { insertEvent, mapEventRow } = require("../utils/events");
 const { buildProjectAccessFilter, getProjectAccess } = require("../utils/projectAccess");
 
 const CLOSED_CATEGORY_CODE = 30;
@@ -91,6 +92,56 @@ const getTicketByParam = async (id, fields = "*") => {
     [id]
   );
   return rows[0];
+};
+
+const getTicketEventSnapshot = async (ticketId, executor = db) => {
+  const { rows } = await executor.query(
+    `
+      SELECT
+        t.id,
+        t.ticket_code,
+        t.title,
+        t.priority,
+        t.module_id,
+        m.name AS module_name,
+        t.responsible_employee_id,
+        e.name AS responsible_employee_name,
+        t.workflow_id,
+        t.step_code,
+        ws.step_name,
+        t.start_date,
+        t.due_date
+      FROM tickets t
+      LEFT JOIN modules m ON m.id = t.module_id
+      LEFT JOIN employees e ON e.id = t.responsible_employee_id
+      LEFT JOIN workflow_steps ws
+        ON ws.workflow_id = t.workflow_id
+       AND ws.step_code = t.step_code
+      WHERE t.id = $1
+      LIMIT 1
+    `,
+    [ticketId]
+  );
+
+  return rows[0] || null;
+};
+
+const getTicketTagsSnapshot = async (ticketId, executor = db) => {
+  const { rows } = await executor.query(
+    `
+      SELECT
+        tg.id,
+        tg.label,
+        tg.color
+      FROM ticket_tags tt
+      JOIN tags tg ON tg.id = tt.tag_id
+      WHERE tt.ticket_id = $1
+      ORDER BY tg.label ASC
+    `,
+    [ticketId]
+  );
+
+  return rows;
 };
 
 // Helper to validate workflow transition
@@ -203,17 +254,56 @@ router.post(
       return res.status(400).json({ error: "Invalid step_code" });
     }
 
-    await db.query(
+    const currentStepResult = await db.query(
       `
-        UPDATE tickets
-        SET
-          step_code = $1,
-          completed_at = CASE WHEN $3 = $4 THEN NOW() ELSE NULL END,
-          updated_at = NOW()
-        WHERE id = $2
+        SELECT step_name
+        FROM workflow_steps
+        WHERE workflow_id = $1 AND step_code = $2
+        LIMIT 1
       `,
-      [step_code, currentTicket.id, Number(newStep.category_code), CLOSED_CATEGORY_CODE]
+      [currentTicket.workflow_id, currentTicket.step_code]
     );
+    const currentStep = currentStepResult.rows[0];
+
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      await client.query(
+        `
+          UPDATE tickets
+          SET
+            step_code = $1,
+            completed_at = CASE WHEN $3 = $4 THEN NOW() ELSE NULL END,
+            updated_at = NOW()
+          WHERE id = $2
+        `,
+        [step_code, currentTicket.id, Number(newStep.category_code), CLOSED_CATEGORY_CODE]
+      );
+
+      await insertEvent(client, {
+        ticketId: currentTicket.id,
+        eventType: "ticket.transitioned",
+        entityType: "ticket",
+        entityId: currentTicket.id,
+        actorId: req.user.id,
+        actorName: req.user.name,
+        payload: {
+          workflow_id: currentTicket.workflow_id,
+          from_step_code: currentTicket.step_code,
+          to_step_code: step_code,
+          from_step_name: currentStep?.step_name || currentTicket.step_code,
+          to_step_name: newStep.step_name || step_code,
+        },
+      });
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     const updatedTicketResult = await db.query(
       `
@@ -319,6 +409,40 @@ router.get("/", authenticateToken(), async (req, res) => {
   } catch (err) {
     console.error("Error fetching tickets:", err);
     res.status(500).json({ error: "Failed to fetch tickets" });
+  }
+});
+
+// ----------------------------------------------------------------------
+// GET ticket events (any logged-in user with project access)
+// ----------------------------------------------------------------------
+router.get("/:id/events", authenticateToken(), ensureProjectAccess, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const ticket = await getTicketByParam(id, "id");
+    if (!ticket) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+
+    const { rows } = await db.query(
+      `
+        SELECT
+          ev.*,
+          t.ticket_code,
+          t.title AS ticket_title
+        FROM events ev
+        LEFT JOIN tickets t ON t.id = ev.ticket_id
+        WHERE ev.ticket_id = $1
+          AND ev.deleted_at IS NULL
+        ORDER BY ev.occurred_at DESC, ev.created_at DESC, ev.id DESC
+      `,
+      [ticket.id]
+    );
+
+    res.json(rows.map(mapEventRow));
+  } catch (err) {
+    console.error("Error fetching ticket events:", err);
+    res.status(500).json({ error: "Failed to fetch ticket events" });
   }
 });
 
@@ -513,6 +637,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
     const client = await db.pool.connect();
     try {
       await client.query("BEGIN");
+      let selectedTags = [];
 
       const workflowResult = await client.query(
         `
@@ -558,7 +683,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
       if (normalizedTagIds && normalizedTagIds.length > 0) {
         const tagsResult = await client.query(
           `
-            SELECT id
+            SELECT id, label, color
             FROM tags
             WHERE id = ANY($1::uuid[])
               AND project_id = $2
@@ -573,6 +698,8 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
             error: "One or more selected tags do not belong to the selected project.",
           });
         }
+
+        selectedTags = tagsResult.rows;
       }
 
       const stepCategory = Number(stepInfo.category_code);
@@ -618,6 +745,35 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
             [ticketId, tag_id]
           );
         }
+      }
+
+      await insertEvent(client, {
+        ticketId,
+        eventType: "ticket.created",
+        entityType: "ticket",
+        entityId: ticketId,
+        actorId: req.user.id,
+        actorName: req.user.name,
+        payload: {
+          ticket_code: insertResult.rows[0].ticket_code,
+        },
+        occurredAt: timestamp,
+      });
+
+      for (const tag of selectedTags) {
+        await insertEvent(client, {
+          ticketId,
+          eventType: "tag.added",
+          entityType: "tag",
+          entityId: tag.id,
+          actorId: req.user.id,
+          actorName: req.user.name,
+          payload: {
+            tag_label: tag.label,
+            tag_color: tag.color,
+          },
+          occurredAt: timestamp,
+        });
       }
 
       await client.query("COMMIT");
@@ -696,11 +852,14 @@ router.put(
     const client = await db.pool.connect();
     try {
       await client.query("BEGIN");
+      const beforeSnapshot = await getTicketEventSnapshot(ticket.id, client);
+      const beforeTags = await getTicketTagsSnapshot(ticket.id, client);
+      let selectedTags = [];
 
       if (normalizedTagIds && normalizedTagIds.length > 0) {
         const tagValidationResult = await client.query(
           `
-            SELECT id
+            SELECT id, label, color
             FROM tags
             WHERE id = ANY($1::uuid[])
               AND project_id = $2
@@ -715,6 +874,8 @@ router.put(
             error: "One or more selected tags do not belong to this ticket's project.",
           });
         }
+
+        selectedTags = tagValidationResult.rows;
       }
 
       await client.query(
@@ -764,6 +925,145 @@ router.put(
             `INSERT INTO ticket_tags (ticket_id, tag_id, created_at) VALUES ($1, $2, NOW())`,
             [ticket.id, tagId]
           );
+        }
+      }
+
+      const afterSnapshot = await getTicketEventSnapshot(ticket.id, client);
+      const updateChanges = [];
+
+      if (beforeSnapshot?.title !== afterSnapshot?.title) {
+        updateChanges.push({
+          field: "title",
+          old_value: beforeSnapshot?.title ?? null,
+          new_value: afterSnapshot?.title ?? null,
+        });
+      }
+
+      if (beforeSnapshot?.priority !== afterSnapshot?.priority) {
+        updateChanges.push({
+          field: "priority",
+          old_value: beforeSnapshot?.priority ?? null,
+          new_value: afterSnapshot?.priority ?? null,
+        });
+      }
+
+      if (String(beforeSnapshot?.module_id || "") !== String(afterSnapshot?.module_id || "")) {
+        updateChanges.push({
+          field: "module_id",
+          old_value: beforeSnapshot?.module_id ?? null,
+          new_value: afterSnapshot?.module_id ?? null,
+          old_name: beforeSnapshot?.module_name ?? null,
+          new_name: afterSnapshot?.module_name ?? null,
+        });
+      }
+
+      if (String(beforeSnapshot?.start_date || "") !== String(afterSnapshot?.start_date || "")) {
+        updateChanges.push({
+          field: "start_date",
+          old_value: beforeSnapshot?.start_date ?? null,
+          new_value: afterSnapshot?.start_date ?? null,
+        });
+      }
+
+      if (String(beforeSnapshot?.due_date || "") !== String(afterSnapshot?.due_date || "")) {
+        updateChanges.push({
+          field: "due_date",
+          old_value: beforeSnapshot?.due_date ?? null,
+          new_value: afterSnapshot?.due_date ?? null,
+        });
+      }
+
+      if (updateChanges.length > 0) {
+        await insertEvent(client, {
+          ticketId: ticket.id,
+          eventType: "ticket.updated",
+          entityType: "ticket",
+          entityId: ticket.id,
+          actorId: req.user.id,
+          actorName: req.user.name,
+          payload: {
+            changes: updateChanges,
+          },
+          occurredAt: timestamp,
+        });
+      }
+
+      if (
+        String(beforeSnapshot?.responsible_employee_id || "") !==
+        String(afterSnapshot?.responsible_employee_id || "")
+      ) {
+        await insertEvent(client, {
+          ticketId: ticket.id,
+          eventType: "ticket.assigned",
+          entityType: "ticket",
+          entityId: ticket.id,
+          actorId: req.user.id,
+          actorName: req.user.name,
+          payload: {
+            old_responsible_employee_id: beforeSnapshot?.responsible_employee_id ?? null,
+            new_responsible_employee_id: afterSnapshot?.responsible_employee_id ?? null,
+            old_responsible_employee_name: beforeSnapshot?.responsible_employee_name ?? null,
+            new_responsible_employee_name: afterSnapshot?.responsible_employee_name ?? null,
+          },
+          occurredAt: timestamp,
+        });
+      }
+
+      if (String(beforeSnapshot?.step_code || "") !== String(afterSnapshot?.step_code || "")) {
+        await insertEvent(client, {
+          ticketId: ticket.id,
+          eventType: "ticket.transitioned",
+          entityType: "ticket",
+          entityId: ticket.id,
+          actorId: req.user.id,
+          actorName: req.user.name,
+          payload: {
+            workflow_id: afterSnapshot?.workflow_id ?? effectiveWorkflowId ?? null,
+            from_step_code: beforeSnapshot?.step_code ?? null,
+            to_step_code: afterSnapshot?.step_code ?? null,
+            from_step_name: beforeSnapshot?.step_name ?? beforeSnapshot?.step_code ?? null,
+            to_step_name: afterSnapshot?.step_name ?? afterSnapshot?.step_code ?? null,
+          },
+          occurredAt: timestamp,
+        });
+      }
+
+      const beforeTagsById = new Map(beforeTags.map((tag) => [String(tag.id), tag]));
+      const afterTagsById = new Map(selectedTags.map((tag) => [String(tag.id), tag]));
+
+      for (const [tagId, tag] of afterTagsById.entries()) {
+        if (!beforeTagsById.has(tagId)) {
+          await insertEvent(client, {
+            ticketId: ticket.id,
+            eventType: "tag.added",
+            entityType: "tag",
+            entityId: tag.id,
+            actorId: req.user.id,
+            actorName: req.user.name,
+            payload: {
+              tag_label: tag.label,
+              tag_color: tag.color,
+            },
+            occurredAt: timestamp,
+          });
+        }
+      }
+
+      for (const [tagId, tag] of beforeTagsById.entries()) {
+        if (!afterTagsById.has(tagId)) {
+          await insertEvent(client, {
+            ticketId: ticket.id,
+            eventType: "tag.removed",
+            entityType: "tag",
+            entityId: tag.id,
+            actorId: req.user.id,
+            actorName: req.user.name,
+            payload: {
+              tag_label: tag.label,
+              tag_color: tag.color,
+            },
+            occurredAt: timestamp,
+          });
         }
       }
 

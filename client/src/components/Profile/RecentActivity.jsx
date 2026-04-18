@@ -66,10 +66,8 @@ const RecentActivity = () => {
               <thead className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                 <tr>
                   <th className="px-4 py-2 text-left">Ticket ID</th>
+                  <th className="px-4 py-2 text-left">Type</th>
                   <th className="px-4 py-2 text-left">Activity</th>
-                  <th className="px-4 py-2 text-left">Field</th>
-                  <th className="px-4 py-2 text-left">New Value</th>
-                  <th className="px-4 py-2 text-left">Changed By</th>
                   <th className="px-4 py-2 text-left">Timestamp</th>
                 </tr>
               </thead>
@@ -82,25 +80,30 @@ const RecentActivity = () => {
                     <td className="px-4 py-2 font-medium">
                       {act.ticket_id ? (
                         <a
-                          href={`/view-ticket/${act.ticket_id}`}
+                          href={`/view-ticket/${act.ticket_code || act.ticket_id}`}
                           className="text-blue-600 dark:text-blue-400 hover:underline hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
                         >
-                          {act.ticket_id}
+                          {act.ticket_code || act.ticket_id}
                         </a>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="px-4 py-2 capitalize">{act.activity_type}</td>
-                    <td className="px-4 py-2">{act.field_name || "-"}</td>
+                    <td className="px-4 py-2 capitalize">{act.event_type || "-"}</td>
                     <td className="px-4 py-2 text-gray-800 dark:text-gray-200">
-                      {act.new_value || "-"}
-                    </td>
-                    <td className="px-4 py-2">
-                      {act.changed_by_name || act.changed_by || "N/A"}
+                      <div className="space-y-1">
+                        <p>{act.message || "-"}</p>
+                        {Array.isArray(act.detail_lines) && act.detail_lines.length > 0 && (
+                          <div className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                            {act.detail_lines.map((detailLine, index) => (
+                              <p key={`${act.id}-detail-${index}`}>{detailLine}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2 text-gray-500 text-xs">
-                      {new Date(act.timestamp).toLocaleString("en-US", {
+                      {new Date(act.occurred_at || act.created_at).toLocaleString("en-US", {
                         dateStyle: "medium",
                         timeStyle: "short",
                       })}

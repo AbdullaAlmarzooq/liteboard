@@ -93,7 +93,7 @@ const EditTicket = () => {
   // Attachments state
   const [savedAttachments, setSavedAttachments] = useState([]);
   const [attachmentBlobs, setAttachmentBlobs] = useState({});
-  const [newAttachments, setNewAttachments] = useState([]);
+  const [, setNewAttachments] = useState([]);
 
   // Submit state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -225,61 +225,6 @@ const EditTicket = () => {
           }
         }
       }
-    }
-  };
-
-  // Handle status change with workflow transition
-  const handleStatusChange = async (newStepCode) => {
-    if (!newStepCode || newStepCode === formData.stepCode) return;
-
-    setIsSubmitting(true);
-    setSubmitError('');
-
-    try {
-      const response = await fetch(`http://localhost:8000/api/tickets/${ticketId}/transition`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step_code: newStepCode })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || errorData.error || 'Invalid transition');
-      }
-
-      const result = await response.json();
-      
-      const allSteps = workflows.flatMap(wf => wf.steps || []);
-      const newStep = allSteps.find(s => s.stepCode === newStepCode || s.step_code === newStepCode);
-      
-      let newWorkgroupId = formData.workgroupId;
-      let newWorkgroupName = formData.workGroup;
-      
-      if (newStep && newStep.workgroupCode) {
-        const newWorkgroup = workgroups?.find(wg => wg.id === newStep.workgroupCode);
-        if (newWorkgroup) {
-          newWorkgroupId = newWorkgroup.id;
-          newWorkgroupName = newWorkgroup.name;
-        }
-      }
-      
-      setFormData(prev => ({
-        ...prev,
-        stepCode: newStepCode,
-        status: result.ticket?.status || result.ticket?.current_step_name || prev.status,
-        workgroupId: newWorkgroupId,
-        workGroup: newWorkgroupName,
-        responsibleEmployeeId: newWorkgroupId !== prev.workgroupId ? '' : prev.responsibleEmployeeId,
-        responsible: newWorkgroupId !== prev.workgroupId ? '' : prev.responsible
-      }));
-
-      await addActivityEntry('status', formData.status, result.ticket?.status || result.ticket?.current_step_name);
-
-    } catch (err) {
-      setSubmitError(err.message);
-      console.error('Transition error:', err);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -506,26 +451,6 @@ const EditTicket = () => {
     }
   };
 
-  // Status history entry - FIXED: Now handles null values properly
-  const addActivityEntry = async (fieldName, oldValue, newValue) => {
-    try {
-      await fetch(`http://localhost:8000/api/status_history`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ticket_id: ticketId,
-          activity_type: fieldName === 'status' ? 'status_change' : 'field_change',
-          field_name: fieldName,
-          old_value: oldValue || null,
-          new_value: newValue || null,
-          changed_by: user?.id || 'Unknown',
-        }),
-      });
-    } catch (err) {
-      console.error('Error adding activity entry:', err);
-    }
-  };
-
   // Submit main ticket form - FIXED WITH COMPLETE LOGGING
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -549,8 +474,6 @@ const EditTicket = () => {
     return; 
   }
     
-    const finalAttachments = [...savedAttachments, ...newAttachments];
-    
     try {
       // Check if status/step changed
       const originalStepCode = ticket.step_code || ticket.stepCode;
@@ -569,48 +492,9 @@ const EditTicket = () => {
           throw new Error(errorData.message || errorData.error || 'Invalid transition');
         }
 
-        // ✅ LOG THE STATUS CHANGE
-        await addActivityEntry('status', ticket.status, formData.status);
-
         // Auto-assign workgroup based on new step
         await autoAssignWorkgroup(formData.stepCode);
       }
-      
-      // Track other field changes BEFORE updating
-      const fieldChanges = [];
-      
-      if (formData.priority !== ticket.priority) {
-        fieldChanges.push({ field: 'priority', oldValue: ticket.priority, newValue: formData.priority });
-      }
-      
-      if (formData.workgroupId !== (ticket.workgroup_id || ticket.workgroupId)) {
-        fieldChanges.push({ field: 'workGroup', oldValue: ticket.workGroup, newValue: formData.workGroup });
-      }
-      
-      if (formData.responsibleEmployeeId !== (ticket.responsible_employee_id || ticket.responsibleEmployeeId)) {
-        fieldChanges.push({ field: 'responsible', oldValue: ticket.responsible, newValue: formData.responsible });
-      }
-      
-      if (formData.module !== ticket.module) {
-        fieldChanges.push({ field: 'module', oldValue: ticket.module, newValue: formData.module });
-      }
-      
-      if (formData.dueDate !== (ticket.due_date || ticket.dueDate)) {
-        fieldChanges.push({ field: 'dueDate', oldValue: ticket.due_date || ticket.dueDate, newValue: formData.dueDate });
-      }
-      
-      if (formData.startDate !== (ticket.start_date || ticket.startDate)) {
-        fieldChanges.push({ field: 'startDate', oldValue: ticket.start_date || ticket.startDate, newValue: formData.startDate });
-      }
-      
-      // Check tag changes
-      const originalTags = ticket.tags || [];
-      const newTags = formData.tags || [];
-      const originalTagNames = originalTags.map(t => t.name);
-      const newTagNames = newTags.map(t => t.name);
-      
-      const addedTags = newTagNames.filter(tag => !originalTagNames.includes(tag));
-      const removedTags = originalTagNames.filter(tag => !newTagNames.includes(tag));
       
       // Then update other fields via PUT
       const res = await fetchWithAuth(`http://localhost:8000/api/tickets/${ticketId}`, {
@@ -633,19 +517,6 @@ const EditTicket = () => {
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData.error || 'Failed to update ticket');
-      }
-      
-      // ✅ LOG ALL FIELD CHANGES
-      for (const change of fieldChanges) {
-        await addActivityEntry(change.field, change.oldValue, change.newValue);
-      }
-      
-      // ✅ LOG TAG CHANGES
-      for (const tag of addedTags) {
-        await addActivityEntry('tags_added', null, tag);
-      }
-      for (const tag of removedTags) {
-        await addActivityEntry('tags_removed', tag, null);
       }
       
       // Success - navigate away

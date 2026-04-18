@@ -3,6 +3,7 @@ const db = require("../db/db");
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
+const { insertEvent } = require("../utils/events");
 const { resolveReadableTicketId } = require("../utils/projectAccess");
 
 const resolveTicketId = async (ticketId) => {
@@ -52,7 +53,7 @@ router.get("/:ticketId", authenticateToken(), async (req, res) => {
 // Route: /api/ticket_tags
 // Body: { ticket_id: "TKT-001", tag_id: "TAG-XYZ" }
 // ----------------------------------------------------------------------
-router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
+router.post("/", authenticateToken(), ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
   const { ticket_id, tag_id } = req.body;
 
   if (!ticket_id || !tag_id) {
@@ -64,13 +65,53 @@ router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, r
     if (!resolvedTicketId) {
       return res.status(404).json({ error: "Ticket or Tag ID does not exist" });
     }
-    await db.query(
+
+    const tagResult = await db.query(
       `
-        INSERT INTO ticket_tags (ticket_id, tag_id)
-        VALUES ($1, $2)
+        SELECT id, label, color
+        FROM tags
+        WHERE id = $1
+        LIMIT 1
       `,
-      [resolvedTicketId, tag_id]
+      [tag_id]
     );
+    const tag = tagResult.rows[0];
+    if (!tag) {
+      return res.status(404).json({ error: "Ticket or Tag ID does not exist" });
+    }
+
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      await client.query(
+        `
+          INSERT INTO ticket_tags (ticket_id, tag_id)
+          VALUES ($1, $2)
+        `,
+        [resolvedTicketId, tag_id]
+      );
+
+      await insertEvent(client, {
+        ticketId: resolvedTicketId,
+        eventType: "tag.added",
+        entityType: "tag",
+        entityId: tag.id,
+        actorId: req.user.id,
+        actorName: req.user.name,
+        payload: {
+          tag_label: tag.label,
+          tag_color: tag.color,
+        },
+      });
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     res.status(201).json({ message: "Tag associated successfully" });
   } catch (err) {
@@ -94,6 +135,7 @@ router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, r
 // ----------------------------------------------------------------------
 router.delete(
   "/:ticketId/:tagId",
+  authenticateToken(),
   ensureTicketIsEditable({ paramKey: "ticketId" }),
   async (req, res) => {
   const { ticketId, tagId } = req.params;
@@ -103,15 +145,55 @@ router.delete(
     if (!resolvedTicketId) {
       return res.status(404).json({ error: "Tag association not found for this ticket" });
     }
-    const result = await db.query(
+    const tagResult = await db.query(
       `
-        DELETE FROM ticket_tags
-        WHERE ticket_id = $1 AND tag_id = $2
+        SELECT id, label, color
+        FROM tags
+        WHERE id = $1
+        LIMIT 1
       `,
-      [resolvedTicketId, tagId]
+      [tagId]
     );
+    const tag = tagResult.rows[0];
 
-    if (result.rowCount === 0) {
+    const client = await db.pool.connect();
+    let deletedCount = 0;
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query(
+        `
+          DELETE FROM ticket_tags
+          WHERE ticket_id = $1 AND tag_id = $2
+        `,
+        [resolvedTicketId, tagId]
+      );
+      deletedCount = result.rowCount;
+
+      if (deletedCount > 0 && tag) {
+        await insertEvent(client, {
+          ticketId: resolvedTicketId,
+          eventType: "tag.removed",
+          entityType: "tag",
+          entityId: tag.id,
+          actorId: req.user.id,
+          actorName: req.user.name,
+          payload: {
+            tag_label: tag.label,
+            tag_color: tag.color,
+          },
+        });
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    if (deletedCount === 0) {
       // If 0 changes, it means the tag association didn't exist
       return res.status(404).json({ error: "Tag association not found for this ticket" });
     }
@@ -132,6 +214,7 @@ router.delete(
 // ----------------------------------------------------------------------
 router.put(
   "/:ticketId",
+  authenticateToken(),
   ensureTicketIsEditable({ paramKey: "ticketId" }),
   async (req, res) => {
     const { ticketId } = req.params;
@@ -150,6 +233,36 @@ router.put(
         try {
             await client.query("BEGIN");
 
+            const existingTagsResult = await client.query(
+                `
+                  SELECT tg.id, tg.label, tg.color
+                  FROM ticket_tags tt
+                  JOIN tags tg ON tg.id = tt.tag_id
+                  WHERE tt.ticket_id = $1
+                `,
+                [resolvedTicketId]
+            );
+            const existingTags = existingTagsResult.rows;
+
+            let replacementTags = [];
+            if (tag_ids.length > 0) {
+                const replacementTagsResult = await client.query(
+                    `
+                      SELECT id, label, color
+                      FROM tags
+                      WHERE id = ANY($1::uuid[])
+                    `,
+                    [tag_ids]
+                );
+
+                if (replacementTagsResult.rows.length !== tag_ids.length) {
+                    await client.query("ROLLBACK");
+                    return res.status(400).json({ error: "One or more Tag IDs provided are invalid" });
+                }
+
+                replacementTags = replacementTagsResult.rows;
+            }
+
             await client.query("DELETE FROM ticket_tags WHERE ticket_id = $1", [resolvedTicketId]);
 
             for (const tagId of tag_ids) {
@@ -157,6 +270,43 @@ router.put(
                     `INSERT INTO ticket_tags (ticket_id, tag_id) VALUES ($1, $2)`,
                     [resolvedTicketId, tagId]
                 );
+            }
+
+            const existingById = new Map(existingTags.map((tag) => [String(tag.id), tag]));
+            const replacementById = new Map(replacementTags.map((tag) => [String(tag.id), tag]));
+
+            for (const [tagId, tag] of replacementById.entries()) {
+                if (!existingById.has(tagId)) {
+                    await insertEvent(client, {
+                        ticketId: resolvedTicketId,
+                        eventType: "tag.added",
+                        entityType: "tag",
+                        entityId: tag.id,
+                        actorId: req.user.id,
+                        actorName: req.user.name,
+                        payload: {
+                            tag_label: tag.label,
+                            tag_color: tag.color,
+                        },
+                    });
+                }
+            }
+
+            for (const [tagId, tag] of existingById.entries()) {
+                if (!replacementById.has(tagId)) {
+                    await insertEvent(client, {
+                        ticketId: resolvedTicketId,
+                        eventType: "tag.removed",
+                        entityType: "tag",
+                        entityId: tag.id,
+                        actorId: req.user.id,
+                        actorName: req.user.name,
+                        payload: {
+                            tag_label: tag.label,
+                            tag_color: tag.color,
+                        },
+                    });
+                }
             }
 
             await client.query("COMMIT");

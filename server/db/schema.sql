@@ -384,7 +384,38 @@ CREATE TABLE attachment_blobs (
 );
 
 -- =====================================================================
--- 17. STATUS HISTORY TABLE
+-- 17. EVENTS TABLE
+-- =====================================================================
+-- Enterprise event stream for activity timelines and future integrations
+CREATE TABLE events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ticket_id UUID,
+    event_type TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id UUID NOT NULL,
+    actor_id UUID,
+    actor_name TEXT,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    deleted_at TIMESTAMPTZ,
+
+    CONSTRAINT fk_events_ticket FOREIGN KEY (ticket_id)
+        REFERENCES tickets(id) ON DELETE SET NULL,
+    CONSTRAINT fk_events_actor FOREIGN KEY (actor_id)
+        REFERENCES employees(id) ON DELETE SET NULL,
+
+    CONSTRAINT chk_events_event_type_not_blank CHECK (btrim(event_type) <> ''),
+    CONSTRAINT chk_events_entity_type CHECK (
+        entity_type IN ('ticket', 'comment', 'attachment', 'tag')
+    ),
+    CONSTRAINT chk_events_payload_object CHECK (
+        jsonb_typeof(payload) = 'object'
+    )
+);
+
+-- =====================================================================
+-- 18. STATUS HISTORY TABLE
 -- =====================================================================
 -- Comprehensive audit trail for all ticket changes
 CREATE TABLE status_history (
@@ -411,7 +442,7 @@ CREATE TABLE status_history (
 );
 
 -- =====================================================================
--- 18. SYSTEM SETTINGS TABLE
+-- 19. SYSTEM SETTINGS TABLE
 -- =====================================================================
 -- Application-level configuration key-value store
 CREATE TABLE system_settings (
@@ -489,6 +520,23 @@ CREATE INDEX idx_comments_created_at ON comments(created_at) WHERE deleted_at IS
 -- Attachments
 CREATE INDEX idx_attachments_ticket ON attachments(ticket_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_attachments_uploaded_by ON attachments(uploaded_by) WHERE deleted_at IS NULL;
+
+-- Events
+CREATE INDEX idx_events_entity_timeline
+    ON events(entity_type, entity_id, occurred_at DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_events_ticket_timeline
+    ON events(ticket_id, occurred_at DESC)
+    WHERE deleted_at IS NULL AND ticket_id IS NOT NULL;
+CREATE INDEX idx_events_occurred_at
+    ON events(occurred_at DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_events_event_type_occurred
+    ON events(event_type, occurred_at DESC)
+    WHERE deleted_at IS NULL;
+CREATE INDEX idx_events_actor_occurred
+    ON events(actor_id, occurred_at DESC)
+    WHERE deleted_at IS NULL AND actor_id IS NOT NULL;
 
 -- Status History (audit queries)
 CREATE INDEX idx_status_history_ticket ON status_history(ticket_id);
@@ -729,11 +777,18 @@ COMMENT ON TABLE ticket_tags IS 'Many-to-many relationship between tickets and t
 COMMENT ON TABLE comments IS 'Ticket discussion thread';
 COMMENT ON TABLE attachments IS 'File metadata (actual files in object storage)';
 COMMENT ON TABLE attachment_blobs IS 'Base64 payloads stored separately to avoid heavy attachment metadata queries';
+COMMENT ON TABLE events IS 'Business event stream for ticket timelines, profile activity, and future integrations';
 COMMENT ON TABLE status_history IS 'Comprehensive audit trail for ticket changes';
 COMMENT ON TABLE system_settings IS 'Application-level configuration';
 
 COMMENT ON COLUMN attachments.storage_key IS 'Object storage path (e.g., tickets/{ticket_id}/{filename})';
 COMMENT ON COLUMN attachments.storage_bucket IS 'S3/R2 bucket name';
+COMMENT ON COLUMN events.ticket_id IS 'Nullable ticket reference for ticket-scoped timelines; null for future global/system events';
+COMMENT ON COLUMN events.event_type IS 'Business event name in dot notation (e.g., ticket.updated, attachment.deleted)';
+COMMENT ON COLUMN events.entity_type IS 'Owned entity type affected by the event: ticket, comment, attachment, or tag';
+COMMENT ON COLUMN events.entity_id IS 'Primary entity identifier affected by the event';
+COMMENT ON COLUMN events.actor_name IS 'Actor display-name snapshot kept for historical rendering';
+COMMENT ON COLUMN events.payload IS 'Structured event metadata for backend message generation and integrations';
 COMMENT ON COLUMN workflow_steps.category_code IS '10=open, 20=in progress, 30=closed, 40=cancelled terminal state';
 COMMENT ON COLUMN project_workgroups.workgroup_code IS 'Workgroup text identifier mapped to workgroups.ticket_code in the current schema';
 COMMENT ON COLUMN project_workflows.workflow_id IS 'Workflow UUID reference matching workflows.id in the current schema';

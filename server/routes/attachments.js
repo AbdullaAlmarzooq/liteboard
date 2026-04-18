@@ -5,6 +5,7 @@ const router = express.Router();
 const crypto = require("crypto");
 const authenticateToken = require("../middleware/authMiddleware");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
+const { insertEvent } = require("../utils/events");
 const { buildProjectAccessFilter, resolveReadableTicketId } = require("../utils/projectAccess");
 
 const resolveTicketId = async (ticketId) => {
@@ -93,7 +94,7 @@ router.get("/:ticketId", authenticateToken(), async (req, res) => {
 // ----------------------------------------------------------------------
 // POST a new attachment
 // ----------------------------------------------------------------------
-router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
+router.post("/", authenticateToken(), ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, res) => {
   const { ticket_id, name, type, size, data, created_by } = req.body;
 
   if (!ticket_id || !name || !type || !size || !data) {
@@ -122,7 +123,7 @@ router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, r
             (id, ticket_id, filename, file_type, file_size, storage_key, uploaded_at, uploaded_by)
           VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7)
         `,
-        [newId, resolvedTicketId, name, type, size, storageKey, created_by]
+        [newId, resolvedTicketId, name, type, size, storageKey, req.user.id || created_by]
       );
 
       await client.query(
@@ -132,6 +133,20 @@ router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, r
         `,
         [newId, data]
       );
+
+      await insertEvent(client, {
+        ticketId: resolvedTicketId,
+        eventType: "attachment.uploaded",
+        entityType: "attachment",
+        entityId: newId,
+        actorId: req.user.id,
+        actorName: req.user.name,
+        payload: {
+          filename: name,
+          mime_type: type,
+          file_size_bytes: Number(size),
+        },
+      });
 
       await client.query("COMMIT");
     } catch (error) {
@@ -153,16 +168,60 @@ router.post("/", ensureTicketIsEditable({ bodyKey: "ticket_id" }), async (req, r
 // ----------------------------------------------------------------------
 router.delete(
   "/:id",
+  authenticateToken(),
   ensureTicketIsEditable({
     resolveTicketRef: async (req) => resolveTicketIdByAttachmentId(req.params.id),
   }),
   async (req, res) => {
   const { id } = req.params;
   try {
-    const result = await db.query("DELETE FROM attachments WHERE id = $1", [id]);
-    if (result.rowCount === 0) {
+    const attachmentResult = await db.query(
+      `
+        SELECT id, ticket_id, filename, file_type, file_size
+        FROM attachments
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [id]
+    );
+    const attachment = attachmentResult.rows[0];
+
+    if (!attachment) {
       return res.status(404).json({ error: "Attachment not found" });
     }
+
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query("DELETE FROM attachments WHERE id = $1", [id]);
+      if (result.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return res.status(404).json({ error: "Attachment not found" });
+      }
+
+      await insertEvent(client, {
+        ticketId: attachment.ticket_id,
+        eventType: "attachment.deleted",
+        entityType: "attachment",
+        entityId: attachment.id,
+        actorId: req.user.id,
+        actorName: req.user.name,
+        payload: {
+          filename: attachment.filename,
+          mime_type: attachment.file_type,
+          file_size_bytes: Number(attachment.file_size),
+        },
+      });
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
     res.json({ message: "Attachment deleted" });
   } catch (err) {
     console.error("Error deleting attachment:", err);

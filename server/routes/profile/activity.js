@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../../db/db");
 const authenticateToken = require("../../middleware/authMiddleware");
+const { mapEventRow } = require("../../utils/events");
 const { buildProjectAccessFilter } = require("../../utils/projectAccess");
 
 const parsePagination = (query) => {
@@ -21,29 +22,22 @@ router.get("/activity", authenticateToken(), async (req, res) => {
 
     const totalSql = `
       SELECT COUNT(*)::int AS total
-      FROM status_history sh
-      LEFT JOIN tickets t ON sh.ticket_id = t.id
-      WHERE sh.changed_by = $1${projectAccessClause}
+      FROM events ev
+      LEFT JOIN tickets t ON ev.ticket_id = t.id
+      WHERE ev.actor_id = $1
+        AND ev.deleted_at IS NULL${projectAccessClause}
     `;
 
     const sql = `
       SELECT 
-        sh.id,
-        t.ticket_code AS ticket_id,
-        t.id AS ticket_uuid,
-        t.title AS ticket_title,
+        ev.*,
         t.ticket_code,
-        sh.activity_type,
-        sh.field_name,
-        sh.new_value,
-        sh.created_at AS timestamp,
-        e.name AS changed_by_name,
-        sh.changed_by
-      FROM status_history sh
-      LEFT JOIN tickets t ON sh.ticket_id = t.id
-      LEFT JOIN employees e ON sh.changed_by = e.id
-      WHERE sh.changed_by = $1${projectAccessClause}
-      ORDER BY sh.created_at DESC
+        t.title AS ticket_title
+      FROM events ev
+      LEFT JOIN tickets t ON ev.ticket_id = t.id
+      WHERE ev.actor_id = $1
+        AND ev.deleted_at IS NULL${projectAccessClause}
+      ORDER BY ev.occurred_at DESC, ev.created_at DESC, ev.id DESC
       LIMIT $2 OFFSET $3
     `;
 
@@ -53,7 +47,7 @@ router.get("/activity", authenticateToken(), async (req, res) => {
     ]);
 
     res.json({
-      items: rows,
+      items: rows.map(mapEventRow),
       total: totalRows[0]?.total || 0,
       page,
       limit,
