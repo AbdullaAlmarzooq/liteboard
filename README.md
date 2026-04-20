@@ -64,9 +64,10 @@ Projects extend the existing workgroup model rather than replacing it:
 - Ticket `title` and `description` are creator-owned fields and can only be changed by the ticket creator, regardless of role.
 - Non-admin visibility is controlled by project membership via project-to-workgroup assignments.
 - Non-admin modification remains controlled by the existing workflow-step workgroup logic.
-- Tags are scoped per project, and workflows can be shared across multiple projects.
+- Tags are scoped per project, while workflows and modules can be shared across multiple projects through assignment tables.
 - Step 1 adds the schema foundation: `projects`, `project_workgroups`, `project_workflows`, plus nullable `project_id` columns on `tickets` and `tags`.
 - Step 2 seeds `PRJ-001` (`Default Project`), assigns all existing workgroups to it, and backfills existing tickets and tags while still leaving `project_id` nullable at the schema level for now.
+- Step 3 adds `project_modules` for reusable module-to-project assignments and seeds all existing modules to `PRJ-001` only.
 
 ---
 
@@ -144,7 +145,7 @@ server/
         └── myPassword.js  # Password change
 ```
 
-### Database Schema (18 Tables)
+### Database Schema (20 Tables)
 
 ```mermaid
 erDiagram
@@ -152,6 +153,8 @@ erDiagram
     WORKGROUPS ||--o{ PROJECT_WORKGROUPS : assigned_to
     PROJECTS ||--o{ PROJECT_WORKFLOWS : allows
     WORKFLOWS ||--o{ PROJECT_WORKFLOWS : available_in
+    PROJECTS ||--o{ PROJECT_MODULES : enables
+    MODULES ||--o{ PROJECT_MODULES : reusable_in
     PROJECTS ||--o{ TICKETS : contains
     PROJECTS ||--o{ TAGS : scopes
     WORKFLOWS ||--o{ WORKFLOW_STEPS : contains
@@ -175,6 +178,8 @@ erDiagram
 | `projects` | Ticket visibility and organization container | `id`, `name`, `active`, `created_by` |
 | `project_workgroups` | Non-admin project visibility mapping | `project_id`, `workgroup_code`, `created_by` |
 | `project_workflows` | Workflow availability per project | `project_id`, `workflow_id`, `created_by` |
+| `project_modules` | Reusable module assignments per project | `project_id`, `module_id`, `created_by` |
+| `modules` | Reusable module catalog | `id`, `name`, `active` |
 | `employees` | User accounts | `id`, `email`, `password_hash`, `role_id`, `workgroup_id` |
 | `tickets` | Main ticket entity | `id`, `title`, `priority`, `workflow_id`, `step_code`, `workgroup_id`, `project_id` |
 | `workflows` | Workflow definitions | `id`, `name`, `active` |
@@ -205,7 +210,7 @@ erDiagram
 | `/api/employees/:id` | GET, PUT | Token | Single employee operations |
 | `/api/workflows` | GET | Token | List active workflows, with optional `project_id` filtering for project-scoped ticket creation |
 | `/api/workflow_management` | GET, POST, PATCH, DELETE | Token | Admin workflow CRUD |
-| `/api/modules` | GET, POST, PUT, DELETE | Token | Module management |
+| `/api/modules` | GET, POST, PUT, DELETE | Token | Module management (`GET` for authenticated users; `POST`/`PUT`/`DELETE` are Admin-only, and `GET` supports optional `project_id` filtering) |
 | `/api/tags` | GET, POST, PUT, DELETE | Token | Tag management, with optional `project_id` filtering on reads |
 | `/api/comments` | GET, POST, PUT, DELETE | Token | Ticket comments |
 | `/api/attachments` | GET, POST, DELETE | Token | File attachments |
@@ -265,6 +270,7 @@ erDiagram
 - Projects add a visibility layer on top of roles and workflow-step workgroups.
 - A project can include multiple workgroups through `project_workgroups`.
 - A workflow can be reused across multiple projects through `project_workflows`.
+- A module can be reused across multiple projects through `project_modules`.
 - Tickets and tags now carry nullable `project_id` columns, and the Step 2 backfill migration assigns existing records to `PRJ-001`.
 - Read filtering is now active across project-scoped queries, and ticket-level middleware enforcement is active on protected ticket routes.
 - Admin-only project management APIs now allow project creation, project updates, and explicit assignment of workgroups/workflows without changing existing ticket or workflow execution logic.
@@ -272,14 +278,15 @@ erDiagram
 ### Project-Based Ticket Creation
 
 - Ticket creation is now project-first: users must choose a project before workflow or tag inputs are shown.
-- The create-ticket page loads workflows from `GET /api/workflows?project_id=...` and tags from `GET /api/tags?project_id=...` only after a project is selected.
+- The create-ticket page loads workflows from `GET /api/workflows?project_id=...`, modules from `GET /api/modules?project_id=...`, and tags from `GET /api/tags?project_id=...` only after a project is selected.
 - Admins can choose from all projects, including inactive ones; non-admin users only receive active projects that are assigned to their workgroup.
 - The backend enforces all create rules even if the request is crafted manually:
   - `project_id` is required
   - the project must exist
   - non-admin users cannot create in inactive or inaccessible projects
-  - the selected workflow must be assigned to the selected project
-  - all selected tags must belong to the selected project
+- the selected workflow must be assigned to the selected project
+- the selected module (if provided) must be assigned to the selected project
+- all selected tags must belong to the selected project
 - Existing workflow-step logic remains in place, and the create route still uses workflow step data to set the ticket's initial workflow state.
 
 ### Project Visibility Filters & Overview
@@ -741,15 +748,25 @@ psql "$DATABASE_URL" -f server/db/schema.sql
 
 ### Existing Neon Project Migration
 
-For existing PostgreSQL/Neon databases, run [2026-03-28_backfill_default_project.sql](/Users/abdullaalmarzooq/liteboard/server/db/migrations/2026-03-28_backfill_default_project.sql) after the Step 1 schema foundation has been applied.
+For existing PostgreSQL/Neon databases, run these migrations after the Step 1 schema foundation has been applied:
 
-The migration:
+1. [2026-03-28_backfill_default_project.sql](server/db/migrations/2026-03-28_backfill_default_project.sql)
+
+This migration:
 
 - Inserts `PRJ-001` as the `Default Project`
 - Assigns every current workgroup to that project
 - Backfills every existing ticket and tag to `project_id = 'PRJ-001'`
 - Raises an exception if any ticket or tag still has `NULL project_id`
 - Does not add `NOT NULL` constraints yet
+
+2. [2026-04-20_add_project_modules.sql](server/db/migrations/2026-04-20_add_project_modules.sql)
+
+This migration:
+
+- Creates `project_modules` for reusable module assignments per project
+- Seeds all existing modules to `PRJ-001` only
+- Raises an exception if `PRJ-001` does not exist
 
 ### Legacy SQLite Migration Note
 

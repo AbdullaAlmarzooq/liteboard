@@ -46,11 +46,12 @@ const listReadableProjects = async (user, { includeAssignments = false } = {}) =
         ...row,
         workgroups: [],
         workflows: [],
+        modules: [],
       },
     ])
   );
 
-  const [workgroupsResult, workflowsResult] = await Promise.all([
+  const [workgroupsResult, workflowsResult, modulesResult] = await Promise.all([
     db.query(
       `
         SELECT
@@ -86,6 +87,23 @@ const listReadableProjects = async (user, { includeAssignments = false } = {}) =
       `,
       [projectIds]
     ),
+    db.query(
+      `
+        SELECT
+          pm.project_id,
+          pm.module_id,
+          pm.created_by,
+          pm.created_at,
+          m.name,
+          m.description,
+          m.active
+        FROM project_modules pm
+        LEFT JOIN modules m ON m.id = pm.module_id
+        WHERE pm.project_id = ANY($1::text[])
+        ORDER BY pm.project_id, m.name ASC NULLS LAST, pm.module_id ASC
+      `,
+      [projectIds]
+    ),
   ]);
 
   for (const row of workgroupsResult.rows) {
@@ -117,6 +135,20 @@ const listReadableProjects = async (user, { includeAssignments = false } = {}) =
     });
   }
 
+  for (const row of modulesResult.rows) {
+    const project = projectMap.get(row.project_id);
+    if (!project) continue;
+
+    project.modules.push({
+      id: row.module_id,
+      name: row.name,
+      description: row.description,
+      active: row.active,
+      assigned_at: row.created_at,
+      assigned_by: row.created_by,
+    });
+  }
+
   return rows.map((row) => projectMap.get(row.id));
 };
 
@@ -133,7 +165,8 @@ const listProjectSummaries = async () => {
         p.created_at,
         p.updated_at,
         COALESCE(wg_counts.workgroup_count, 0)::int AS workgroup_count,
-        COALESCE(wf_counts.workflow_count, 0)::int AS workflow_count
+        COALESCE(wf_counts.workflow_count, 0)::int AS workflow_count,
+        COALESCE(mod_counts.module_count, 0)::int AS module_count
       FROM projects p
       LEFT JOIN (
         SELECT project_id, COUNT(*)::int AS workgroup_count
@@ -147,6 +180,12 @@ const listProjectSummaries = async () => {
         GROUP BY project_id
       ) wf_counts
         ON wf_counts.project_id = p.id
+      LEFT JOIN (
+        SELECT project_id, COUNT(*)::int AS module_count
+        FROM project_modules
+        GROUP BY project_id
+      ) mod_counts
+        ON mod_counts.project_id = p.id
       ORDER BY p.active DESC, p.name ASC, p.id ASC
     `
   );
@@ -309,6 +348,7 @@ const loadProjects = async (projectId = null) => {
     ...row,
     workgroups: [],
     workflows: [],
+    modules: [],
   }));
 
   if (!projects.length) {
@@ -318,7 +358,7 @@ const loadProjects = async (projectId = null) => {
   const projectIds = projects.map((project) => project.id);
   const projectMap = new Map(projects.map((project) => [project.id, project]));
 
-  const [workgroupsResult, workflowsResult] = await Promise.all([
+  const [workgroupsResult, workflowsResult, modulesResult] = await Promise.all([
     db.query(
       `
         SELECT
@@ -354,6 +394,23 @@ const loadProjects = async (projectId = null) => {
       `,
       [projectIds]
     ),
+    db.query(
+      `
+        SELECT
+          pm.project_id,
+          pm.module_id,
+          pm.created_by,
+          pm.created_at,
+          m.name,
+          m.description,
+          m.active
+        FROM project_modules pm
+        LEFT JOIN modules m ON m.id = pm.module_id
+        WHERE pm.project_id = ANY($1::text[])
+        ORDER BY pm.project_id, m.name ASC NULLS LAST, pm.module_id ASC
+      `,
+      [projectIds]
+    ),
   ]);
 
   for (const row of workgroupsResult.rows) {
@@ -377,6 +434,20 @@ const loadProjects = async (projectId = null) => {
 
     project.workflows.push({
       id: row.workflow_id,
+      name: row.name,
+      description: row.description,
+      active: row.active,
+      assigned_at: row.created_at,
+      assigned_by: row.created_by,
+    });
+  }
+
+  for (const row of modulesResult.rows) {
+    const project = projectMap.get(row.project_id);
+    if (!project) continue;
+
+    project.modules.push({
+      id: row.module_id,
       name: row.name,
       description: row.description,
       active: row.active,
@@ -456,6 +527,37 @@ const validateWorkflowIds = async (workflowIds) => {
   }
 };
 
+const validateModuleIds = async (moduleIds) => {
+  if (!moduleIds.length) {
+    return;
+  }
+
+  const invalidIds = moduleIds.filter((id) => !isUuid(id));
+  if (invalidIds.length) {
+    const error = new Error(`Invalid module id(s): ${invalidIds.join(", ")}`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const { rows } = await db.query(
+    `
+      SELECT id
+      FROM modules
+      WHERE id = ANY($1::uuid[])
+    `,
+    [moduleIds]
+  );
+
+  const existingIds = new Set(rows.map((row) => row.id));
+  const missingIds = moduleIds.filter((id) => !existingIds.has(id));
+
+  if (missingIds.length) {
+    const error = new Error(`Unknown module id(s): ${missingIds.join(", ")}`);
+    error.statusCode = 400;
+    throw error;
+  }
+};
+
 const replaceProjectWorkgroups = async (client, projectId, workgroupCodes, actorId) => {
   await client.query(
     `
@@ -496,6 +598,26 @@ const replaceProjectWorkflows = async (client, projectId, workflowIds, actorId) 
   }
 };
 
+const replaceProjectModules = async (client, projectId, moduleIds, actorId) => {
+  await client.query(
+    `
+      DELETE FROM project_modules
+      WHERE project_id = $1
+    `,
+    [projectId]
+  );
+
+  for (const moduleId of moduleIds) {
+    await client.query(
+      `
+        INSERT INTO project_modules (project_id, module_id, created_by)
+        VALUES ($1, $2, $3)
+      `,
+      [projectId, moduleId, actorId]
+    );
+  }
+};
+
 router.get("/:id", async (req, res) => {
   try {
     const project = await loadProjects(req.params.id);
@@ -518,6 +640,7 @@ router.post("/", async (req, res) => {
     active,
     workgroupCodes: rawWorkgroupCodes = [],
     workflowIds: rawWorkflowIds = [],
+    moduleIds: rawModuleIds = [],
   } = req.body;
 
   if (!name || !String(name).trim()) {
@@ -534,6 +657,11 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "workflowIds must be an array of workflow IDs" });
   }
 
+  const moduleIds = normalizeStringArray(rawModuleIds);
+  if (moduleIds === null) {
+    return res.status(400).json({ error: "moduleIds must be an array of module IDs" });
+  }
+
   const projectId = id && String(id).trim() ? String(id).trim() : await generateProjectId();
   const actorId = req.user.id;
   const activeValue = normalizeBoolean(active, true);
@@ -543,6 +671,7 @@ router.post("/", async (req, res) => {
     ensureNonEmptyAssignments(workflowIds, "workflowIds");
     await validateWorkgroupCodes(workgroupCodes);
     await validateWorkflowIds(workflowIds);
+    await validateModuleIds(moduleIds);
 
     const client = await db.pool.connect();
     try {
@@ -560,6 +689,7 @@ router.post("/", async (req, res) => {
 
       await replaceProjectWorkgroups(client, projectId, workgroupCodes, actorId);
       await replaceProjectWorkflows(client, projectId, workflowIds, actorId);
+      await replaceProjectModules(client, projectId, moduleIds, actorId);
 
       await client.query("COMMIT");
     } catch (err) {
@@ -596,6 +726,7 @@ router.put("/:id", async (req, res) => {
     active,
     workgroupCodes: rawWorkgroupCodes,
     workflowIds: rawWorkflowIds,
+    moduleIds: rawModuleIds,
   } = req.body;
 
   if (!name || !String(name).trim()) {
@@ -620,6 +751,12 @@ router.put("/:id", async (req, res) => {
       return res.status(400).json({ error: "workflowIds must be an array of workflow IDs" });
     }
 
+    const moduleIds =
+      rawModuleIds === undefined ? null : normalizeStringArray(rawModuleIds);
+    if (rawModuleIds !== undefined && moduleIds === null) {
+      return res.status(400).json({ error: "moduleIds must be an array of module IDs" });
+    }
+
     if (workgroupCodes !== null) {
       ensureNonEmptyAssignments(workgroupCodes, "workgroupCodes");
       await validateWorkgroupCodes(workgroupCodes);
@@ -628,6 +765,10 @@ router.put("/:id", async (req, res) => {
     if (workflowIds !== null) {
       ensureNonEmptyAssignments(workflowIds, "workflowIds");
       await validateWorkflowIds(workflowIds);
+    }
+
+    if (moduleIds !== null) {
+      await validateModuleIds(moduleIds);
     }
 
     const client = await db.pool.connect();
@@ -659,6 +800,10 @@ router.put("/:id", async (req, res) => {
 
       if (workflowIds !== null) {
         await replaceProjectWorkflows(client, id, workflowIds, req.user.id);
+      }
+
+      if (moduleIds !== null) {
+        await replaceProjectModules(client, id, moduleIds, req.user.id);
       }
 
       await client.query("COMMIT");
@@ -785,6 +930,57 @@ router.put("/:id/workflows", async (req, res) => {
 
     console.error("Failed to update project workflows:", err);
     res.status(500).json({ error: "Failed to update project workflows" });
+  }
+});
+
+router.put("/:id/modules", async (req, res) => {
+  const { id } = req.params;
+  const moduleIds = normalizeStringArray(req.body.moduleIds);
+
+  if (moduleIds === null) {
+    return res.status(400).json({ error: "moduleIds must be an array of module IDs" });
+  }
+
+  try {
+    const project = await ensureProjectExists(id);
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
+    await validateModuleIds(moduleIds);
+
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await replaceProjectModules(client, id, moduleIds, req.user.id);
+      await client.query(
+        `
+          UPDATE projects
+          SET updated_by = $1, updated_at = NOW()
+          WHERE id = $2
+        `,
+        [req.user.id, id]
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    const updatedProject = await loadProjects(id);
+    res.json({
+      message: "Project modules updated successfully",
+      project: updatedProject,
+    });
+  } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
+
+    console.error("Failed to update project modules:", err);
+    res.status(500).json({ error: "Failed to update project modules" });
   }
 });
 

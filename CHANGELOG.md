@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- DB migration `server/db/migrations/2026-04-20_add_project_modules.sql` to add `project_modules` (`project_id`, `module_id`, `created_by`) and seed module assignments to `PRJ-001` only.
+- Schema foundation for reusable module-to-project assignment mapping via `project_modules`.
+
+### Changed
+- `server/db/schema.sql` now includes the `project_modules` table, indexes, and schema comments.
+- README migration instructions now include the new `project_modules` migration step and document module reuse through project assignments.
+- Projects API now returns module assignments alongside workgroups/workflows, accepts `moduleIds` on project create/update, and adds `PUT /api/projects/:id/modules` for replacing project-module assignments.
+- Admin Project modal now supports optional module multi-select assignment, and project save verification now checks workgroup/workflow/module assignment parity after updates.
+- Modules API now requires authentication for reads, enforces Admin-only create/update/delete, and supports `GET /api/modules?project_id=...` for project-scoped module reads.
+- Create Ticket and Edit Ticket pages now load modules using the selected ticket project (`project_id`) instead of a global modules list.
+- Tickets create/update API now enforces strict module-project assignment validation: submitted (or currently retained) `module_id` must belong to the ticket project through `project_modules`.
+
 ## [2026-04-18]
 
 

@@ -328,6 +328,27 @@ const getTicketByParam = async (id, fields = "*") => {
   return rows[0];
 };
 
+const validateProjectModuleAssignment = async (executor, projectId, moduleId) => {
+  if (!projectId || !moduleId) {
+    return null;
+  }
+
+  const { rows } = await executor.query(
+    `
+      SELECT m.id, m.name
+      FROM project_modules pm
+      JOIN modules m ON m.id = pm.module_id
+      WHERE pm.project_id = $1
+        AND pm.module_id::text = $2
+        AND m.deleted_at IS NULL
+      LIMIT 1
+    `,
+    [projectId, moduleId]
+  );
+
+  return rows[0] || null;
+};
+
 const getTicketEventSnapshot = async (ticketId, executor = db) => {
   const { rows } = await executor.query(
     `
@@ -1069,6 +1090,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
     const code = id || ticket_code || `TCK-${Date.now()}`;
     let completedAt = null;
     const normalizedTagIds = normalizeUuidArray(tag_ids || []);
+    const normalizedModuleId = normalizeUuid(module_id);
 
     if (tag_ids !== undefined && normalizedTagIds === null) {
       return res.status(400).json({ error: "tag_ids must be an array of tag IDs" });
@@ -1127,6 +1149,21 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
         });
       }
 
+      if (normalizedModuleId) {
+        const selectedModule = await validateProjectModuleAssignment(
+          client,
+          project_id,
+          normalizedModuleId
+        );
+
+        if (!selectedModule) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "Selected module does not belong to the selected project.",
+          });
+        }
+      }
+
       if (normalizedTagIds && normalizedTagIds.length > 0) {
         const tagsResult = await client.query(
           `
@@ -1171,7 +1208,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
           priority,
           workflow_id,
           resolvedWorkgroupId,
-          module_id,
+          normalizedModuleId,
           responsible_employee_id,
           normalizeDate(due_date),
           normalizeDate(start_date),
@@ -1331,6 +1368,25 @@ router.put(
       const beforeSnapshot = await getTicketEventSnapshot(ticket.id, client);
       const beforeTags = await getTicketTagsSnapshot(ticket.id, client);
       let selectedTags = [];
+      const effectiveModuleId =
+        moduleId === undefined
+          ? normalizeUuid(beforeSnapshot?.module_id)
+          : normalizeUuid(moduleId);
+
+      if (effectiveModuleId) {
+        const selectedModule = await validateProjectModuleAssignment(
+          client,
+          ticket.project_id,
+          effectiveModuleId
+        );
+
+        if (!selectedModule) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({
+            error: "Selected module does not belong to this ticket's project.",
+          });
+        }
+      }
 
       if (normalizedTagIds && normalizedTagIds.length > 0) {
         const tagValidationResult = await client.query(
@@ -1382,7 +1438,7 @@ router.put(
           priority,
           normalizeUuid(effectiveWorkflowId),
           normalizeUuid(workgroupId),
-          normalizeUuid(moduleId),
+          effectiveModuleId,
           normalizeUuid(responsibleEmployeeId),
           normalizeDate(dueDate),
           normalizeDate(startDate),

@@ -296,7 +296,7 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
               <ol className="list-decimal ml-4 space-y-1">
                 <li>Define all steps in your workflow</li>
                 <li>For each step, select which steps it can transition to (forward/backward)</li>
-                <li>Steps with Cancelled category (40) automatically allow transitions from all steps</li>
+                <li>Steps with Cancelled category automatically allow transitions from all steps</li>
               </ol>
             </div>
           </div>

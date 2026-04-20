@@ -129,13 +129,15 @@ const CreateTicketPage = () => {
     isPending: employeesLoading,
     error: employeesError,
   } = useFetch("http://localhost:8000/api/employees")
+  const selectedProjectId = formData.projectId
+  const modulesUrl = selectedProjectId
+    ? `http://localhost:8000/api/modules?project_id=${encodeURIComponent(selectedProjectId)}`
+    : null
   const {
     data: modules,
     isPending: modulesLoading,
     error: modulesError,
-  } = useFetch("http://localhost:8000/api/modules")
-
-  const selectedProjectId = formData.projectId
+  } = useFetch(modulesUrl)
   const workflowsUrl = selectedProjectId
     ? `http://localhost:8000/api/workflows?project_id=${encodeURIComponent(selectedProjectId)}`
     : null
@@ -367,10 +369,11 @@ const CreateTicketPage = () => {
     showToast("Form cleared.", "info")
   }
 
-  const isBaseLoading = projectsLoading || employeesLoading || modulesLoading
-  const baseError = projectsError || employeesError || modulesError
-  const isProjectDataLoading = Boolean(selectedProjectId) && (workflowsLoading || tagsLoading)
-  const projectDataError = workflowsError || tagsError
+  const isBaseLoading = projectsLoading || employeesLoading
+  const baseError = projectsError || employeesError
+  const isProjectDataLoading =
+    Boolean(selectedProjectId) && (workflowsLoading || tagsLoading || modulesLoading)
+  const projectDataError = workflowsError || tagsError || modulesError
   const noProjects = !projectsLoading && Array.isArray(projects) && projects.length === 0
   const descriptionCharacterCount = stripHtml(formData.description).length
 
@@ -475,7 +478,7 @@ const CreateTicketPage = () => {
           <CardHeader>
             <CardTitle>Step 2: Ticket Details</CardTitle>
             <p className="text-gray-600 dark:text-gray-300 text-sm">
-              Workflows and tags are loaded from the selected project.
+              Workflows, modules, and tags are loaded from the selected project.
             </p>
           </CardHeader>
           <CardContent className="space-y-6">

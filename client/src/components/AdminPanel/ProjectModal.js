@@ -17,6 +17,9 @@ const createInitialForm = (project) => ({
   workflowIds: Array.isArray(project?.workflows)
     ? project.workflows.map((workflow) => workflow.id)
     : [],
+  moduleIds: Array.isArray(project?.modules)
+    ? project.modules.map((module) => module.id)
+    : [],
 });
 
 const ProjectModal = ({
@@ -24,6 +27,7 @@ const ProjectModal = ({
   project,
   workgroups,
   workflows,
+  modules,
   isSaving,
   onClose,
   onSave,
@@ -77,12 +81,13 @@ const ProjectModal = ({
       active: form.active,
       workgroupCodes: form.workgroupCodes,
       workflowIds: form.workflowIds,
+      moduleIds: form.moduleIds,
     });
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
             <div>
@@ -90,7 +95,7 @@ const ProjectModal = ({
                 {project ? "Edit Project" : "Create Project"}
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                Assign at least one workgroup and one workflow.
+                Assign at least one workgroup and one workflow. Modules are optional.
               </p>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -182,7 +187,7 @@ const ProjectModal = ({
               />
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-3">
               <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900 dark:text-white">Workgroups</h4>
@@ -246,6 +251,45 @@ const ProjectModal = ({
                         {workflow.description && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {workflow.description}
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-gray-900 dark:text-white">Modules</h4>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {form.moduleIds.length} selected
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {(modules || []).map((module) => (
+                    <label
+                      key={module.id}
+                      className="flex items-start gap-3 rounded-md border border-gray-200 dark:border-gray-700 px-3 py-2 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={form.moduleIds.includes(module.id)}
+                        onChange={() => toggleArrayValue("moduleIds", module.id)}
+                        className="mt-1 rounded"
+                      />
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {module.name}
+                          </p>
+                          <Badge variant={module.active ? "secondary" : "destructive"}>
+                            {module.active ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                        {module.description && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {module.description}
                           </p>
                         )}
                       </div>

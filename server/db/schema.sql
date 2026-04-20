@@ -227,7 +227,25 @@ CREATE TABLE modules (
 );
 
 -- =====================================================================
--- 11. TAGS TABLE
+-- 11. PROJECT MODULES TABLE
+-- =====================================================================
+-- Module assignments allowed within a project
+CREATE TABLE project_modules (
+    id SERIAL PRIMARY KEY,
+    project_id TEXT NOT NULL,
+    module_id UUID NOT NULL,
+    created_by TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_project_modules_project FOREIGN KEY (project_id)
+        REFERENCES projects(id),
+    CONSTRAINT fk_project_modules_module FOREIGN KEY (module_id)
+        REFERENCES modules(id),
+    CONSTRAINT uq_project_modules UNIQUE (project_id, module_id)
+);
+
+-- =====================================================================
+-- 12. TAGS TABLE
 -- =====================================================================
 -- Reusable labels for tickets
 CREATE TABLE tags (
@@ -244,7 +262,7 @@ CREATE TABLE tags (
 );
 
 -- =====================================================================
--- 12. TICKETS TABLE
+-- 13. TICKETS TABLE
 -- =====================================================================
 -- Main ticket entity with workflow tracking
 CREATE TABLE tickets (
@@ -302,7 +320,7 @@ CREATE TABLE tickets (
 );
 
 -- =====================================================================
--- 13. TICKET TAGS TABLE
+-- 14. TICKET TAGS TABLE
 -- =====================================================================
 -- Many-to-many relationship between tickets and tags
 CREATE TABLE ticket_tags (
@@ -321,7 +339,7 @@ CREATE TABLE ticket_tags (
 );
 
 -- =====================================================================
--- 14. COMMENTS TABLE
+-- 15. COMMENTS TABLE
 -- =====================================================================
 -- Ticket discussion thread
 CREATE TABLE comments (
@@ -345,7 +363,7 @@ CREATE TABLE comments (
 );
 
 -- =====================================================================
--- 15. ATTACHMENTS TABLE
+-- 16. ATTACHMENTS TABLE
 -- =====================================================================
 -- File attachment metadata (actual files stored in Cloudflare R2/S3)
 -- NOTE: Does NOT store file_data BLOB; uses object storage instead
@@ -370,7 +388,7 @@ CREATE TABLE attachments (
 );
 
 -- =====================================================================
--- 16. ATTACHMENT BLOBS TABLE
+-- 17. ATTACHMENT BLOBS TABLE
 -- =====================================================================
 -- Base64 payloads stored separately to keep metadata queries fast
 CREATE TABLE attachment_blobs (
@@ -384,7 +402,7 @@ CREATE TABLE attachment_blobs (
 );
 
 -- =====================================================================
--- 17. EVENTS TABLE
+-- 18. EVENTS TABLE
 -- =====================================================================
 -- Enterprise event stream for activity timelines and future integrations
 CREATE TABLE events (
@@ -415,7 +433,7 @@ CREATE TABLE events (
 );
 
 -- =====================================================================
--- 18. STATUS HISTORY TABLE
+-- 19. STATUS HISTORY TABLE
 -- =====================================================================
 -- Comprehensive audit trail for all ticket changes
 CREATE TABLE status_history (
@@ -442,7 +460,7 @@ CREATE TABLE status_history (
 );
 
 -- =====================================================================
--- 19. SYSTEM SETTINGS TABLE
+-- 20. SYSTEM SETTINGS TABLE
 -- =====================================================================
 -- Application-level configuration key-value store
 CREATE TABLE system_settings (
@@ -481,6 +499,10 @@ CREATE INDEX idx_workflow_steps_code ON workflow_steps(step_code) WHERE deleted_
 CREATE INDEX idx_workflow_transitions_workflow ON workflow_transitions(workflow_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_workflow_transitions_from ON workflow_transitions(from_step_code) WHERE deleted_at IS NULL;
 CREATE INDEX idx_workflow_transitions_to ON workflow_transitions(to_step_code) WHERE deleted_at IS NULL;
+
+-- Project Modules
+CREATE INDEX idx_project_modules_project ON project_modules(project_id);
+CREATE INDEX idx_project_modules_module ON project_modules(module_id);
 
 -- Tickets (performance-critical for dashboard queries)
 CREATE INDEX idx_tickets_ticket_code ON tickets(ticket_code) WHERE deleted_at IS NULL;
@@ -771,6 +793,7 @@ COMMENT ON TABLE workflow_transitions IS 'Valid state transitions between workfl
 COMMENT ON TABLE project_workgroups IS 'Workgroup visibility assignments for projects';
 COMMENT ON TABLE project_workflows IS 'Workflow assignments allowed within a project';
 COMMENT ON TABLE modules IS 'Organizational modules for categorizing tickets';
+COMMENT ON TABLE project_modules IS 'Module assignments allowed within a project';
 COMMENT ON TABLE tags IS 'Reusable labels for tickets';
 COMMENT ON TABLE tickets IS 'Main ticket entity with workflow tracking';
 COMMENT ON TABLE ticket_tags IS 'Many-to-many relationship between tickets and tags';
@@ -792,6 +815,7 @@ COMMENT ON COLUMN events.payload IS 'Structured event metadata for backend messa
 COMMENT ON COLUMN workflow_steps.category_code IS '10=open, 20=in progress, 30=closed, 40=cancelled terminal state';
 COMMENT ON COLUMN project_workgroups.workgroup_code IS 'Workgroup text identifier mapped to workgroups.ticket_code in the current schema';
 COMMENT ON COLUMN project_workflows.workflow_id IS 'Workflow UUID reference matching workflows.id in the current schema';
+COMMENT ON COLUMN project_modules.module_id IS 'Module UUID reference matching modules.id in the current schema';
 COMMENT ON COLUMN tickets.step_code IS 'Current position in workflow (FK to workflow_steps)';
 COMMENT ON COLUMN tickets.ticket_code IS 'Human-friendly ticket identifier (e.g., TCK-1012)';
 COMMENT ON COLUMN tags.project_id IS 'Nullable project scope for tags during the staged projects rollout';
@@ -812,5 +836,5 @@ COMMENT ON COLUMN employees.password_hash IS 'bcrypt hash with cost factor 10';
 -- 8. Automatic audit logging via triggers for ticket changes
 -- 9. Full-text search indexes using pg_trgm extension
 -- 10. Views provided for common query patterns
--- 11. Projects foundation adds visibility containers and project mapping tables
+-- 11. Projects foundation adds visibility containers and project mapping tables, including project_modules for reusable module assignments
 -- =====================================================================

@@ -33,6 +33,7 @@ const normalizeProject = (project) => ({
   active: isTruthyProjectActive(project?.active),
   workgroup_count: Number.parseInt(project?.workgroup_count ?? project?.workgroupCount ?? 0, 10) || 0,
   workflow_count: Number.parseInt(project?.workflow_count ?? project?.workflowCount ?? 0, 10) || 0,
+  module_count: Number.parseInt(project?.module_count ?? project?.moduleCount ?? 0, 10) || 0,
 });
 
 const isTruthyEmployeeActive = (value) =>
@@ -94,7 +95,7 @@ const AdminPanel = () => {
         fetch('http://localhost:8000/api/employees'),
         fetchWithAuth('http://localhost:8000/api/tags'),
         fetch('http://localhost:8000/api/workgroups'),
-        fetch('http://localhost:8000/api/modules'),
+        fetchWithAuth('http://localhost:8000/api/modules'),
         fetch(WORKFLOW_LIST_ENDPOINT),
         fetchWithAuth(PROJECT_LIST_ENDPOINT),
         fetch('http://localhost:8000/api/employees/roles')
@@ -226,6 +227,16 @@ const AdminPanel = () => {
       return;
     }
 
+    if (activeTab === 'modules') {
+      setEditForm({
+        id: item.id,
+        name: item.name || '',
+        description: item.description || '',
+        active: item.active === true || item.active === 1 || item.active === '1',
+      });
+      return;
+    }
+
     setEditForm({
       id: item.id,
       name: item.name,
@@ -267,6 +278,37 @@ const AdminPanel = () => {
         setEditingItem(null);
         setEditForm({});
         showToast('Tag updated successfully');
+        return;
+      }
+
+      if (activeTab === 'modules') {
+        const payload = {
+          name: editForm.name,
+          description: editForm.description,
+          active: !!editForm.active,
+        };
+
+        const response = await fetchWithAuth(`http://localhost:8000/api/modules/${editForm.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          throw new Error(errorBody.error || 'Failed to update module');
+        }
+
+        setModules((prev) =>
+          prev.map((module) =>
+            module.id === editForm.id
+              ? { ...module, name: payload.name, description: payload.description, active: payload.active }
+              : module
+          )
+        );
+
+        setEditingItem(null);
+        setEditForm({});
+        showToast('Module updated successfully');
         return;
       }
 
@@ -423,11 +465,18 @@ const AdminPanel = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:8000/api/${activeTab}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newItem)
-      });
+      const createEndpoint = `http://localhost:8000/api/${activeTab}`;
+      const response =
+        activeTab === 'modules'
+          ? await fetchWithAuth(createEndpoint, {
+              method: 'POST',
+              body: JSON.stringify(newItem),
+            })
+          : await fetch(createEndpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newItem),
+            });
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
@@ -530,6 +579,16 @@ const AdminPanel = () => {
           }),
           'Failed to update project workflows'
         );
+
+        await parseApiResponse(
+          await fetchWithAuth(`http://localhost:8000/api/projects/${projectForm.id}/modules`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              moduleIds: projectForm.moduleIds || [],
+            }),
+          }),
+          'Failed to update project modules'
+        );
       } else {
         await parseApiResponse(
           await fetchWithAuth('http://localhost:8000/api/projects', {
@@ -551,13 +610,15 @@ const AdminPanel = () => {
 
         const savedWorkgroupCodes = (refreshedProject.workgroups || []).map((workgroup) => workgroup.code);
         const savedWorkflowIds = (refreshedProject.workflows || []).map((workflow) => workflow.id);
+        const savedModuleIds = (refreshedProject.modules || []).map((module) => module.id);
 
         if (
           !sameMembers(savedWorkgroupCodes, projectForm.workgroupCodes) ||
-          !sameMembers(savedWorkflowIds, projectForm.workflowIds)
+          !sameMembers(savedWorkflowIds, projectForm.workflowIds) ||
+          !sameMembers(savedModuleIds, projectForm.moduleIds || [])
         ) {
           throw new Error(
-            'Project details were saved, but the refreshed assignments do not match the selected workflows/workgroups.'
+            'Project details were saved, but the refreshed assignments do not match the selected workgroups/workflows/modules.'
           );
         }
       }
@@ -811,7 +872,7 @@ const AdminPanel = () => {
                   </button>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Fetching project workgroups and workflows...
+                  Fetching project workgroups, workflows, and modules...
                 </p>
               </div>
             </div>
@@ -821,6 +882,7 @@ const AdminPanel = () => {
               project={projectToEdit}
               workgroups={workgroups}
               workflows={workflows}
+              modules={modules}
               isSaving={isProjectSaving}
               onClose={handleProjectModalClose}
               onSave={saveProject}

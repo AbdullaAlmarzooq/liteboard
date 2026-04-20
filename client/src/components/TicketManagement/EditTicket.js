@@ -70,10 +70,13 @@ const EditTicket = () => {
   const tagsUrl = ticketProjectId
     ? `http://localhost:8000/api/tags?project_id=${encodeURIComponent(ticketProjectId)}`
     : null;
+  const modulesUrl = ticketProjectId
+    ? `http://localhost:8000/api/modules?project_id=${encodeURIComponent(ticketProjectId)}`
+    : null;
   const { data: tagsList } = useFetch(tagsUrl); 
   const { data: workgroups } = useFetch('http://localhost:8000/api/workgroups');
   const { data: workflows, isPending: workflowsPending } = useFetch('http://localhost:8000/api/workflows');
-  const { data: modules } = useFetch('http://localhost:8000/api/modules'); // Fetch modules from API
+  const { data: modules } = useFetch(modulesUrl);
 
   // Form state
   const [formData, setFormData] = useState({

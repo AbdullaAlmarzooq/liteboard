@@ -23,6 +23,7 @@ const ProjectsTab = ({ projects, onEdit, onToggleActive }) => {
         const active = isProjectActive(project.active);
         const workgroupCount = getProjectCount(project, "workgroup_count", "workgroups");
         const workflowCount = getProjectCount(project, "workflow_count", "workflows");
+        const moduleCount = getProjectCount(project, "module_count", "modules");
 
         return (
           <div
@@ -42,7 +43,7 @@ const ProjectsTab = ({ projects, onEdit, onToggleActive }) => {
                   {project.description || "No description provided."}
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="rounded-md bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
                     <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                       Workgroups
@@ -57,6 +58,14 @@ const ProjectsTab = ({ projects, onEdit, onToggleActive }) => {
                     </p>
                     <p className="text-base font-semibold text-gray-900 dark:text-white">
                       {workflowCount}
+                    </p>
+                  </div>
+                  <div className="rounded-md bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      Modules
+                    </p>
+                    <p className="text-base font-semibold text-gray-900 dark:text-white">
+                      {moduleCount}
                     </p>
                   </div>
                 </div>
