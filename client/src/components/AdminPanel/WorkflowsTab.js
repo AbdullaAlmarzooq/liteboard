@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2 } from 'lucide-react';
 import CreateWorkflowModal from './CreateWorkflowModal';
 import ConfirmationModal from './ConfirmationModal';
+import fetchWithAuth from '../../utils/fetchWithAuth';
 
 const WORKFLOW_LIST_ENDPOINT = 'http://localhost:8000/api/workflow_management/list';
 
@@ -53,7 +54,7 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
 
   const refreshWorkflows = async () => {
     try {
-      const res = await fetch(WORKFLOW_LIST_ENDPOINT);
+      const res = await fetchWithAuth(WORKFLOW_LIST_ENDPOINT);
       if (!res.ok) throw new Error('Failed to refresh workflows');
       const data = await res.json();
       setWorkflows(data);
@@ -73,7 +74,7 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
     setModalOpen(true);
 
     try {
-      const res = await fetch(`http://localhost:8000/api/workflow_management/${workflow.id}`);
+      const res = await fetchWithAuth(`http://localhost:8000/api/workflow_management/${workflow.id}`);
       if (!res.ok) {
         const errorBody = await res.json().catch(() => ({}));
         throw new Error(errorBody.detail || errorBody.error || 'Failed to load workflow details');
@@ -106,10 +107,12 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
 
       const payload = {
         name: workflow.name,
+        slaEnabled: Boolean(workflow.slaEnabled ?? workflow.sla_enabled),
         steps: workflow.steps.map(step => ({
           stepName: step.stepName || step.step_name,
           stepCode: step.stepCode || step.step_code,
           categoryCode: normalizeCategoryCode(step.categoryCode ?? step.category_code),
+          slaDays: step.slaDays ?? step.sla_days ?? null,
           workgroupCode: step.workgroupCode || step.workgroup_code,
           allowedNextSteps: step.allowedNextSteps || [],
           allowedPreviousSteps: step.allowedPreviousSteps || []
@@ -117,9 +120,8 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
       };
 
       if (!workflow.id) {
-        const res = await fetch('http://localhost:8000/api/workflow_management', {
+        const res = await fetchWithAuth('http://localhost:8000/api/workflow_management', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         console.log('[Workflows] create response status:', res.status);
@@ -131,9 +133,8 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
         setWorkflowToEdit(null);
         showToast('Workflow created successfully');
       } else {
-        const res = await fetch(`http://localhost:8000/api/workflow_management/${workflow.id}`, {
+        const res = await fetchWithAuth(`http://localhost:8000/api/workflow_management/${workflow.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: workflow.id, ...payload })
         });
         console.log('[Workflows] update response status:', res.status);
@@ -159,9 +160,8 @@ const WorkflowsTab = ({ workflows: initialWorkflows, workgroups, onEdit: parentO
     if (!workflow) return;
     const nextActive = !workflow.active;
     try {
-      const res = await fetch(`http://localhost:8000/api/workflow_management/${workflow.id}/active`, {
+      const res = await fetchWithAuth(`http://localhost:8000/api/workflow_management/${workflow.id}/active`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active: nextActive })
       });
       console.log('[Workflows] toggle active payload:', { id: workflow.id, active: nextActive });

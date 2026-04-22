@@ -29,8 +29,6 @@ const createInitialFormData = (projectId = "") => ({
   workGroupCode: "",
   responsibleEmployeeId: "",
   moduleId: "",
-  startDate: "",
-  dueDate: "",
 })
 
 const Toast = ({ message, type, onClose, isVisible }) => {
@@ -96,21 +94,6 @@ const getPlainDescriptionText = (html = "") =>
   html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/\u200B/g, "")
 
 const stripHtml = (html = "") => getPlainDescriptionText(html).trim()
-
-const formatDate = (dateString) => {
-  if (!dateString) return ""
-
-  if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-    return dateString
-  }
-
-  if (dateString.match(/^\d{2}\/\d{2}\/\d{4}/)) {
-    const [day, month, year] = dateString.split("/")[0].split("/")
-    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`
-  }
-
-  return dateString
-}
 
 const CreateTicketPage = () => {
   const { user } = useAuth()
@@ -338,8 +321,6 @@ const CreateTicketPage = () => {
         responsible_employee_id: formData.responsibleEmployeeId || null,
         module_id: formData.moduleId || null,
         tag_ids: selectedTags,
-        start_date: formatDate(formData.startDate) || null,
-        due_date: formatDate(formData.dueDate) || null,
       }
 
       const response = await fetchWithAuth("http://localhost:8000/api/tickets", {
@@ -730,42 +711,6 @@ const CreateTicketPage = () => {
                           </div>
                         </div>
                       )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="startDate"
-                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        Start Date
-                      </label>
-                      <input
-                        id="startDate"
-                        name="startDate"
-                        type="date"
-                        value={formData.startDate}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="dueDate"
-                        className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                      >
-                        Due Date
-                      </label>
-                      <input
-                        id="dueDate"
-                        name="dueDate"
-                        type="date"
-                        value={formData.dueDate}
-                        onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
                     </div>
                   </div>
 

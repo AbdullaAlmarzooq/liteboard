@@ -42,6 +42,7 @@
 | **Ticket Management** | Full CRUD operations with tags, attachments, comments, and audit trail |
 | **Projects** | Project containers control ticket visibility, workflow reuse, and project-scoped tag organization |
 | **Workflow Engine** | State machine implementation with valid transition enforcement |
+| **Planned SLA** | Workflow-level SLA-in-days with system-calculated ticket due dates and SLA badges |
 | **Dashboard Analytics** | 6 chart types (pie, bar, line, stacked) powered by Recharts |
 | **Employee Management** | User provisioning with workgroup assignment and password hashing |
 | **Module Organization** | Tickets categorized by organizational modules |
@@ -181,9 +182,9 @@ erDiagram
 | `project_modules` | Reusable module assignments per project | `project_id`, `module_id`, `created_by` |
 | `modules` | Reusable module catalog | `id`, `name`, `active` |
 | `employees` | User accounts | `id`, `email`, `password_hash`, `role_id`, `workgroup_id` |
-| `tickets` | Main ticket entity | `id`, `title`, `priority`, `workflow_id`, `step_code`, `workgroup_id`, `project_id` |
-| `workflows` | Workflow definitions | `id`, `name`, `active` |
-| `workflow_steps` | Steps in workflow | `step_code`, `step_name`, `step_order`, `category_code` |
+| `tickets` | Main ticket entity | `id`, `title`, `priority`, `workflow_id`, `step_code`, `workgroup_id`, `project_id`, `due_date` |
+| `workflows` | Workflow definitions | `id`, `name`, `active`, `sla_enabled` |
+| `workflow_steps` | Steps in workflow | `step_code`, `step_name`, `step_order`, `category_code`, `sla_days` |
 | `workflow_transitions` | Valid state transitions | `from_step_code`, `to_step_code`, `cancel_allowed` |
 | `status_history` | Audit trail | `activity_type`, `field_name`, `old_value`, `new_value`, `changed_by` |
 | `roles` | User roles (implied by schema) | Referenced by `role_id` in employees |
@@ -209,7 +210,7 @@ erDiagram
 | `/api/employees` | GET, POST | Token | Employee list/create |
 | `/api/employees/:id` | GET, PUT | Token | Single employee operations |
 | `/api/workflows` | GET | Token | List active workflows, with optional `project_id` filtering for project-scoped ticket creation |
-| `/api/workflow_management` | GET, POST, PATCH, DELETE | Token | Admin workflow CRUD |
+| `/api/workflow_management` | GET, POST, PATCH, DELETE | Token + Admin | Admin workflow CRUD (including SLA config) |
 | `/api/modules` | GET, POST, PUT, DELETE | Token | Module management (`GET` for authenticated users; `POST`/`PUT`/`DELETE` are Admin-only, and `GET` supports optional `project_id` filtering) |
 | `/api/tags` | GET, POST, PUT, DELETE | Token | Tag management, with optional `project_id` filtering on reads |
 | `/api/comments` | GET, POST, PUT, DELETE | Token | Ticket comments |
@@ -287,6 +288,11 @@ erDiagram
 - the selected workflow must be assigned to the selected project
 - the selected module (if provided) must be assigned to the selected project
 - all selected tags must belong to the selected project
+- `due_date` is system-controlled and calculated from workflow SLA settings; client-submitted due dates are ignored
+- `start_date` defaults to the ticket initiate date (current Bahrain timezone day) when omitted
+- Create Ticket UI no longer exposes a start-date calendar input; start date is assigned automatically
+- SLA status now respects `workflow.sla_enabled`; workflows with SLA disabled return `No SLA` even if legacy `due_date` exists
+- SLA status for terminal tickets (Closed/Cancelled) now resolves as terminal even when legacy rows are missing `completed_at`, and tickets with a legacy `completed_at` timestamp are treated as completed for badge logic
 - Existing workflow-step logic remains in place, and the create route still uses workflow step data to set the ticket's initial workflow state.
 
 ### Project Visibility Filters & Overview
@@ -530,8 +536,8 @@ This middleware remains unchanged and continues to enforce workflow-step/workgro
 | GET `/search` | Route | Search tickets across the current project/filter scope |
 | GET `/export` | Route | Export all tickets matching the current project/filter scope |
 | GET `/:id` | Route | Single ticket with comments, attachments |
-| POST `/` | Route | Create ticket (Admin/Editor, with transaction) |
-| PUT `/:id` | Route | Update ticket (Admin/Editor + same workgroup; `title`/`description` are creator-only) |
+| POST `/` | Route | Create ticket (Admin/Editor, with transaction; server-calculates `due_date` and defaults `start_date` to initiate-date day when omitted) |
+| PUT `/:id` | Route | Update ticket (Admin/Editor + same workgroup; `title`/`description` are creator-only; manual `due_date` edits are ignored) |
 | DELETE `/:id` | Route | Delete ticket (Admin only, cascading delete) |
 | POST `/:id/transition` | Route | Workflow state change with validation |
 | GET `/:id/allowed-steps` | Route | Get valid next workflow steps |
@@ -554,17 +560,22 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 **Purpose**: Create, update, and manage workflow definitions
 
 **Key Features:**
+- Admin-authenticated workflow CRUD
 - Auto-generates workflow IDs (`WF-001`, `WF-002`, ...)
 - Auto-generates step codes (`WF-001-01`, `WF-001-02`, ...)
 - Manages workflow transitions (bidirectional)
-- Special handling for Cancel steps (`category_code = 90`)
+- Workflow-level planned SLA toggle (`sla_enabled`)
+- Step-level SLA day validation (`sla_days`, 1-99) for non-terminal categories only
+- Recalculates due dates for existing open/in-progress tickets when workflow SLA settings change
 - Soft delete via `active = 0`
 
 **Step Category Codes:**
 | Code | Meaning |
 |------|---------|
-| 10 | Standard step |
-| 90 | Cancel step (all-to-one transition) |
+| 10 | Open |
+| 20 | In Progress |
+| 30 | Closed |
+| 40 | Cancelled |
 
 ---
 
@@ -767,6 +778,14 @@ This migration:
 - Creates `project_modules` for reusable module assignments per project
 - Seeds all existing modules to `PRJ-001` only
 - Raises an exception if `PRJ-001` does not exist
+
+3. [2026-04-21_add_workflow_sla.sql](server/db/migrations/2026-04-21_add_workflow_sla.sql)
+
+This migration:
+
+- Adds `workflows.sla_enabled` (default `false`) so existing workflows remain no-SLA after migration
+- Adds `workflow_steps.sla_days` (nullable)
+- Enforces SLA constraints: `sla_days` must be `1..99` when set, and must be `NULL` for Closed/Cancelled steps
 
 ### Legacy SQLite Migration Note
 

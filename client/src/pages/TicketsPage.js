@@ -19,6 +19,49 @@ import { Eye, Edit, Trash2, AlertTriangle, X } from 'lucide-react';
 const isTerminalStatusVariant = (variant) =>
   variant === "new" || variant === "destructive";
 
+const normalizeDateOnly = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+const resolveSlaStatus = (ticket) => {
+  if (ticket.slaStatus) return ticket.slaStatus;
+  if (!ticket.dueDate) return 'no_sla';
+
+  const due = normalizeDateOnly(ticket.dueDate);
+  const today = normalizeDateOnly(new Date());
+  if (!due || !today) return 'no_sla';
+
+  if (Number(ticket.stepCategoryCode) === 30 && ticket.completedAt) {
+    const completed = normalizeDateOnly(ticket.completedAt);
+    if (!completed) return 'on_time';
+    return completed <= due ? 'closed_in_time' : 'closed_late';
+  }
+
+  if (due < today) return 'overdue';
+  if (due.getTime() === today.getTime()) return 'due_today';
+  return 'on_time';
+};
+
+const getSlaBadgeConfig = (slaStatus) => {
+  switch (slaStatus) {
+    case 'on_time':
+    case 'closed_in_time':
+      return { label: 'On Time', variant: 'new' };
+    case 'due_today':
+      return { label: 'Due Today', variant: 'secondary' };
+    case 'overdue':
+    case 'closed_late':
+      return { label: 'Overdue', variant: 'destructive' };
+    case 'no_sla':
+    default:
+      return { label: 'No SLA', variant: 'outline' };
+  }
+};
+
 const TicketsPage = () => {
 
   const { user } = useAuth();
@@ -46,7 +89,17 @@ const TicketsPage = () => {
 
     return `http://localhost:8000/api/tickets/list?${params.toString()}`;
   }, [currentPage, itemsPerPage, selectedProjectId, activeFilters]);
+  const filterOptionsUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (selectedProjectId) {
+      params.set('project_id', selectedProjectId);
+    }
+
+    const query = params.toString();
+    return `http://localhost:8000/api/tickets/filter-options${query ? `?${query}` : ''}`;
+  }, [selectedProjectId]);
   const { data: ticketsData, isPending, error } = useFetch(ticketsListUrl);
+  const { data: ticketFilterOptionsData } = useFetch(filterOptionsUrl);
   const { data: projectsData, isPending: projectsPending, error: projectsError } = useFetch('http://localhost:8000/api/projects/available');
 
   // Transform the data from database format to component format
@@ -67,6 +120,8 @@ const TicketsPage = () => {
       workflow: ticket.workflow_name || 'No Workflow',
       workGroup: ticket.workgroup_name || 'Unassigned',
       module: ticket.module_name || 'No Module',
+      stepCategoryCode: ticket.step_category_code,
+      completedAt: ticket.completed_at,
       initiateDate: ticket.initiate_date || ticket.created_at,
       createdAt: ticket.created_at,
       updatedAt: ticket.updated_at,
@@ -74,6 +129,7 @@ const TicketsPage = () => {
       responsible: ticket.responsible_name || 'Unassigned',
       tags: ticket.tags || [],
       dueDate: ticket.due_date,
+      slaStatus: ticket.sla_status,
     }));
   }, [ticketsData]);
   const totalTickets = Number(ticketsData?.total) || 0;
@@ -81,7 +137,6 @@ const TicketsPage = () => {
   const getDisplayTicketCode = (ticket) => ticket.ticketCode || ticket.id;
 
   const projects = useMemo(() => Array.isArray(projectsData) ? projectsData : [], [projectsData]);
-
   const ticketsToDisplay = tickets;
   const currentTickets = ticketsToDisplay;
   const paginationTotalItems = totalTickets;
@@ -249,6 +304,7 @@ const TicketsPage = () => {
 
       <TicketFilter
         tickets={tickets}
+        filterOptions={ticketFilterOptionsData}
         resetKey={selectedProjectId || "all-projects"}
         projects={projects}
         selectedProjectId={selectedProjectId}
@@ -299,7 +355,7 @@ const TicketsPage = () => {
                       Tags
                     </th>
                     <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
-                      Due Date
+                      SLA
                     </th>
                     <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
                       Actions
@@ -308,7 +364,7 @@ const TicketsPage = () => {
                 </thead>
                 <tbody>
                   {currentTickets.map(ticket => {
-                    const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
+                    const slaBadge = getSlaBadgeConfig(resolveSlaStatus(ticket));
                     return (
                       <tr
                         key={ticket.id}
@@ -363,12 +419,9 @@ const TicketsPage = () => {
                           </div>
                         </td>
                         <td className="p-3 text-sm text-gray-600 dark:text-gray-400">
-                          <div className="flex items-center gap-1">
-                            {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'No due date'}
-                            {isOverdue && (
-                              <span className="text-red-500 text-xs">⚠️</span>
-                            )}
-                          </div>
+                          <Badge variant={slaBadge.variant}>
+                            {slaBadge.label}
+                          </Badge>
                         </td>
                         <td className="p-3">
                           <div className="flex gap-2">
@@ -411,7 +464,7 @@ const TicketsPage = () => {
       {/* Mobile Card View */}
       <div className="lg:hidden space-y-4">
         {currentTickets.map(ticket => {
-          const isOverdue = ticket.dueDate && new Date(ticket.dueDate) < new Date();
+          const slaBadge = getSlaBadgeConfig(resolveSlaStatus(ticket));
           return (
             <Card key={ticket.id}>
               <CardHeader className="pb-3">
@@ -425,6 +478,9 @@ const TicketsPage = () => {
                     </Badge>
                     <Badge variant={getPriorityVariant(ticket.priority)}>
                       {ticket.priority}
+                    </Badge>
+                    <Badge variant={slaBadge.variant}>
+                      {slaBadge.label}
                     </Badge>
                   </div>
                 </div>
@@ -454,17 +510,6 @@ const TicketsPage = () => {
                     </span>
                     <div className="font-medium text-gray-900 dark:text-white">
                       {ticket.responsible}
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-gray-500 dark:text-gray-400 text-sm">
-                      Due Date:
-                    </span>
-                    <div className="font-medium text-gray-900 dark:text-white flex items-center gap-1">
-                      {ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'No due date'}
-                      {isOverdue && (
-                        <span className="text-red-500 text-xs">⚠️</span>
-                      )}
                     </div>
                   </div>
                 </div>

@@ -126,22 +126,6 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           />
         </div>
-        <div>
-          <label
-            htmlFor="dueDate"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Due Date
-          </label>
-          <input
-            id="dueDate"
-            name="dueDate"
-            type="date"
-            value={toDateInputValue(formData.dueDate)}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          />
-        </div>
       </CardContent>
     </Card>
   );

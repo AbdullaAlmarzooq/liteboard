@@ -135,6 +135,56 @@ const SearchBar = ({
     }
   };
 
+  const normalizeDateOnly = (value) => {
+    if (!value) return null;
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return null;
+    parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  };
+
+  const resolveSlaStatus = (ticket) => {
+    if (ticket.sla_status) return ticket.sla_status;
+    if (!ticket.due_date) return "no_sla";
+
+    const due = normalizeDateOnly(ticket.due_date);
+    const today = normalizeDateOnly(new Date());
+    if (!due || !today) return "no_sla";
+
+    if (Number(ticket.step_category_code) === 30 && ticket.completed_at) {
+      const completed = normalizeDateOnly(ticket.completed_at);
+      if (!completed) return "on_time";
+      return completed <= due ? "closed_in_time" : "closed_late";
+    }
+
+    if (due < today) return "overdue";
+    if (due.getTime() === today.getTime()) return "due_today";
+    return "on_time";
+  };
+
+  const getSlaBadge = (slaStatus) => {
+    switch (slaStatus) {
+      case "on_time":
+      case "closed_in_time":
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+      case "due_today":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300";
+      case "overdue":
+      case "closed_late":
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
+      case "no_sla":
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
+    }
+  };
+
+  const getSlaLabel = (slaStatus) => {
+    if (slaStatus === "on_time" || slaStatus === "closed_in_time") return "On Time";
+    if (slaStatus === "due_today") return "Due Today";
+    if (slaStatus === "overdue" || slaStatus === "closed_late") return "Overdue";
+    return "No SLA";
+  };
+
   const handleTicketClick = (ticketId, event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -224,6 +274,7 @@ const SearchBar = ({
                 <ul className="space-y-4">
                   {searchResults.map((ticket) => {
                     const statusStyling = getStatusStyling(ticket.status);
+                    const slaStatus = resolveSlaStatus(ticket);
                     return (
                       <li
                         key={ticket.id}
@@ -245,9 +296,6 @@ const SearchBar = ({
                           </div>
                           <div>
                             <p><span className="font-medium">Module:</span> {ticket.module_name || "No Module"}</p>
-                            {ticket.due_date && (
-                              <p><span className="font-medium">Due:</span> {new Date(ticket.due_date).toLocaleDateString()}</p>
-                            )}
                           </div>
                         </div>
 
@@ -257,6 +305,9 @@ const SearchBar = ({
                           </span>
                           <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                             {ticket.status}
+                          </span>
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getSlaBadge(slaStatus)}`}>
+                            SLA: {getSlaLabel(slaStatus)}
                           </span>
                           {ticket.tags && ticket.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1">

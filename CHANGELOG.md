@@ -9,10 +9,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ### Added
 - DB migration `server/db/migrations/2026-04-20_add_project_modules.sql` to add `project_modules` (`project_id`, `module_id`, `created_by`) and seed module assignments to `PRJ-001` only.
 - Schema foundation for reusable module-to-project assignment mapping via `project_modules`.
+- DB migration `server/db/migrations/2026-04-21_add_workflow_sla.sql` to add workflow-level planned SLA (`workflows.sla_enabled`) and step-level planned SLA days (`workflow_steps.sla_days`) with DB constraints.
+- Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
 - `server/db/schema.sql` now includes the `project_modules` table, indexes, and schema comments.
+- `server/db/schema.sql` now includes workflow SLA columns (`workflows.sla_enabled`, `workflow_steps.sla_days`) plus SLA-related constraints/comments.
 - README migration instructions now include the new `project_modules` migration step and document module reuse through project assignments.
+- Workflow management backend now enforces Admin authentication for all `/api/workflow_management/*` routes, validates SLA rules (non-terminal steps require `sla_days` when SLA is enabled; Closed/Cancelled cannot have SLA days), and recalculates open/in-progress ticket due dates after workflow SLA saves.
+- Tickets create/update backend now treats `due_date` as fully system-controlled: client-submitted due dates are ignored, ticket creation calculates due date from workflow SLA, and workflow changes on open tickets recalculate due date automatically (including clearing due date for no-SLA workflows).
+- Tickets list/search/export/detail APIs now return `sla_status` for frontend badge rendering.
+- Admin workflow UI now includes `SLA Enabled` toggle and step-level `SLA Days` inputs (1-99) for valid step categories only.
+- Create/Edit ticket UI no longer allows manual due-date editing.
+- Create Ticket now defaults `start_date` to the initiate-date day (Bahrain timezone) when the field is left empty.
+- Create Ticket form no longer shows a start-date calendar input; users cannot override automatic start-date assignment.
+- Tickets page list and search UI now use SLA badges (`No SLA`, `On Time`, `Due Today`, `Overdue`) instead of displaying due dates directly.
+- SLA status logic now treats Closed/Cancelled tickets as terminal even when `completed_at` is missing, preventing legacy terminal rows from appearing as active overdue.
+- SLA badge logic now returns `no_sla` when `workflow.sla_enabled = false`, even if legacy tickets still have a historical `due_date`.
+- SLA badge logic now treats tickets with legacy `completed_at` timestamps as completed for SLA status comparison, preventing them from falling into active overdue status.
+- Overdue filtering now treats both Closed and Cancelled as terminal categories, excludes rows with completion timestamps from active-overdue checks, and only marks terminal rows overdue when completion is after `due_date`.
 - Projects API now returns module assignments alongside workgroups/workflows, accepts `moduleIds` on project create/update, and adds `PUT /api/projects/:id/modules` for replacing project-module assignments.
 - Admin Project modal now supports optional module multi-select assignment, and project save verification now checks workgroup/workflow/module assignment parity after updates.
 - Modules API now requires authentication for reads, enforces Admin-only create/update/delete, and supports `GET /api/modules?project_id=...` for project-scoped module reads.

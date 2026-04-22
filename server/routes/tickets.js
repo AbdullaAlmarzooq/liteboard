@@ -10,8 +10,12 @@ const ensureSameWorkgroup = require("../middleware/ensureSameWorkgroup");
 const { ensureTicketIsEditable } = require("../middleware/ensureTicketIsEditable");
 const { insertEvent, mapEventRow } = require("../utils/events");
 const { buildProjectAccessFilter, getProjectAccess } = require("../utils/projectAccess");
-
-const CLOSED_CATEGORY_CODE = 30;
+const {
+  CLOSED_CATEGORY_CODE,
+  CANCELLED_CATEGORY_CODE,
+  calculateTicketDueDate,
+  determineTicketSlaStatus,
+} = require("../utils/sla");
 const MAX_LIST_PAGE_SIZE = 100;
 
 const parsePagination = (query) => {
@@ -40,6 +44,16 @@ const normalizeQueryArray = (value) => {
 const normalizeSearchTerm = (value) => {
   if (typeof value !== "string") return "";
   return value.trim();
+};
+
+const normalizeOptionList = (values) => {
+  if (!Array.isArray(values)) return [];
+
+  return [...new Set(
+    values
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter(Boolean)
+  )].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 };
 
 const buildNullableTextFilter = ({
@@ -175,7 +189,23 @@ const buildTicketsFilterClause = (query, startIndex = 1) => {
 
   const showOverdue = String(query.showOverdue).toLowerCase() === "true";
   if (showOverdue) {
-    clauses.push(`t.due_date IS NOT NULL AND t.due_date < CURRENT_DATE`);
+    clauses.push(`
+      COALESCE(wf.sla_enabled, FALSE) = TRUE
+      AND
+      t.due_date IS NOT NULL
+      AND (
+        (
+          ws.category_code IN (${CLOSED_CATEGORY_CODE}, ${CANCELLED_CATEGORY_CODE})
+          AND t.completed_at IS NOT NULL
+          AND t.completed_at::date > t.due_date
+        )
+        OR (
+          COALESCE(ws.category_code, 0) NOT IN (${CLOSED_CATEGORY_CODE}, ${CANCELLED_CATEGORY_CODE})
+          AND t.completed_at IS NULL
+          AND CURRENT_DATE > t.due_date
+        )
+      )
+    `);
   }
 
   const searchTerm = normalizeSearchTerm(query.q || query.search);
@@ -399,6 +429,14 @@ const getTicketTagsSnapshot = async (ticketId, executor = db) => {
   return rows;
 };
 
+const resolveTicketSlaStatus = (ticketRow) =>
+  determineTicketSlaStatus({
+    dueDate: ticketRow?.due_date,
+    workflowSlaEnabled: ticketRow?.workflow_sla_enabled,
+    stepCategoryCode: ticketRow?.step_category_code,
+    completedAt: ticketRow?.completed_at,
+  });
+
 // Helper to validate workflow transition
 const isValidTransition = async (workflowId, fromStepCode, toStepCode) => {
   const { rows } = await db.query(
@@ -585,6 +623,70 @@ router.post(
 );
 
 // ----------------------------------------------------------------------
+// GET filter options for Tickets page filters (any logged-in user)
+// ----------------------------------------------------------------------
+router.get("/filter-options", authenticateToken(), async (req, res) => {
+  try {
+    const { clause: projectAccessClause, params: projectAccessParams } =
+      await buildProjectAccessFilter(req.user, "t.project_id");
+    const { clause: projectScopeClause, params: projectScopeParams } =
+      buildTicketsFilterClause(
+        { project_id: req.query.project_id },
+        projectAccessParams.length + 1
+      );
+    const params = [...projectAccessParams, ...projectScopeParams];
+
+    const filterOptionsQuery = `
+      SELECT
+        array_agg(DISTINCT COALESCE(ws.step_name, t.step_code))
+          FILTER (WHERE COALESCE(ws.step_name, t.step_code) IS NOT NULL) AS status,
+        array_agg(DISTINCT t.priority)
+          FILTER (WHERE t.priority IS NOT NULL) AS priority,
+        array_agg(DISTINCT COALESCE(wf.name, 'No Workflow'))
+          FILTER (WHERE COALESCE(wf.name, 'No Workflow') IS NOT NULL) AS workflow,
+        array_agg(DISTINCT COALESCE(w.name, 'Unassigned'))
+          FILTER (WHERE COALESCE(w.name, 'Unassigned') IS NOT NULL) AS workgroup,
+        array_agg(DISTINCT COALESCE(creator.name, 'Unknown'))
+          FILTER (WHERE COALESCE(creator.name, 'Unknown') IS NOT NULL) AS created_by,
+        array_agg(DISTINCT COALESCE(e.name, 'Unassigned'))
+          FILTER (WHERE COALESCE(e.name, 'Unassigned') IS NOT NULL) AS responsible,
+        array_agg(DISTINCT COALESCE(m.name, 'No Module'))
+          FILTER (WHERE COALESCE(m.name, 'No Module') IS NOT NULL) AS module,
+        array_agg(DISTINCT tg.label)
+          FILTER (WHERE tg.label IS NOT NULL) AS tags
+      FROM tickets t
+      LEFT JOIN workflows wf ON t.workflow_id = wf.id
+      LEFT JOIN workflow_steps ws
+        ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
+      LEFT JOIN workgroups w ON t.workgroup_id = w.id
+      LEFT JOIN modules m ON t.module_id = m.id
+      LEFT JOIN employees e ON t.responsible_employee_id = e.id
+      LEFT JOIN employees creator ON t.created_by = creator.id
+      LEFT JOIN ticket_tags tt ON tt.ticket_id = t.id
+      LEFT JOIN tags tg ON tg.id = tt.tag_id
+      WHERE t.deleted_at IS NULL${projectAccessClause}${projectScopeClause}
+    `;
+
+    const { rows } = await db.query(filterOptionsQuery, params);
+    const row = rows[0] || {};
+
+    res.json({
+      status: normalizeOptionList(row.status),
+      priority: normalizeOptionList(row.priority),
+      workflow: normalizeOptionList(row.workflow),
+      workGroup: normalizeOptionList(row.workgroup),
+      createdBy: normalizeOptionList(row.created_by),
+      responsible: normalizeOptionList(row.responsible),
+      module: normalizeOptionList(row.module),
+      tags: normalizeOptionList(row.tags),
+    });
+  } catch (err) {
+    console.error("Error loading ticket filter options:", err);
+    res.status(500).json({ error: "Failed to load ticket filter options" });
+  }
+});
+
+// ----------------------------------------------------------------------
 // GET lightweight tickets list for Tickets page (any logged-in user)
 // NOTE: Keeps GET /api/tickets unchanged for backward compatibility.
 // ----------------------------------------------------------------------
@@ -630,11 +732,14 @@ router.get("/list", authenticateToken(), async (req, res) => {
           WHEN 40 THEN 'destructive'
           ELSE 'outline'
         END AS status_variant,
+        ws.category_code AS step_category_code,
         t.priority,
         wf.name AS workflow_name,
+        wf.sla_enabled AS workflow_sla_enabled,
         w.name AS workgroup_name,
         m.name AS module_name,
         t.initiate_date,
+        t.completed_at,
         t.created_at,
         t.updated_at,
         e.name AS responsible_name,
@@ -659,6 +764,7 @@ router.get("/list", authenticateToken(), async (req, res) => {
 
     const lightweightTickets = tickets.map((ticket) => ({
       ...ticket,
+      sla_status: resolveTicketSlaStatus(ticket),
       tags: tagsByTicket[ticket.id] || [],
     }));
 
@@ -701,11 +807,14 @@ router.get("/search", authenticateToken(), async (req, res) => {
         t.title,
         trim(regexp_replace(COALESCE(t.description, ''), '<[^>]*>', '', 'g')) AS description,
         COALESCE(ws.step_name, t.step_code) AS status,
+        ws.category_code AS step_category_code,
         t.priority,
         wf.name AS workflow_name,
+        wf.sla_enabled AS workflow_sla_enabled,
         w.name AS workgroup_name,
         m.name AS module_name,
         t.initiate_date,
+        t.completed_at,
         t.created_at,
         t.updated_at,
         e.name AS responsible_name,
@@ -728,6 +837,7 @@ router.get("/search", authenticateToken(), async (req, res) => {
 
     const items = rows.map((ticket) => ({
       ...ticket,
+      sla_status: resolveTicketSlaStatus(ticket),
       tags: tagsByTicket[ticket.id] || [],
     }));
 
@@ -760,11 +870,14 @@ router.get("/export", authenticateToken(), async (req, res) => {
         t.title,
         trim(regexp_replace(COALESCE(t.description, ''), '<[^>]*>', '', 'g')) AS description,
         COALESCE(ws.step_name, t.step_code) AS status,
+        ws.category_code AS step_category_code,
         t.priority,
+        wf.sla_enabled AS workflow_sla_enabled,
         w.name AS workgroup_name,
         e.name AS responsible_name,
         m.name AS module_name,
         t.due_date,
+        t.completed_at,
         COALESCE(t.initiate_date, t.created_at) AS created_at
       FROM tickets t
       LEFT JOIN workflows wf ON t.workflow_id = wf.id
@@ -784,6 +897,7 @@ router.get("/export", authenticateToken(), async (req, res) => {
 
     const items = rows.map((ticket) => ({
       ...ticket,
+      sla_status: resolveTicketSlaStatus(ticket),
       tags: tagsByTicket[ticket.id] || [],
     }));
 
@@ -812,6 +926,7 @@ router.get("/", authenticateToken(), async (req, res) => {
         COALESCE(ws.step_name, t.step_code) AS status, t.step_code, t.priority,
         ws.category_code AS step_category_code,
         t.workflow_id, wf.name AS workflow_name,
+        wf.sla_enabled AS workflow_sla_enabled,
         COALESCE(ws.step_name, t.step_code) AS current_step_name,
         CASE ws.category_code
           WHEN 10 THEN 'default'
@@ -824,7 +939,7 @@ router.get("/", authenticateToken(), async (req, res) => {
         t.module_id, m.name AS module_name, t.initiate_date, t.created_at, t.updated_at,
         t.responsible_employee_id, e.name AS responsible_name,
         t.created_by, creator.name AS created_by_name,
-        t.due_date, t.start_date 
+        t.due_date, t.start_date, t.completed_at
       FROM tickets t
       LEFT JOIN workflows wf ON t.workflow_id = wf.id
       LEFT JOIN projects p ON t.project_id = p.id
@@ -863,6 +978,7 @@ router.get("/", authenticateToken(), async (req, res) => {
 
     const ticketsWithTags = tickets.map(ticket => ({
       ...ticket,
+      sla_status: resolveTicketSlaStatus(ticket),
       ticketCode: ticket.ticket_code,
       stepCategoryCode: ticket.step_category_code,
       workGroup: ticket.workgroup_name,
@@ -930,6 +1046,7 @@ router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) =>
       SELECT 
         t.id, t.ticket_code, t.title, t.description, t.project_id, p.name AS project_name, COALESCE(ws.step_name, t.step_code) AS status, t.priority, 
         t.workflow_id,
+        wf.sla_enabled AS workflow_sla_enabled,
         t.step_code,
         ws.category_code AS step_category_code,
         COALESCE(ws.step_name, t.step_code) AS current_step_name,
@@ -943,11 +1060,12 @@ router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) =>
         t.workgroup_id, w.name AS workgroup_name,
         t.module_id, m.name AS module_name, t.initiate_date, t.created_at,
         t.responsible_employee_id, e.name AS responsible_name,
-        t.due_date, t.start_date,
+        t.due_date, t.start_date, t.completed_at,
         t.created_by,
         creator.name AS created_by_name
 
       FROM tickets t
+      LEFT JOIN workflows wf ON t.workflow_id = wf.id
       LEFT JOIN workflow_steps ws
         ON ws.workflow_id = t.workflow_id AND ws.step_code = t.step_code
       LEFT JOIN projects p ON t.project_id = p.id
@@ -1024,6 +1142,7 @@ router.get("/:id", authenticateToken(), ensureProjectAccess, async (req, res) =>
 
     const fullTicket = {
       ...ticket,
+      sla_status: resolveTicketSlaStatus(ticket),
       ticketCode: ticket.ticket_code,
       stepCategoryCode: ticket.step_category_code,
       workGroup: ticket.workgroup_name,
@@ -1065,7 +1184,6 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
     workgroup_id,
     module_id,
     responsible_employee_id,
-    due_date,
     start_date,
     tag_ids,
   } = req.body;
@@ -1087,6 +1205,8 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
     const now = new Date();
     const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
     const timestamp = bahrainTime.toISOString();
+    const normalizedStartDate = normalizeDate(start_date);
+    const startDateForInsert = normalizedStartDate || timestamp.slice(0, 10);
     const code = id || ticket_code || `TCK-${Date.now()}`;
     let completedAt = null;
     const normalizedTagIds = normalizeUuidArray(tag_ids || []);
@@ -1191,6 +1311,12 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
         completedAt = timestamp;
       }
 
+      const calculatedDueDate = await calculateTicketDueDate(
+        timestamp,
+        workflow_id,
+        client
+      );
+
       const insertResult = await client.query(
         `
           INSERT INTO tickets
@@ -1210,8 +1336,8 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
           resolvedWorkgroupId,
           normalizedModuleId,
           responsible_employee_id,
-          normalizeDate(due_date),
-          normalizeDate(start_date),
+          normalizeDate(calculatedDueDate),
+          startDateForInsert,
           timestamp,
           completedAt,
           timestamp,
@@ -1293,7 +1419,7 @@ router.put(
   const { 
     title, description, priority,
     workflowId, workgroupId, moduleId,
-    responsibleEmployeeId, dueDate, startDate, tags, stepCode
+    responsibleEmployeeId, startDate, tags, stepCode
   } = req.body;
 
   let step_code = stepCode || null;
@@ -1303,7 +1429,7 @@ router.put(
       description !== undefined ? sanitizeTicketDescription(description) : undefined;
     const ticket = await getTicketByParam(
       id,
-      "id, workflow_id, project_id, created_by, title, description"
+      "id, workflow_id, project_id, created_by, title, description, due_date, initiate_date, created_at"
     );
     if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
@@ -1342,15 +1468,19 @@ router.put(
     }
 
     const effectiveWorkflowId = workflowId || ticket.workflow_id;
+    const normalizedEffectiveWorkflowId = normalizeUuid(effectiveWorkflowId);
+    const shouldRecalculateDueDate =
+      workflowId !== undefined &&
+      String(normalizedEffectiveWorkflowId || "") !== String(ticket.workflow_id || "");
     let stepInfo = null;
-    if (step_code && effectiveWorkflowId) {
+    if (step_code && normalizedEffectiveWorkflowId) {
       const stepResult = await db.query(
         `
           SELECT step_name, category_code
           FROM workflow_steps
           WHERE workflow_id = $1 AND step_code = $2
         `,
-        [effectiveWorkflowId, step_code]
+        [normalizedEffectiveWorkflowId, step_code]
       );
       stepInfo = stepResult.rows[0];
       if (!stepInfo) {
@@ -1368,6 +1498,13 @@ router.put(
       const beforeSnapshot = await getTicketEventSnapshot(ticket.id, client);
       const beforeTags = await getTicketTagsSnapshot(ticket.id, client);
       let selectedTags = [];
+      const recalculatedDueDate = shouldRecalculateDueDate
+        ? await calculateTicketDueDate(
+            ticket.initiate_date || ticket.created_at,
+            normalizedEffectiveWorkflowId,
+            client
+          )
+        : ticket.due_date;
       const effectiveModuleId =
         moduleId === undefined
           ? normalizeUuid(beforeSnapshot?.module_id)
@@ -1436,11 +1573,11 @@ router.put(
           nextTitle,
           nextDescription,
           priority,
-          normalizeUuid(effectiveWorkflowId),
+          normalizedEffectiveWorkflowId,
           normalizeUuid(workgroupId),
           effectiveModuleId,
           normalizeUuid(responsibleEmployeeId),
-          normalizeDate(dueDate),
+          normalizeDate(recalculatedDueDate),
           normalizeDate(startDate),
           step_code,
           timestamp,

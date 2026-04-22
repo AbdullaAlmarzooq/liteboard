@@ -96,7 +96,7 @@ const AdminPanel = () => {
         fetchWithAuth('http://localhost:8000/api/tags'),
         fetch('http://localhost:8000/api/workgroups'),
         fetchWithAuth('http://localhost:8000/api/modules'),
-        fetch(WORKFLOW_LIST_ENDPOINT),
+        fetchWithAuth(WORKFLOW_LIST_ENDPOINT),
         fetchWithAuth(PROJECT_LIST_ENDPOINT),
         fetch('http://localhost:8000/api/employees/roles')
       ]);
@@ -121,7 +121,10 @@ const AdminPanel = () => {
 
   const refreshWorkflows = async () => {
     try {
-      const wfRes = await fetch(WORKFLOW_LIST_ENDPOINT);
+      const wfRes = await fetchWithAuth(WORKFLOW_LIST_ENDPOINT);
+      if (!wfRes.ok) {
+        throw new Error('Failed to refresh workflows');
+      }
       const data = await wfRes.json();
       setWorkflows(data);
     } catch (error) {
@@ -154,10 +157,12 @@ const AdminPanel = () => {
 
       const payload = {
         name: wf.name,
+        slaEnabled: Boolean(wf.slaEnabled ?? wf.sla_enabled),
         steps: wf.steps.map(step => ({
           stepName: step.stepName || step.step_name,
           stepCode: step.stepCode || step.step_code,
           categoryCode: normalizeCategoryCode(step.categoryCode ?? step.category_code),
+          slaDays: step.slaDays ?? step.sla_days ?? null,
           workgroupCode: step.workgroupCode || step.workgroup_code,
           allowedNextSteps: step.allowedNextSteps || [],
           allowedPreviousSteps: step.allowedPreviousSteps || []
@@ -166,9 +171,8 @@ const AdminPanel = () => {
 
       if (!wf.id) {
         console.log('[AdminPanel] workflow create payload:', payload);
-        const res = await fetch('http://localhost:8000/api/workflow_management', {
+        const res = await fetchWithAuth('http://localhost:8000/api/workflow_management', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         console.log('[AdminPanel] workflow create status:', res.status);
@@ -178,9 +182,8 @@ const AdminPanel = () => {
         }
         showToast('Workflow created successfully');
       } else {
-        const res = await fetch(`http://localhost:8000/api/workflow_management/${wf.id}`, {
+        const res = await fetchWithAuth(`http://localhost:8000/api/workflow_management/${wf.id}`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: wf.id, ...payload })
         });
         console.log('[AdminPanel] workflow update status:', res.status);

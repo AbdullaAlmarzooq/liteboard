@@ -41,12 +41,14 @@ router.get("/", authenticateToken(), async (req, res) => {
       w.name,
       w.description,
       w.active,
+      w.sla_enabled,
       w.created_at,
       w.updated_at,
       ws.id AS step_id,
       ws.step_code,
       ws.step_name,
       ws.step_order,
+      ws.sla_days,
       ws.workgroup_id,
       wg.name AS workgroup_name
     FROM workflows w
@@ -67,6 +69,7 @@ router.get("/", authenticateToken(), async (req, res) => {
           name: row.name,
           description: row.description,
           active: row.active,
+          sla_enabled: row.sla_enabled,
           created_at: row.created_at,
           updated_at: row.updated_at,
           steps: []
@@ -79,6 +82,7 @@ router.get("/", authenticateToken(), async (req, res) => {
           stepCode: row.step_code,
           stepName: row.step_name,
           stepOrder: row.step_order,
+          slaDays: row.sla_days,
           workgroupId: row.workgroup_id,
           workgroupCode: row.workgroup_id,
           workgroupName: row.workgroup_name
@@ -105,12 +109,14 @@ router.get("/:id", authenticateToken(), async (req, res) => {
       w.name,
       w.description,
       w.active,
+      w.sla_enabled,
       w.created_at,
       w.updated_at,
       ws.id AS step_id,
       ws.step_code,
       ws.step_name,
       ws.step_order,
+      ws.sla_days,
       ws.workgroup_id,
       wg.name AS workgroup_name
     FROM workflows w
@@ -132,6 +138,7 @@ router.get("/:id", authenticateToken(), async (req, res) => {
       name: rows[0].name,
       description: rows[0].description,
       active: rows[0].active,
+      sla_enabled: rows[0].sla_enabled,
       created_at: rows[0].created_at,
       updated_at: rows[0].updated_at,
       steps: []
@@ -144,6 +151,7 @@ router.get("/:id", authenticateToken(), async (req, res) => {
           stepCode: row.step_code,
           stepName: row.step_name,
           stepOrder: row.step_order,
+          slaDays: row.sla_days,
           workgroupId: row.workgroup_id,
           workgroupCode: row.workgroup_id,
           workgroupName: row.workgroup_name

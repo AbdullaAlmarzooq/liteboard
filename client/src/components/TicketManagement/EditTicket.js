@@ -94,7 +94,6 @@ const EditTicket = () => {
     module: '',
     tags: [],
     startDate: '',
-    dueDate: '',
   });
 
   // Comments state
@@ -170,7 +169,6 @@ const EditTicket = () => {
         module: ticket.module || '',
         tags: ticket.tags || [],
         startDate: ticket.start_date || ticket.startDate || '',
-        dueDate: ticket.due_date || ticket.dueDate || '',
       });
       setComments(ticket.comments || []);
       setSavedAttachments(ticket.attachments || []);
@@ -578,7 +576,6 @@ const EditTicket = () => {
         workgroupId: formData.workgroupId,
         moduleId: formData.moduleId,
         responsibleEmployeeId: formData.responsibleEmployeeId,
-        dueDate: formData.dueDate,
         startDate: formData.startDate,
         tags: formData.tags,
       };

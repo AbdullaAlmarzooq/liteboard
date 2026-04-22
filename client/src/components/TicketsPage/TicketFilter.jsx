@@ -16,8 +16,57 @@ const createInitialFilters = () => ({
   showOverdue: false
 });
 
+const emptyFilterOptions = {
+  status: [],
+  priority: [],
+  workflow: [],
+  workGroup: [],
+  createdBy: [],
+  responsible: [],
+  module: [],
+  tags: [],
+};
+
+const normalizeFilterOptions = (options = {}) => ({
+  status: Array.isArray(options.status) ? options.status : [],
+  priority: Array.isArray(options.priority) ? options.priority : [],
+  workflow: Array.isArray(options.workflow) ? options.workflow : [],
+  workGroup: Array.isArray(options.workGroup) ? options.workGroup : [],
+  createdBy: Array.isArray(options.createdBy) ? options.createdBy : [],
+  responsible: Array.isArray(options.responsible) ? options.responsible : [],
+  module: Array.isArray(options.module) ? options.module : [],
+  tags: Array.isArray(options.tags) ? options.tags : [],
+});
+
+const buildFilterOptionsFromTickets = (tickets = []) => {
+  if (!Array.isArray(tickets) || tickets.length === 0) return emptyFilterOptions;
+
+  const uniqueTags = new Set();
+  tickets.forEach(ticket => {
+    if (ticket.tags && Array.isArray(ticket.tags)) {
+      ticket.tags.forEach(tag => {
+        if (tag && typeof tag === 'object' && tag.name) {
+          uniqueTags.add(tag.name);
+        }
+      });
+    }
+  });
+
+  return {
+    status: [...new Set(tickets.map(t => t.status).filter(Boolean))],
+    priority: [...new Set(tickets.map(t => t.priority).filter(Boolean))],
+    workflow: [...new Set(tickets.map(t => t.workflow).filter(Boolean))],
+    workGroup: [...new Set(tickets.map(t => t.workGroup).filter(Boolean))],
+    createdBy: [...new Set(tickets.map(t => t.createdBy).filter(Boolean))],
+    responsible: [...new Set(tickets.map(t => t.responsible).filter(Boolean))],
+    module: [...new Set(tickets.map(t => t.module).filter(Boolean))],
+    tags: [...uniqueTags]
+  };
+};
+
 const TicketFilter = ({
   tickets,
+  filterOptions,
   onFilteredTicketsChange,
   onFiltersChange,
   className = "",
@@ -51,35 +100,13 @@ const TicketFilter = ({
     setOpenDropdown(null);
   }, [resetKey]);
 
-  // Extract unique values from tickets for filter options
-  const filterOptions = useMemo(() => {
-    if (!tickets || tickets.length === 0) return {
-      status: [], priority: [], workflow: [], workGroup: [], createdBy: [], responsible: [], module: [], tags: []
-    };
+  const resolvedFilterOptions = useMemo(() => {
+    if (filterOptions && typeof filterOptions === "object") {
+      return normalizeFilterOptions(filterOptions);
+    }
 
-    // Extract unique tag names from the normalized tag structure
-    const uniqueTags = new Set();
-    tickets.forEach(ticket => {
-      if (ticket.tags && Array.isArray(ticket.tags)) {
-        ticket.tags.forEach(tag => {
-          if (tag && typeof tag === 'object' && tag.name) {
-            uniqueTags.add(tag.name);
-          }
-        });
-      }
-    });
-
-    return {
-      status: [...new Set(tickets.map(t => t.status).filter(Boolean))],
-      priority: [...new Set(tickets.map(t => t.priority).filter(Boolean))],
-      workflow: [...new Set(tickets.map(t => t.workflow).filter(Boolean))],
-      workGroup: [...new Set(tickets.map(t => t.workGroup).filter(Boolean))], // Use workGroup names directly
-      createdBy: [...new Set(tickets.map(t => t.createdBy).filter(Boolean))],
-      responsible: [...new Set(tickets.map(t => t.responsible).filter(Boolean))],
-      module: [...new Set(tickets.map(t => t.module).filter(Boolean))],
-      tags: [...uniqueTags] // Use extracted tag names
-    };
-  }, [tickets]);
+    return buildFilterOptionsFromTickets(tickets);
+  }, [filterOptions, tickets]);
 
   const isTicketOverdue = (dueDate) => {
     if (!dueDate) return false;
@@ -280,14 +307,14 @@ const TicketFilter = ({
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3 mb-4">
-              <FilterDropdownButton category="status" title="Status" options={filterOptions.status} />
-              <FilterDropdownButton category="priority" title="Priority" options={filterOptions.priority} />
-              <FilterDropdownButton category="workflow" title="Type" options={filterOptions.workflow} />
-              <FilterDropdownButton category="workGroup" title="WorkGroup" options={filterOptions.workGroup} />
-              <FilterDropdownButton category="createdBy" title="Created By" options={filterOptions.createdBy} />
-              <FilterDropdownButton category="responsible" title="Responsible" options={filterOptions.responsible} />
-              <FilterDropdownButton category="module" title="Module" options={filterOptions.module} />
-              <FilterDropdownButton category="tags" title="Tags" options={filterOptions.tags} />
+              <FilterDropdownButton category="status" title="Status" options={resolvedFilterOptions.status} />
+              <FilterDropdownButton category="priority" title="Priority" options={resolvedFilterOptions.priority} />
+              <FilterDropdownButton category="workflow" title="Type" options={resolvedFilterOptions.workflow} />
+              <FilterDropdownButton category="workGroup" title="WorkGroup" options={resolvedFilterOptions.workGroup} />
+              <FilterDropdownButton category="createdBy" title="Created By" options={resolvedFilterOptions.createdBy} />
+              <FilterDropdownButton category="responsible" title="Responsible" options={resolvedFilterOptions.responsible} />
+              <FilterDropdownButton category="module" title="Module" options={resolvedFilterOptions.module} />
+              <FilterDropdownButton category="tags" title="Tags" options={resolvedFilterOptions.tags} />
               <FilterDropdownButton category="showOverdue" title="Due Status" options={[]} isSpecial={true} />
             </div>
             

@@ -2,6 +2,12 @@
 const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
+const authenticateToken = require("../middleware/authMiddleware");
+const {
+  CLOSED_CATEGORY_CODE,
+  CANCELLED_CATEGORY_CODE,
+  recalculateOpenTicketsDueDatesForWorkflow,
+} = require("../utils/sla");
 
 const normalizeCategoryCode = (value) => {
   const parsed = Number.parseInt(value, 10);
@@ -9,6 +15,86 @@ const normalizeCategoryCode = (value) => {
   if ([10, 20, 30, 40].includes(parsed)) return parsed;
   return 10;
 };
+
+const createValidationError = (message) => {
+  const error = new Error(message);
+  error.statusCode = 400;
+  return error;
+};
+
+const normalizeSlaEnabled = (value) => value === true;
+
+const normalizeSlaDays = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "string" && value.trim() === "") return null;
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed)) return Number.NaN;
+  return parsed;
+};
+
+const normalizeWorkflowStepsForSave = (steps, slaEnabled) =>
+  steps.map((rawStep, index) => {
+    const stepName = String(rawStep.stepName || rawStep.step_name || "").trim();
+    const normalizedCategory = normalizeCategoryCode(
+      rawStep.categoryCode ?? rawStep.category_code
+    );
+    const parsedSlaDays = normalizeSlaDays(rawStep.slaDays ?? rawStep.sla_days);
+
+    if (Number.isNaN(parsedSlaDays)) {
+      throw createValidationError(
+        `SLA days for step "${stepName || `#${index + 1}`}" must be a whole number.`
+      );
+    }
+
+    if (
+      normalizedCategory === CLOSED_CATEGORY_CODE ||
+      normalizedCategory === CANCELLED_CATEGORY_CODE
+    ) {
+      if (parsedSlaDays !== null) {
+        throw createValidationError(
+          `Closed/Cancelled step "${stepName || `#${index + 1}`}" cannot have SLA days.`
+        );
+      }
+
+      return {
+        ...rawStep,
+        stepName,
+        normalizedCategory,
+        normalizedSlaDays: null,
+      };
+    }
+
+    if (!slaEnabled) {
+      return {
+        ...rawStep,
+        stepName,
+        normalizedCategory,
+        normalizedSlaDays: null,
+      };
+    }
+
+    if (parsedSlaDays === null) {
+      throw createValidationError(
+        `SLA days are required for active step "${stepName || `#${index + 1}`}" when SLA is enabled.`
+      );
+    }
+
+    if (parsedSlaDays < 1 || parsedSlaDays > 99) {
+      throw createValidationError(
+        `SLA days for step "${stepName || `#${index + 1}`}" must be between 1 and 99.`
+      );
+    }
+
+    return {
+      ...rawStep,
+      stepName,
+      normalizedCategory,
+      normalizedSlaDays: parsedSlaDays,
+    };
+  });
+
+router.use(authenticateToken([1]));
 
 // Helper to generate unique codes
 const generateStepCode = (workflowId, stepOrder) => {
@@ -154,11 +240,22 @@ router.get("/list", async (req, res) => {
           w.id,
           w.name,
           w.active,
-          COUNT(ws.step_code)::int AS step_count
+          w.sla_enabled,
+          COUNT(ws.step_code)::int AS step_count,
+          COALESCE(
+            SUM(
+              CASE
+                WHEN ws.category_code NOT IN (${CLOSED_CATEGORY_CODE}, ${CANCELLED_CATEGORY_CODE})
+                THEN ws.sla_days
+                ELSE 0
+              END
+            ),
+            0
+          )::int AS total_sla_days
         FROM workflows w
         LEFT JOIN workflow_steps ws
           ON ws.workflow_id = w.id
-        GROUP BY w.id, w.name, w.active
+        GROUP BY w.id, w.name, w.active, w.sla_enabled
         ORDER BY w.name ASC, w.id ASC
       `
     );
@@ -226,17 +323,21 @@ router.get("/:id", async (req, res) => {
 // POST create new workflow with steps and transitions
 // ----------------------------------------------------------------------
 router.post("/", async (req, res) => {
-  const { name, steps } = req.body;
+  const { name, steps, slaEnabled } = req.body;
 
   if (!name || !steps || !Array.isArray(steps) || steps.length === 0) {
     return res.status(400).json({ error: "Invalid workflow data. Name and steps are required." });
   }
 
   try {
+    const normalizedSlaEnabled = normalizeSlaEnabled(slaEnabled);
+    const normalizedSteps = normalizeWorkflowStepsForSave(steps, normalizedSlaEnabled);
+
     console.log("[workflow_management] create payload:", {
       name,
+      slaEnabled: normalizedSlaEnabled,
       stepsCount: Array.isArray(steps) ? steps.length : 0,
-      steps
+      steps: normalizedSteps
     });
     const client = await db.pool.connect();
     let workflowId = null;
@@ -245,34 +346,33 @@ router.post("/", async (req, res) => {
 
       const workflowResult = await client.query(
         `
-          INSERT INTO workflows (name, active, created_at, updated_at)
-          VALUES ($1, true, NOW(), NOW())
+          INSERT INTO workflows (name, active, sla_enabled, created_at, updated_at)
+          VALUES ($1, true, $2, NOW(), NOW())
           RETURNING id
         `,
-        [name]
+        [name, normalizedSlaEnabled]
       );
       workflowId = workflowResult.rows[0].id;
 
       // Create steps with generated step codes
-      for (const [index, step] of steps.entries()) {
+      for (const [index, step] of normalizedSteps.entries()) {
         const stepCode = generateStepCode(workflowId, index + 1);
-        const normalizedCategory = normalizeCategoryCode(step.categoryCode);
-        step.normalizedCategory = normalizedCategory;
 
         await client.query(
           `
             INSERT INTO workflow_steps (
               workflow_id, step_code, step_name, step_order,
-              category_code, workgroup_id
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+              category_code, workgroup_id, sla_days
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
           `,
           [
             workflowId,
             stepCode,
             step.stepName,
             index + 1,
-            normalizedCategory,
+            step.normalizedCategory,
             step.workgroupId || step.workgroupCode || null,
+            step.normalizedSlaDays,
           ]
         );
 
@@ -280,10 +380,10 @@ router.post("/", async (req, res) => {
       }
 
       // Create transitions based on allowed next/previous steps
-      for (const step of steps) {
+      for (const step of normalizedSteps) {
         if (step.allowedNextSteps && step.allowedNextSteps.length > 0) {
           for (const nextStepName of step.allowedNextSteps) {
-            const nextStep = steps.find(s => s.stepName === nextStepName);
+            const nextStep = normalizedSteps.find(s => s.stepName === nextStepName);
             if (nextStep && nextStep.stepCode) {
               await upsertTransition(client, workflowId, step.stepCode, nextStep.stepCode, false);
             }
@@ -292,7 +392,7 @@ router.post("/", async (req, res) => {
 
         if (step.allowedPreviousSteps && step.allowedPreviousSteps.length > 0) {
           for (const prevStepName of step.allowedPreviousSteps) {
-            const prevStep = steps.find(s => s.stepName === prevStepName);
+            const prevStep = normalizedSteps.find(s => s.stepName === prevStepName);
             if (prevStep && prevStep.stepCode) {
               await upsertTransition(client, workflowId, prevStep.stepCode, step.stepCode, false);
             }
@@ -300,13 +400,15 @@ router.post("/", async (req, res) => {
         }
 
         if (step.normalizedCategory === 40) {
-          for (const otherStep of steps) {
+          for (const otherStep of normalizedSteps) {
             if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
               await upsertTransition(client, workflowId, otherStep.stepCode, step.stepCode, true);
             }
           }
         }
       }
+
+      await recalculateOpenTicketsDueDatesForWorkflow(workflowId, client);
 
       await client.query("COMMIT");
     } catch (error) {
@@ -318,6 +420,9 @@ router.post("/", async (req, res) => {
 
     res.json({ success: true, workflowId });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
     console.error("Failed to create workflow:", err);
     res.status(500).json({ error: "Failed to create workflow", detail: err.detail || err.message });
   }
@@ -328,7 +433,7 @@ router.post("/", async (req, res) => {
 // ----------------------------------------------------------------------
 router.patch("/:id", async (req, res) => {
   const workflowId = req.params.id;
-  const { name, steps } = req.body;
+  const { name, steps, slaEnabled } = req.body;
 
   if (steps === undefined && (name !== undefined)) {
     return res.status(400).json({ error: "Steps are required for workflow update." });
@@ -339,6 +444,26 @@ router.patch("/:id", async (req, res) => {
   }
 
   try {
+    const existingWorkflowResult = await db.query(
+      `
+        SELECT sla_enabled
+        FROM workflows
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [workflowId]
+    );
+    const existingWorkflow = existingWorkflowResult.rows[0];
+    if (!existingWorkflow) {
+      return res.status(404).json({ error: "Workflow not found" });
+    }
+
+    const normalizedSlaEnabled =
+      slaEnabled === undefined
+        ? Boolean(existingWorkflow.sla_enabled)
+        : normalizeSlaEnabled(slaEnabled);
+    const normalizedSteps = normalizeWorkflowStepsForSave(steps, normalizedSlaEnabled);
+
     const client = await db.pool.connect();
     try {
       await client.query("BEGIN");
@@ -346,10 +471,10 @@ router.patch("/:id", async (req, res) => {
       await client.query(
         `
           UPDATE workflows
-          SET name = $1, updated_at = NOW()
-          WHERE id = $2
+          SET name = $1, sla_enabled = $2, updated_at = NOW()
+          WHERE id = $3
         `,
-        [name, workflowId]
+        [name, normalizedSlaEnabled, workflowId]
       );
 
       const existingStepsResult = await client.query(
@@ -361,39 +486,39 @@ router.patch("/:id", async (req, res) => {
       );
       const existingSteps = existingStepsResult.rows;
 
-      for (const [index, step] of steps.entries()) {
+      for (const [index, step] of normalizedSteps.entries()) {
         const existingStep = existingSteps.find(es => es.step_name === step.stepName);
         const stepCode =
           step.stepCode || existingStep?.step_code || generateStepCode(workflowId, index + 1);
-        const normalizedCategory = normalizeCategoryCode(step.categoryCode);
-        step.normalizedCategory = normalizedCategory;
 
         await client.query(
           `
             INSERT INTO workflow_steps (
               workflow_id, step_code, step_name, step_order,
-              category_code, workgroup_id
-            ) VALUES ($1, $2, $3, $4, $5, $6)
+              category_code, workgroup_id, sla_days
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (workflow_id, step_code) DO UPDATE SET
               step_name = EXCLUDED.step_name,
               step_order = EXCLUDED.step_order,
               category_code = EXCLUDED.category_code,
-              workgroup_id = EXCLUDED.workgroup_id
+              workgroup_id = EXCLUDED.workgroup_id,
+              sla_days = EXCLUDED.sla_days
           `,
           [
             workflowId,
             stepCode,
             step.stepName,
             index + 1,
-            normalizedCategory,
+            step.normalizedCategory,
             step.workgroupId || step.workgroupCode || null,
+            step.normalizedSlaDays,
           ]
         );
 
         step.stepCode = stepCode;
       }
 
-      const currentStepCodes = steps.map(s => s.stepCode);
+      const currentStepCodes = normalizedSteps.map(s => s.stepCode);
       if (currentStepCodes.length > 0) {
         const placeholders = currentStepCodes.map((_, i) => `$${i + 2}`).join(",");
         await client.query(
@@ -413,10 +538,10 @@ router.patch("/:id", async (req, res) => {
         [workflowId]
       );
 
-      for (const step of steps) {
+      for (const step of normalizedSteps) {
         if (step.allowedNextSteps && step.allowedNextSteps.length > 0) {
           for (const nextStepName of step.allowedNextSteps) {
-            const nextStep = steps.find(s => s.stepName === nextStepName);
+            const nextStep = normalizedSteps.find(s => s.stepName === nextStepName);
             if (nextStep && nextStep.stepCode) {
               await upsertTransition(client, workflowId, step.stepCode, nextStep.stepCode, false);
             }
@@ -425,7 +550,7 @@ router.patch("/:id", async (req, res) => {
 
         if (step.allowedPreviousSteps && step.allowedPreviousSteps.length > 0) {
           for (const prevStepName of step.allowedPreviousSteps) {
-            const prevStep = steps.find(s => s.stepName === prevStepName);
+            const prevStep = normalizedSteps.find(s => s.stepName === prevStepName);
             if (prevStep && prevStep.stepCode) {
               await upsertTransition(client, workflowId, prevStep.stepCode, step.stepCode, false);
             }
@@ -433,13 +558,15 @@ router.patch("/:id", async (req, res) => {
         }
 
         if (step.normalizedCategory === 40) {
-          for (const otherStep of steps) {
+          for (const otherStep of normalizedSteps) {
             if (otherStep.stepCode && otherStep.stepCode !== step.stepCode) {
               await upsertTransition(client, workflowId, otherStep.stepCode, step.stepCode, true);
             }
           }
         }
       }
+
+      await recalculateOpenTicketsDueDatesForWorkflow(workflowId, client);
 
       await client.query("COMMIT");
     } catch (error) {
@@ -451,6 +578,9 @@ router.patch("/:id", async (req, res) => {
 
     res.json({ success: true, workflowId });
   } catch (err) {
+    if (err.statusCode) {
+      return res.status(err.statusCode).json({ error: err.message });
+    }
     console.error("Failed to update workflow:", err);
     res.status(500).json({ error: "Failed to update workflow", detail: err.detail || err.message });
   }

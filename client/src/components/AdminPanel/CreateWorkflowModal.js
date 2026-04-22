@@ -4,6 +4,10 @@ import { X, Plus, Trash2, Info } from 'lucide-react';
 import ReactFlow, { Background } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { WORKFLOW_CATEGORIES } from '../../constants/statuses';
+import fetchWithAuth from '../../utils/fetchWithAuth';
+
+const isTerminalCategoryCode = (categoryCode) =>
+  Number(categoryCode) === 30 || Number(categoryCode) === 40;
 
 const WorkflowPreview = ({ steps, getCategoryName }) => {
   const safeSteps = Array.isArray(steps) ? steps : [];
@@ -21,6 +25,11 @@ const WorkflowPreview = ({ steps, getCategoryName }) => {
               <div className="mt-1 text-[11px] opacity-80">
                 {getCategoryName(step.categoryCode)}
               </div>
+              {step.slaDays && (
+                <div className="mt-1 text-[11px] opacity-80">
+                  SLA: {step.slaDays} day{Number(step.slaDays) === 1 ? '' : 's'}
+                </div>
+              )}
             </div>
           ),
         },
@@ -109,10 +118,12 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
   const [form, setForm] = useState({
     id: null,
     name: '',
+    slaEnabled: false,
     steps: [
       {
         stepName: 'Open',
         categoryCode: 10,
+        slaDays: '',
         workgroupCode: '',
         allowedNextSteps: [],
         allowedPreviousSteps: []
@@ -123,10 +134,12 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
   const mapWorkflowToForm = (workflow) => ({
     id: workflow.id,
     name: workflow.name,
+    slaEnabled: Boolean(workflow.sla_enabled ?? workflow.slaEnabled),
     steps: (workflow.steps || []).map(step => ({
       stepCode: step.step_code || step.stepCode,
       stepName: step.step_name || step.stepName,
       categoryCode: normalizeCategoryCode(step.category_code ?? step.categoryCode),
+      slaDays: step.sla_days ?? step.slaDays ?? '',
       workgroupCode: step.workgroup_code || step.workgroupCode,
       allowedNextSteps: step.allowedNextSteps || [],
       allowedPreviousSteps: step.allowedPreviousSteps || []
@@ -148,12 +161,13 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
     setForm({
       id: workflowToEdit.id,
       name: workflowToEdit.name || '',
+      slaEnabled: Boolean(workflowToEdit.sla_enabled ?? workflowToEdit.slaEnabled),
       steps: []
     });
 
     const loadLatestWorkflow = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/api/workflow_management/${workflowToEdit.id}`);
+        const res = await fetchWithAuth(`http://localhost:8000/api/workflow_management/${workflowToEdit.id}`);
         if (!res.ok) throw new Error('Failed to fetch workflow');
         const latest = await res.json();
         if (!cancelled) {
@@ -172,8 +186,22 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
   }, [workflowToEdit]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    if (name === 'slaEnabled') {
+      setForm((prev) => ({
+        ...prev,
+        slaEnabled: checked,
+        steps: checked
+          ? prev.steps
+          : prev.steps.map((step) => ({ ...step, slaDays: '' })),
+      }));
+      return;
+    }
+
+    setForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   const handleStepChange = (index, e) => {
@@ -192,7 +220,13 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
               }
             }
           } else if (name === 'categoryCode') {
-            updatedStep[name] = normalizeCategoryCode(value);
+            const normalizedCategory = normalizeCategoryCode(value);
+            updatedStep[name] = normalizedCategory;
+            if (isTerminalCategoryCode(normalizedCategory)) {
+              updatedStep.slaDays = '';
+            }
+          } else if (name === 'slaDays') {
+            updatedStep.slaDays = String(value || '').replace(/[^\d]/g, '');
           } else {
             updatedStep[name] = value;
           }
@@ -213,6 +247,7 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
         {
           stepName: `Step ${prev.steps.length + 1}`,
           categoryCode: 10,
+          slaDays: '',
           workgroupCode: '',
           allowedNextSteps: [],
           allowedPreviousSteps: []
@@ -263,7 +298,46 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
       return;
     }
 
-    onSave(form);
+    for (const step of form.steps) {
+      const terminal = isTerminalCategoryCode(step.categoryCode);
+      const parsedSlaDays =
+        step.slaDays === '' || step.slaDays === null || step.slaDays === undefined
+          ? null
+          : Number.parseInt(step.slaDays, 10);
+
+      if (terminal && parsedSlaDays !== null) {
+        alert(`Closed/Cancelled step "${step.stepName}" cannot have SLA days.`);
+        return;
+      }
+
+      if (form.slaEnabled && !terminal) {
+        if (!Number.isInteger(parsedSlaDays)) {
+          alert(`SLA days are required for "${step.stepName}" when SLA is enabled.`);
+          return;
+        }
+
+        if (parsedSlaDays < 1 || parsedSlaDays > 99) {
+          alert(`SLA days for "${step.stepName}" must be between 1 and 99.`);
+          return;
+        }
+      }
+    }
+
+    const normalizedSteps = form.steps.map((step) => {
+      const terminal = isTerminalCategoryCode(step.categoryCode);
+      return {
+        ...step,
+        slaDays:
+          form.slaEnabled && !terminal && step.slaDays !== ''
+            ? String(Number.parseInt(step.slaDays, 10))
+            : '',
+      };
+    });
+
+    onSave({
+      ...form,
+      steps: normalizedSteps,
+    });
   };
 
   const getCategoryName = (code) => {
@@ -297,6 +371,7 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
                 <li>Define all steps in your workflow</li>
                 <li>For each step, select which steps it can transition to (forward/backward)</li>
                 <li>Steps with Cancelled category automatically allow transitions from all steps</li>
+                <li>Enable SLA only when all active (non-Closed/Cancelled) steps have SLA days</li>
               </ol>
             </div>
           </div>
@@ -314,6 +389,24 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
               placeholder="e.g., IT Support Workflow, HR Onboarding Process"
               className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
+          </div>
+
+          <div className="mb-6">
+            <label className="inline-flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                name="slaEnabled"
+                checked={form.slaEnabled}
+                onChange={handleInputChange}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                SLA Enabled
+              </span>
+            </label>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              When enabled, due dates are system-calculated from step SLA days.
+            </p>
           </div>
 
           {form.steps.length > 0 && (
@@ -370,7 +463,11 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div
+                    className={`grid grid-cols-1 md:grid-cols-2 ${
+                      form.slaEnabled ? 'lg:grid-cols-5' : 'lg:grid-cols-4'
+                    } gap-4`}
+                  >
                     {/* Step Name */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
@@ -404,6 +501,26 @@ const CreateWorkflowModal = ({ workflowToEdit, onClose, onSave, workgroups }) =>
                         ))}
                       </select>
                     </div>
+
+                    {/* SLA Days */}
+                    {form.slaEnabled && !isTerminalCategoryCode(step.categoryCode) && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+                          SLA Days *
+                        </label>
+                        <input
+                          type="number"
+                          name="slaDays"
+                          min="1"
+                          max="99"
+                          inputMode="numeric"
+                          value={step.slaDays ?? ''}
+                          onChange={(e) => handleStepChange(index, e)}
+                          placeholder="1-99"
+                          className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        />
+                      </div>
+                    )}
 
                     {/* Workgroup */}
                     <div>

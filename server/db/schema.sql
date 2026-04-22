@@ -88,6 +88,7 @@ CREATE TABLE workflows (
     name TEXT NOT NULL,
     description TEXT,
     active BOOLEAN NOT NULL DEFAULT true,
+    sla_enabled BOOLEAN NOT NULL DEFAULT false,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
@@ -123,6 +124,7 @@ CREATE TABLE workflow_steps (
     category_code INTEGER NOT NULL,  -- 10=open, 20=in progress, 30=closed, 40=cancelled
     workgroup_id UUID,
     description TEXT,
+    sla_days INTEGER,  -- Planned SLA days for non-terminal steps when workflow SLA is enabled
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
@@ -140,6 +142,13 @@ CREATE TABLE workflow_steps (
 
     CONSTRAINT chk_workflow_steps_order CHECK (step_order > 0),
     CONSTRAINT chk_workflow_steps_category CHECK (category_code IN (10, 20, 30, 40)),
+    CONSTRAINT chk_workflow_steps_sla_days_range CHECK (
+        sla_days IS NULL OR (sla_days BETWEEN 1 AND 99)
+    ),
+    CONSTRAINT chk_workflow_steps_terminal_sla_empty CHECK (
+        (category_code IN (30, 40) AND sla_days IS NULL)
+        OR category_code NOT IN (30, 40)
+    ),
 
     CONSTRAINT uq_workflow_steps_workflow_step UNIQUE (workflow_id, step_code)
 );
@@ -813,6 +822,8 @@ COMMENT ON COLUMN events.entity_id IS 'Primary entity identifier affected by the
 COMMENT ON COLUMN events.actor_name IS 'Actor display-name snapshot kept for historical rendering';
 COMMENT ON COLUMN events.payload IS 'Structured event metadata for backend message generation and integrations';
 COMMENT ON COLUMN workflow_steps.category_code IS '10=open, 20=in progress, 30=closed, 40=cancelled terminal state';
+COMMENT ON COLUMN workflow_steps.sla_days IS 'Planned SLA days for non-terminal steps; null when workflow SLA is disabled or step is terminal';
+COMMENT ON COLUMN workflows.sla_enabled IS 'When true, ticket due_date is system-calculated from workflow step SLA days';
 COMMENT ON COLUMN project_workgroups.workgroup_code IS 'Workgroup text identifier mapped to workgroups.ticket_code in the current schema';
 COMMENT ON COLUMN project_workflows.workflow_id IS 'Workflow UUID reference matching workflows.id in the current schema';
 COMMENT ON COLUMN project_modules.module_id IS 'Module UUID reference matching modules.id in the current schema';
