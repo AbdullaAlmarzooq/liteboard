@@ -669,10 +669,9 @@ const renderTag = (tag, index) => {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-6 dark:bg-gray-900 dark:text-white p-6">
+    <div className="flex flex-col h-full space-y-6 dark:bg-gray-900 dark:text-white">
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" onClick={() => navigate("/tickets")}>← Back to Tickets</Button>
-        <h1 className="text-3xl font-bold">Ticket Details</h1>
         <div className="flex space-x-2">
           {canEdit && !ticket.isTerminal && (
             <Button className="bg-gray-400 hover:bg-gray-600 text-white dark:bg-gray-600 dark:hover:bg-gray-500"

@@ -4,6 +4,8 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
+const authenticateToken = require("../middleware/authMiddleware");
+const { buildAdminChangePayload, createAdminEvent } = require("../utils/events");
 
 
 // Helper function to generate sequential employee ID (e.g., EMP-001, EMP-002, ...)
@@ -97,9 +99,10 @@ router.get("/:id", async (req, res) => {
 // ----------------------------------------------------------------------
 // POST create a new employee
 // ----------------------------------------------------------------------
-router.post("/", async (req, res) => {
-  const { name, email, workgroup_id, workgroup_code, role_id, password, active } = req.body;
+router.post("/", authenticateToken([1]), async (req, res) => {
+  const { name, email, workgroup_id, workgroup_code, role_id, roleId, password, active } = req.body;
   const finalWorkgroupId = workgroup_id || workgroup_code || null;
+  const finalRoleId = role_id || roleId || 3;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: "Name, email, and password are required fields" });
@@ -117,10 +120,10 @@ router.post("/", async (req, res) => {
     }
 
     // Validate role_id if provided
-    if (role_id) {
+    if (finalRoleId) {
       const roleExistsResult = await db.query(
         "SELECT id FROM roles WHERE id = $1",
-        [role_id]
+        [finalRoleId]
       );
       const roleExists = roleExistsResult.rows[0];
       if (!roleExists) {
@@ -135,15 +138,46 @@ router.post("/", async (req, res) => {
       passwordHash = bcrypt.hashSync(password, salt);
     }
 
-    const result = await db.query(
-      `
-        INSERT INTO employees
-          (name, email, workgroup_id, role_id, password_hash, active)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id
-      `,
-      [name, email, finalWorkgroupId, role_id || 3, passwordHash, active !== undefined ? !!active : true]
-    );
+    const client = await db.pool.connect();
+    let createdEmployeeId = null;
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query(
+        `
+          INSERT INTO employees
+            (name, email, workgroup_id, role_id, password_hash, active)
+          VALUES ($1, $2, $3, $4, $5, $6)
+          RETURNING id
+        `,
+        [name, email, finalWorkgroupId, finalRoleId, passwordHash, active !== undefined ? !!active : true]
+      );
+      createdEmployeeId = result.rows[0].id;
+
+      await createAdminEvent(client, {
+        req,
+        entity: "user",
+        action: "created",
+        entityId: createdEmployeeId,
+        entityName: name,
+        after: {
+          id: createdEmployeeId,
+          name,
+          email,
+          workgroup_id: finalWorkgroupId,
+          role_id: finalRoleId,
+          active: active !== undefined ? !!active : true,
+        },
+      });
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
     const createdEmployeeResult = await db.query(
       `
         SELECT 
@@ -159,9 +193,9 @@ router.post("/", async (req, res) => {
         FROM employees e
         LEFT JOIN workgroups w ON e.workgroup_id = w.id
         LEFT JOIN roles r ON e.role_id = r.id
-        WHERE e.id = $1
+      WHERE e.id = $1
       `,
-      [result.rows[0].id]
+      [createdEmployeeId]
     );
 
     res.status(201).json(createdEmployeeResult.rows[0]);
@@ -174,7 +208,7 @@ router.post("/", async (req, res) => {
 // ----------------------------------------------------------------------
 // PUT update an existing employee
 // ----------------------------------------------------------------------
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateToken([1]), async (req, res) => {
   const { id } = req.params;
     const {
     name,
@@ -187,12 +221,19 @@ router.put('/:id', async (req, res) => {
   } = req.body;
 
   try {
-    const employeeResult = await db.query('SELECT * FROM employees WHERE id = $1', [id]);
+    const employeeResult = await db.query(
+      `
+        SELECT id, name, email, workgroup_id, role_id, active, created_at, updated_at
+        FROM employees
+        WHERE id = $1
+      `,
+      [id]
+    );
     const employee = employeeResult.rows[0];
     if (!employee) return res.status(404).json({ error: 'Employee not found' });
 
     // Hash password if provided
-    let passwordHash = employee.password_hash;
+    let passwordHash = null;
     if (password && password.trim() !== '') {
       const salt = bcrypt.genSaltSync(10);
       passwordHash = bcrypt.hashSync(password, salt);
@@ -203,27 +244,122 @@ router.put('/:id', async (req, res) => {
     const finalRoleId = roleId || employee.role_id;
     const finalActive = active !== undefined ? !!active : employee.active;
 
-    await db.query(
-      `
-        UPDATE employees
-        SET name = $1,
-            email = $2,
-            role_id = $3,
-            workgroup_id = $4,
-            active = $5,
-            password_hash = $6
-        WHERE id = $7
-      `,
-      [
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const updateParams = [
         name || employee.name,
         email || employee.email,
         finalRoleId,
         finalWorkgroupId,
         finalActive,
-        passwordHash,
         id,
-      ]
-    );
+      ];
+      const passwordSql = passwordHash ? ", password_hash = $7" : "";
+      if (passwordHash) {
+        updateParams.push(passwordHash);
+      }
+
+      await client.query(
+        `
+          UPDATE employees
+          SET name = $1,
+              email = $2,
+              role_id = $3,
+              workgroup_id = $4,
+              active = $5${passwordSql}
+          WHERE id = $6
+          RETURNING id
+        `,
+        updateParams
+      );
+
+      const afterEmployee = {
+        ...employee,
+        name: name || employee.name,
+        email: email || employee.email,
+        role_id: finalRoleId,
+        workgroup_id: finalWorkgroupId,
+        active: finalActive,
+      };
+      const { changes, before, after } = buildAdminChangePayload(employee, afterEmployee, {
+        fields: ["name", "email", "workgroup_id", "active"],
+        fieldLabels: {
+          name: "Name",
+          email: "Email",
+          workgroup_id: "Workgroup",
+          active: "Active",
+        },
+      });
+
+      if (changes.length > 0 || passwordHash) {
+        const passwordOnlyUpdate = passwordHash && changes.length === 0;
+
+        await createAdminEvent(client, {
+          req,
+          entity: "user",
+          action: "updated",
+          entityId: id,
+          entityName: afterEmployee.name,
+          changes,
+          before,
+          after,
+          payload: {
+            credentials_updated: Boolean(passwordHash),
+            ...(passwordHash ? { credential_type: "password" } : {}),
+            ...(passwordOnlyUpdate
+              ? {
+                  message: `${req.user?.name || "Unknown actor"} changed the password for user "${afterEmployee.name}"`,
+                }
+              : {}),
+          },
+        });
+      }
+
+      if (Number(employee.role_id) !== Number(finalRoleId)) {
+        await createAdminEvent(client, {
+          req,
+          entity: "user",
+          action: "role_changed",
+          entityId: id,
+          entityName: afterEmployee.name,
+          changes: [{
+            field: "role_id",
+            label: "Role",
+            old_value: employee.role_id,
+            new_value: finalRoleId,
+          }],
+          before,
+          after,
+        });
+      }
+
+      if (employee.active !== finalActive) {
+        await createAdminEvent(client, {
+          req,
+          entity: "user",
+          action: finalActive ? "activated" : "deactivated",
+          entityId: id,
+          entityName: afterEmployee.name,
+          changes: [{
+            field: "active",
+            label: "Active",
+            old_value: employee.active,
+            new_value: finalActive,
+          }],
+          before,
+          after,
+        });
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     // Return updated employee with joined names
     const updatedEmployeeResult = await db.query(`

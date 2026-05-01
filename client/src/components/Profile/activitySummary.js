@@ -48,6 +48,10 @@ export function buildActivitySummary(event) {
   const ticketLabel = getTicketLabel(event);
   const payload = event && typeof event.payload === "object" && event.payload !== null ? event.payload : {};
 
+  if (typeof event?.event_type === "string" && event.event_type.startsWith("admin.")) {
+    return event.message || payload.message || "Admin action recorded";
+  }
+
   switch (event?.event_type) {
     case "ticket.created":
       return `Created ${ticketLabel}`;

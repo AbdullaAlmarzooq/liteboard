@@ -268,38 +268,23 @@ const TicketsPage = () => {
   if (!projects.length) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Tickets
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            {user?.role_id === 1
-              ? "No projects are available yet."
-              : "No projects assigned to your workgroup. Please contact administration."}
-          </p>
-        </div>
+        <p className="text-gray-600 dark:text-gray-300">
+          {user?.role_id === 1
+            ? "No projects are available yet."
+            : "No projects assigned to your workgroup. Please contact administration."}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">  
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Tickets
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Browse and act on tickets across {selectedProjectId ? "the selected project" : "all accessible projects"}.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <TicketExporter
-            selectedProjectId={selectedProjectId}
-            activeFilters={activeFilters}
-            totalItems={totalTickets}
-          />
-        </div>
+      <div className="flex justify-end">
+        <TicketExporter
+          selectedProjectId={selectedProjectId}
+          activeFilters={activeFilters}
+          totalItems={totalTickets}
+        />
       </div>
 
       <TicketFilter

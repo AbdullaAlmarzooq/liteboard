@@ -1,7 +1,6 @@
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { Navigation } from "@/components/navigation"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,10 +19,7 @@ export default function RootLayout({ children }) {
           enableSystem
           disableTransitionOnChange
         >
-          <div className="min-h-screen bg-background">
-            <Navigation />
-            <main className="container mx-auto px-4 py-8">{children}</main>
-          </div>
+          <main className="min-h-screen bg-background">{children}</main>
         </ThemeProvider>
       </body>
     </html>

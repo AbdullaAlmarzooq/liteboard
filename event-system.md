@@ -6,6 +6,9 @@ The LiteBoard event system is the new business-level activity foundation for:
 
 - the `Activity Log` shown on the View Ticket page
 - the `My Recent Activity` section shown on the Profile page
+- Admin Panel action history
+- admin/global recent activity feeds
+- the Admin-only `Audit Logs` page at `/admin/logs`
 - future outbound integrations and automation use cases
 
 This system is intentionally separate from `status_history`.
@@ -60,17 +63,23 @@ This guarantees consistent timeline wording across the application and keeps fro
 
 Many events belong to child entities such as comments, attachments, and tags, but they still participate in the ticket timeline through `ticket_id`.
 
-`ticket_id` is nullable so the system can later support global/system events that are not tied to a ticket.
+`ticket_id` is nullable so the same stream can support admin/global events that are not tied to a ticket.
+
+Ticket timelines must query by `ticket_id`; unrelated admin events use `ticket_id = NULL` and do not appear in ticket timelines.
 
 ## Database Model
 
 The table is created by:
 
-- [server/db/migrations/2026-04-11_add_events_table.sql](/Users/abdullaalmarzooq/liteboard/server/db/migrations/2026-04-11_add_events_table.sql)
+- [server/db/migrations/2026-04-11_add_events_table.sql](server/db/migrations/2026-04-11_add_events_table.sql)
+
+Admin event support is added by:
+
+- [server/db/migrations/2026-05-01_expand_events_for_admin_actions.sql](server/db/migrations/2026-05-01_expand_events_for_admin_actions.sql)
 
 The canonical schema is defined in:
 
-- [server/db/schema.sql](/Users/abdullaalmarzooq/liteboard/server/db/schema.sql)
+- [server/db/schema.sql](server/db/schema.sql)
 
 ### Table Definition
 
@@ -82,7 +91,7 @@ Columns:
 - `ticket_id UUID NULL`
 - `event_type TEXT NOT NULL`
 - `entity_type TEXT NOT NULL`
-- `entity_id UUID NOT NULL`
+- `entity_id TEXT NOT NULL`
 - `actor_id UUID NULL`
 - `actor_name TEXT NULL`
 - `payload JSONB NOT NULL DEFAULT '{}'::jsonb`
@@ -92,11 +101,17 @@ Columns:
 
 Constraints:
 
-- `entity_type IN ('ticket', 'comment', 'attachment', 'tag')`
+- `entity_type IN ('ticket', 'comment', 'attachment', 'tag', 'project', 'module', 'workflow', 'workflow_step', 'workgroup', 'user', 'role', 'permission', 'system_setting')`
 - `event_type` must not be blank
 - `payload` must be a JSON object
 - `actor_id -> employees(id)`
 - `ticket_id -> tickets(id)`
+
+Reason for `entity_id TEXT`:
+
+- ticket and child entities use UUID identifiers
+- projects use natural text identifiers such as `PRJ-001`
+- workflow step admin events use a stable composite text key such as `{workflow_id}:{step_code}`
 
 ### Indexes
 
@@ -122,6 +137,10 @@ Filter by actor:
 
 - `(actor_id, occurred_at DESC)` where `actor_id IS NOT NULL`
 
+Filter by entity type:
+
+- `(entity_type, occurred_at DESC)`
+
 ## Event Identity Model
 
 Each event row answers four separate questions:
@@ -144,6 +163,8 @@ Examples:
 - `ticket.created`
 - `comment.edited`
 - `attachment.uploaded`
+- `admin.project.updated`
+- `admin.user.role_changed`
 
 ### What entity was directly affected?
 
@@ -156,6 +177,8 @@ Examples:
 - `comment` + comment UUID
 - `attachment` + attachment UUID
 - `tag` + tag UUID
+- `project` + project text ID
+- `workflow_step` + workflow/step composite text ID
 
 ### Who performed the action?
 
@@ -433,6 +456,87 @@ Reason:
 
 - tag label/color snapshots preserve readable history after rename or delete
 
+### `admin.<entity>.<action>`
+
+Entity:
+
+- `entity_type` is the admin-managed entity, such as `project`, `module`, `workflow`, `workflow_step`, `tag`, `workgroup`, or `user`
+- `entity_id` is the affected entity identifier as text
+- `ticket_id = NULL` unless a future admin action is explicitly ticket-scoped
+
+Supported event names include:
+
+- `admin.project.created`
+- `admin.project.updated`
+- `admin.project.activated`
+- `admin.project.deactivated`
+- `admin.module.created`
+- `admin.module.updated`
+- `admin.module.deleted`
+- `admin.module.activated`
+- `admin.module.deactivated`
+- `admin.workflow.created`
+- `admin.workflow.updated`
+- `admin.workflow.deleted`
+- `admin.workflow.activated`
+- `admin.workflow.deactivated`
+- `admin.workflow_step.created`
+- `admin.workflow_step.updated`
+- `admin.workflow_step.deleted`
+- `admin.tag.created`
+- `admin.tag.updated`
+- `admin.tag.deleted`
+- `admin.workgroup.created`
+- `admin.workgroup.updated`
+- `admin.workgroup.deleted`
+- `admin.workgroup.activated`
+- `admin.workgroup.deactivated`
+- `admin.user.created`
+- `admin.user.updated`
+- `admin.user.activated`
+- `admin.user.deactivated`
+- `admin.user.role_changed`
+
+Payload shape:
+
+```json
+{
+  "entity_type": "tag",
+  "entity_id": "7a6d5e4f-5555-6666-7777-888888888888",
+  "entity_name": "Urgent",
+  "action": "updated",
+  "message": "Ahmed updated tag \"Urgent\"",
+  "changes": [
+    {
+      "field": "label",
+      "label": "Label",
+      "old_value": "Urgent",
+      "new_value": "Critical"
+    }
+  ],
+  "before": {
+    "id": "7a6d5e4f-5555-6666-7777-888888888888",
+    "label": "Urgent",
+    "color": "#EF4444"
+  },
+  "after": {
+    "id": "7a6d5e4f-5555-6666-7777-888888888888",
+    "label": "Critical",
+    "color": "#EF4444"
+  }
+}
+```
+
+Rules:
+
+- create events include the created entity id/name/type and a safe `after` snapshot
+- update events compare before/after values and store only meaningful changed fields in `changes`
+- no-change updates do not emit admin events
+- delete events capture a safe `before` snapshot before the delete or soft delete happens
+- activate/deactivate events use explicit `activated` and `deactivated` actions where the entity supports active state
+- user/admin-account payloads must never store sensitive fields such as password, password hash, token, reset token, or secret
+- password updates may be represented as `credentials_updated: true`, but the credential value is never stored
+
 ## Event Emission Rules
 
 The backend owns event creation.
@@ -486,25 +590,52 @@ When tags are added/removed through ticket-tag routes:
 - emit `tag.added`
 - emit `tag.removed`
 
+### Admin Panel operations
+
+When an Admin Panel create/update/delete/activate/deactivate action succeeds:
+
+- emit one or more `admin.<entity>.<action>` events in the same transaction as the business write
+- fetch the existing entity before updates/deletes
+- compare old/new values for updates
+- skip no-change update events
+- preserve safe deleted snapshots before delete or soft delete
+
+Workflow saves may emit multiple admin events:
+
+- one `admin.workflow.updated` when workflow-level fields change
+- `admin.workflow_step.created` for new steps
+- `admin.workflow_step.updated` for changed steps
+- `admin.workflow_step.deleted` for removed steps
+
+Project saves may emit separate update events for metadata, workgroups, workflows, and modules depending on which endpoints were called.
+
 ## Backend Implementation
 
 Shared event logic lives in:
 
-- [server/utils/events.js](/Users/abdullaalmarzooq/liteboard/server/utils/events.js)
+- [server/utils/events.js](server/utils/events.js)
 
 Responsibilities:
 
 - insert rows into `events`
 - build plain-text comment previews
+- create admin events with `createAdminEvent()`
+- build sanitized before/after admin change payloads
 - map event rows into API response objects
 - generate backend-owned human-readable messages and detail lines
 
 ### Event-producing routes
 
-- [server/routes/tickets.js](/Users/abdullaalmarzooq/liteboard/server/routes/tickets.js)
-- [server/routes/comments.js](/Users/abdullaalmarzooq/liteboard/server/routes/comments.js)
-- [server/routes/attachments.js](/Users/abdullaalmarzooq/liteboard/server/routes/attachments.js)
-- [server/routes/tickets_tags.js](/Users/abdullaalmarzooq/liteboard/server/routes/tickets_tags.js)
+- [server/routes/tickets.js](server/routes/tickets.js)
+- [server/routes/comments.js](server/routes/comments.js)
+- [server/routes/attachments.js](server/routes/attachments.js)
+- [server/routes/tickets_tags.js](server/routes/tickets_tags.js)
+- [server/routes/projects.js](server/routes/projects.js)
+- [server/routes/modules.js](server/routes/modules.js)
+- [server/routes/workflowManagement.js](server/routes/workflowManagement.js)
+- [server/routes/tags.js](server/routes/tags.js)
+- [server/routes/workgroups.js](server/routes/workgroups.js)
+- [server/routes/employees.js](server/routes/employees.js)
 
 ### Event-consuming routes
 
@@ -514,15 +645,28 @@ Ticket timeline:
 
 Implemented in:
 
-- [server/routes/tickets.js](/Users/abdullaalmarzooq/liteboard/server/routes/tickets.js)
+- [server/routes/tickets.js](server/routes/tickets.js)
 
 Profile recent activity:
 
 - `GET /api/profile/activity`
 
+Admin global activity:
+
+- `GET /api/profile/activity/global`
+
 Implemented in:
 
-- [server/routes/profile/activity.js](/Users/abdullaalmarzooq/liteboard/server/routes/profile/activity.js)
+- [server/routes/profile/activity.js](server/routes/profile/activity.js)
+
+Admin audit log browser:
+
+- `GET /api/audit-logs`
+- `GET /api/audit-logs/filters`
+
+Implemented in:
+
+- [server/routes/auditLogs.js](server/routes/auditLogs.js)
 
 ## Message Generation
 
@@ -539,6 +683,9 @@ The backend returns already interpreted activity such as:
 - `Ahmed uploaded photo.jpg (1.23 MB)`
 - `Ahmed deleted photo.jpg (1.23 MB)`
 - `Ahmed added tag Urgent`
+- `Ahmed created project "Customer Support"`
+- `Ahmed changed the role for user "Sara Ali"`
+- `Unknown actor updated module "Finance"`
 
 For grouped updates, the backend also returns detail lines such as:
 
@@ -550,13 +697,17 @@ For grouped updates, the backend also returns detail lines such as:
 
 Updated components:
 
-- [client/src/components/ViewTicket.js](/Users/abdullaalmarzooq/liteboard/client/src/components/ViewTicket.js)
-- [client/src/components/Profile/RecentActivity.jsx](/Users/abdullaalmarzooq/liteboard/client/src/components/Profile/RecentActivity.jsx)
+- [client/src/components/ViewTicket.js](client/src/components/ViewTicket.js)
+- [client/src/components/Profile/RecentActivity.jsx](client/src/components/Profile/RecentActivity.jsx)
+- [client/src/components/Profile/activitySummary.js](client/src/components/Profile/activitySummary.js)
 
 Behavior:
 
 - View Ticket now reads ticket activity from `/api/tickets/:id/events`
 - Profile recent activity now reads event rows from `/api/profile/activity`
+- Profile recent activity displays backend-generated admin event messages when admin events are present
+- Audit Logs reads the shared `events` stream through `/api/audit-logs`, shows all event types, and remains read-only.
+- Audit Logs does not use `status_history` and relies on server-side pagination, searching, filtering, sorting, and total counts.
 - client-side writes to `status_history` were removed from the ticket edit flow
 
 ## Legacy `status_history`
@@ -585,6 +736,36 @@ Implemented event types:
 - `attachment.deleted`
 - `tag.added`
 - `tag.removed`
+- `admin.project.created`
+- `admin.project.updated`
+- `admin.project.activated`
+- `admin.project.deactivated`
+- `admin.module.created`
+- `admin.module.updated`
+- `admin.module.deleted`
+- `admin.module.activated`
+- `admin.module.deactivated`
+- `admin.workflow.created`
+- `admin.workflow.updated`
+- `admin.workflow.deleted`
+- `admin.workflow.activated`
+- `admin.workflow.deactivated`
+- `admin.workflow_step.created`
+- `admin.workflow_step.updated`
+- `admin.workflow_step.deleted`
+- `admin.tag.created`
+- `admin.tag.updated`
+- `admin.tag.deleted`
+- `admin.workgroup.created`
+- `admin.workgroup.updated`
+- `admin.workgroup.deleted`
+- `admin.workgroup.activated`
+- `admin.workgroup.deactivated`
+- `admin.user.created`
+- `admin.user.updated`
+- `admin.user.activated`
+- `admin.user.deactivated`
+- `admin.user.role_changed`
 
 Tracked grouped ticket fields in `ticket.updated`:
 
@@ -598,6 +779,7 @@ Tracked separately:
 
 - responsible employee changes through `ticket.assigned`
 - workflow/step/status movement through `ticket.transitioned`
+- Admin Panel actions through `admin.<entity>.<action>`
 
 ## Known Limitations
 
@@ -610,18 +792,25 @@ As a result:
 - the new event-driven views show activity from this rollout forward
 - older activity still exists in `status_history`, but is not automatically reflected in the new event timeline
 
-### Entity type scope is intentionally narrow
+### Entity type scope is controlled
 
-Current system-owned `entity_type` values are:
+Current system-owned `entity_type` values include ticket entities and admin-managed entities:
 
 - `ticket`
 - `comment`
 - `attachment`
 - `tag`
+- `project`
+- `module`
+- `workflow`
+- `workflow_step`
+- `workgroup`
+- `user`
+- `role`
+- `permission`
+- `system_setting`
 
-This is deliberate.
-
-It keeps the contract small and controlled until LiteBoard adds more event-producing domains.
+This is deliberate. New domains should be added by expanding the checked set through a migration rather than bypassing the event contract.
 
 ## Future Extension Guidance
 
@@ -633,13 +822,14 @@ When adding new event types later:
    - the source row may be deleted
    - the source label may change later
    - the value is required for durable message generation
-4. Keep `ticket_id` nullable so non-ticket events remain possible in the future.
+4. Keep `ticket_id` nullable so non-ticket events remain possible.
 5. Emit events in the same transaction as the business write whenever possible.
+6. Never store sensitive credential/token/secret values in payload snapshots.
 
 ## Recommended Next Enhancements
 
 - add backfill tooling if historical event continuity is required
-- add automated tests for event emission on ticket/comment/attachment/tag flows
+- add automated tests for event emission on ticket/comment/attachment/tag/admin flows
 - add optional integration dispatch off the `events` table for webhooks or async workers
 - add richer timeline UI formatting for grouped detail lines
 

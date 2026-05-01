@@ -7,12 +7,30 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- Collapsible desktop sidebar navigation with icon-only mode and persisted `liteboard.sidebarCollapsed` localStorage state.
+- Mobile drawer navigation opened from a hamburger button for small screens.
+- Admin sidebar section grouping for Audit Logs and Admin Panel.
+- Admin-only Audit Logs page at `/admin/logs` with server-paginated, read-only event log browsing and expandable event details.
+- Paginated Admin-only audit logs API at `GET /api/audit-logs` backed by the shared `events` stream.
+- Server-side audit log search and filters for actor, entity type, event type, action, and date range.
+- Lightweight `GET /api/audit-logs/filters` endpoint for Audit Logs filter options without loading all events into the frontend.
+- DB migration `server/db/migrations/2026-05-01_add_audit_log_event_indexes.sql` adds `entity_type + occurred_at` event indexing for audit log filtering.
+- Admin Panel actions now write to the shared `events` stream with `admin.<entity>.<action>` event names for projects, modules, workflows, workflow steps, tags, workgroups, and users.
+- DB migration `server/db/migrations/2026-05-01_expand_events_for_admin_actions.sql` expands `events.entity_type` and stores `events.entity_id` as text so UUID and natural-key admin entities can share the event system.
+- Reusable admin event helpers in `server/utils/events.js` for sanitized payloads, before/after diffs, and human-readable admin messages.
+- Admin-only global activity endpoint `GET /api/profile/activity/global` backed by the existing events stream.
 - DB migration `server/db/migrations/2026-04-20_add_project_modules.sql` to add `project_modules` (`project_id`, `module_id`, `created_by`) and seed module assignments to `PRJ-001` only.
 - Schema foundation for reusable module-to-project assignment mapping via `project_modules`.
 - DB migration `server/db/migrations/2026-04-21_add_workflow_sla.sql` to add workflow-level planned SLA (`workflows.sla_enabled`) and step-level planned SLA days (`workflow_steps.sla_days`) with DB constraints.
 - Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
+- Replaced the crowded top navigation with a responsive sidebar app shell.
+- Moved Profile into the sidebar while keeping the theme toggle and logout action in the top header.
+- Preserved existing role-based navigation visibility for Dashboard, Tickets, Projects, Create Ticket, Audit Logs, Admin Panel, and Profile.
+- Profile recent activity now renders admin event messages directly from the mapped event message when admin events are present.
+- Admin Panel write requests now use authenticated API calls so event actor attribution uses the current admin user.
+- `server/db/schema.sql` now allows admin-managed entity types in `events` and stores `events.entity_id` as text.
 - `server/db/schema.sql` now includes the `project_modules` table, indexes, and schema comments.
 - `server/db/schema.sql` now includes workflow SLA columns (`workflows.sla_enabled`, `workflow_steps.sla_days`) plus SLA-related constraints/comments.
 - README migration instructions now include the new `project_modules` migration step and document module reuse through project assignments.

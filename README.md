@@ -47,6 +47,8 @@
 | **Employee Management** | User provisioning with workgroup assignment and password hashing |
 | **Module Organization** | Tickets categorized by organizational modules |
 | **Status History** | Complete audit log of all ticket field changes |
+| **Audit Logs** | Admin-only, read-only event log browser backed by server-side pagination/search/filtering |
+| **Responsive Sidebar Navigation** | Collapsible desktop sidebar, mobile drawer navigation, and Admin-only grouped navigation items |
 
 ### User Roles
 
@@ -200,6 +202,7 @@ erDiagram
 | `/api/projects/:id` | GET, PUT | Token + Admin | Fetch or update one project's metadata |
 | `/api/projects/:id/workgroups` | PUT | Token + Admin | Replace a project's workgroup assignments |
 | `/api/projects/:id/workflows` | PUT | Token + Admin | Replace a project's workflow assignments |
+| `/api/projects/:id/modules` | PUT | Token + Admin | Replace a project's module assignments |
 | `/api/tickets` | GET, POST | Token + Role | Full ticket list (legacy compatibility) and ticket creation |
 | `/api/tickets/list` | GET | Token | Paginated lightweight ticket list for Tickets page, with project/filter query support |
 | `/api/tickets/search` | GET | Token | Server-side ticket search across the current project/filter scope |
@@ -207,16 +210,19 @@ erDiagram
 | `/api/tickets/:id` | GET, PUT, DELETE | Token + Project Access + Role/Workgroup | Single ticket operations (`PUT` keeps general management editable for authorized users but restricts `title`/`description` to ticket creator only) |
 | `/api/tickets/:id/transition` | POST | Token + Admin/Editor + Project Access + Workgroup | Workflow state change |
 | `/api/tickets/:id/allowed-steps` | GET | Token | Get valid next steps |
-| `/api/employees` | GET, POST | Token | Employee list/create |
-| `/api/employees/:id` | GET, PUT | Token | Single employee operations |
+| `/api/employees` | GET, POST | None / Token + Admin | Employee list and Admin-only create |
+| `/api/employees/:id` | GET, PUT | None / Token + Admin | Single employee read and Admin-only update |
 | `/api/workflows` | GET | Token | List active workflows, with optional `project_id` filtering for project-scoped ticket creation |
 | `/api/workflow_management` | GET, POST, PATCH, DELETE | Token + Admin | Admin workflow CRUD (including SLA config) |
 | `/api/modules` | GET, POST, PUT, DELETE | Token | Module management (`GET` for authenticated users; `POST`/`PUT`/`DELETE` are Admin-only, and `GET` supports optional `project_id` filtering) |
-| `/api/tags` | GET, POST, PUT, DELETE | Token | Tag management, with optional `project_id` filtering on reads |
+| `/api/tags` | GET, POST, PUT, DELETE | Token / Token + Admin | Tag management, with optional `project_id` filtering on reads and Admin-only writes |
 | `/api/comments` | GET, POST, PUT, DELETE | Token | Ticket comments |
 | `/api/attachments` | GET, POST, DELETE | Token | File attachments |
-| `/api/workgroups` | GET | None | Workgroup list |
+| `/api/workgroups` | GET, POST, PUT, DELETE | None / Token + Admin | Workgroup list and Admin-only management |
 | `/api/profile/*` | GET, PUT | Token | User profile operations |
+| `/api/profile/activity/global` | GET | Token + Admin | Global event activity feed, including Admin Panel events |
+| `/api/audit-logs` | GET | Token + Admin | Paginated read-only audit logs from the shared `events` stream with server-side search, filters, sorting, and total counts |
+| `/api/audit-logs/filters` | GET | Token + Admin | Lightweight filter metadata for actors, entity types, event types, and actions |
 
 ### Authentication Flow
 
@@ -309,6 +315,15 @@ erDiagram
 - Clicking a project card opens the Tickets page with that project preselected through `?project_id=...`.
 - When a user has no readable projects, the Dashboard, Tickets, and Projects pages show a clear guidance message instead of empty controls.
 
+### Admin Audit Logs
+
+- Admin users can open `/admin/logs` from the main navigation to review the shared `events` stream.
+- The Audit Logs page is read-only and does not expose delete, edit, hide, or clear-log actions.
+- `GET /api/audit-logs` is Admin-only and returns paginated event rows with backend-generated messages and expandable details.
+- Audit log browsing is server-driven: pagination, search, actor/entity/event/action filters, date range filters, sorting, and total counts are handled by the backend.
+- The page uses the existing `events` table for ticket, comment, attachment, tag, admin, and future event types. It does not use `status_history` and does not create a second log table.
+- `GET /api/audit-logs/filters` provides lightweight filter options without loading all event rows into the frontend.
+
 ### Admin Project Management
 
 - Admin users manage projects from the Admin Panel `Projects` tab.
@@ -345,14 +360,14 @@ client/src/
 ├── contexts/
 │   └── ThemeContext.js    # Dark/light theme provider
 ├── components/
-│   ├── Navigation.js      # Header navigation with role-based menu
+│   ├── Layout/            # Responsive sidebar app shell, header, and navigation metadata
 │   ├── Badge.js           # Status/priority badges
 │   ├── Button.js          # Reusable button component
 │   ├── Card.js            # Card container
 │   ├── ViewTicket.js      # Ticket detail view (25KB)
 │   ├── hooks/             # Custom hooks
 │   ├── Auth/
-│   │   └── ProtectedRoute.js  # Route guard with role checking
+│   │   └── ProtectedRoute.jsx # Route guard with role checking
 │   ├── Dashboard/         # 7 dashboard chart components
 │   ├── Profile/           # Profile widgets + activity summary helper
 │   ├── AdminPanel/        # 9 admin components
@@ -392,6 +407,7 @@ client/src/
 | `/edit-ticket/:id` | EditTicket | Any authenticated |
 | `/profile` | ProfileActivity | Any authenticated |
 | `/admin` | AdminPanel | Admin (1) only |
+| `/admin/logs` | AuditLogsPage | Admin (1) only |
 
 ### State Management Pattern
 
@@ -491,6 +507,7 @@ app.listen(8000, () => console.log("Server running"));
 - Project/workgroup/workflow assignments are validated before insert/update.
 - Assignment updates are transactional, replacing the current mapping set in one operation.
 - Existing ticket visibility and workflow-step write logic remain unchanged.
+- Admin Panel create/update/delete/activate/deactivate actions are logged to the shared `events` stream using `admin.<entity>.<action>` names. User events sanitize credential fields before payloads are stored.
 
 ---
 
@@ -602,7 +619,6 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 <ThemeProvider>
   <Router>
     <AppLayout>
-      <Navigation /> {/* Hidden on /login */}
       <Routes>
         {/* 9 routes with ProtectedRoute wrappers */}
       </Routes>
@@ -625,14 +641,17 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 
 ---
 
-#### `client/src/components/Navigation.js` - Header Navigation
+#### `client/src/components/Layout/*` - App Shell Navigation
 
-**Purpose**: Role-aware navigation with logout
+**Purpose**: Responsive role-aware navigation with sidebar and header controls
 
-**Role-Based Menu:**
-- All users: Dashboard, Tickets, Profile
-- Admin/Editor: + Create Ticket
-- Admin only: + Admin Panel
+**Navigation Behavior:**
+- LiteBoard uses a responsive left sidebar layout instead of a crowded top navigation bar.
+- Desktop sidebar is expanded by default, can collapse to icon-only mode, and stores its state in `localStorage` under `liteboard.sidebarCollapsed`.
+- Mobile uses a hamburger-triggered drawer so navigation does not permanently take horizontal space.
+- Admin-only navigation items are grouped under an `Admin` section containing Audit Logs and Admin Panel.
+- Profile lives in the sidebar, while the existing dark/light theme toggle and logout action live in the top header.
+- Role-based navigation visibility is client-side only and follows the existing route protection rules.
 
 ---
 
@@ -710,6 +729,7 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 | JWT Token | `localStorage.token` |
 | User Object | `localStorage.user` (JSON stringified) |
 | Theme Preference | `localStorage.theme` |
+| Sidebar Collapsed State | `localStorage["liteboard.sidebarCollapsed"]` |
 
 ---
 
@@ -786,6 +806,20 @@ This migration:
 - Adds `workflows.sla_enabled` (default `false`) so existing workflows remain no-SLA after migration
 - Adds `workflow_steps.sla_days` (nullable)
 - Enforces SLA constraints: `sla_days` must be `1..99` when set, and must be `NULL` for Closed/Cancelled steps
+
+4. [2026-05-01_expand_events_for_admin_actions.sql](server/db/migrations/2026-05-01_expand_events_for_admin_actions.sql)
+
+This migration:
+
+- Reuses the existing `events` stream for Admin Panel actions instead of creating a separate audit table
+- Allows admin-managed `entity_type` values such as `project`, `module`, `workflow`, `workflow_step`, `tag`, `workgroup`, and `user`
+- Changes `events.entity_id` to text so both UUID entities and text project IDs can be logged consistently
+
+5. [2026-05-01_add_audit_log_event_indexes.sql](server/db/migrations/2026-05-01_add_audit_log_event_indexes.sql)
+
+This migration:
+
+- Adds `idx_events_entity_type_occurred` for Admin Audit Logs entity filtering ordered by event time
 
 ### Legacy SQLite Migration Note
 
@@ -887,7 +921,7 @@ Since there's no registration endpoint, ensure at least one admin user exists in
 1. **Migrate to PostgreSQL** for better concurrency and JSON support
 2. **Add WebSocket** for real-time ticket updates
 3. **Implement optimistic UI** updates with rollback
-4. **Add audit log viewer** in admin panel
+4. **Audit retention policy** for high-volume event history
 5. **Enable workflow visualization** in admin panel using ReactFlow
 
 ---

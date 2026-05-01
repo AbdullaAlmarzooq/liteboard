@@ -134,34 +134,18 @@ const Dashboard = () => {
 
   if (!projects.length) {
     return (
-      <div className="p-8 space-y-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
-            {user?.role_id === 1
-              ? "No projects are available yet."
-              : "No projects assigned to your workgroup. Please contact administration."}
-          </p>
-        </div>
+      <div className="space-y-4">
+        <p className="text-gray-600 dark:text-gray-300">
+          {user?.role_id === 1
+            ? "No projects are available yet."
+            : "No projects assigned to your workgroup. Please contact administration."}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="p-8 space-y-8">
-      <div>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
-            Monitor tickets across {selectedProjectId ? "the selected project" : "all accessible projects"}.
-          </p>
-        </div>
-      </div>
-
+    <div className="space-y-8">
       <div className="flex justify-start mb-4">
         <button
           onClick={toggleFilterVisibility}

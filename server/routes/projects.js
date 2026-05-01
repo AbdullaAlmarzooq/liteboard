@@ -2,8 +2,67 @@ const express = require("express");
 const db = require("../db/db");
 const authenticateToken = require("../middleware/authMiddleware");
 const { buildProjectAccessFilter } = require("../utils/projectAccess");
+const { buildAdminChangePayload, createAdminEvent } = require("../utils/events");
 
 const router = express.Router();
+
+const getProjectSnapshotForEvents = (project) => {
+  if (!project) return null;
+
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description,
+    active: project.active,
+    workgroup_codes: (project.workgroups || []).map((workgroup) => workgroup.code).sort(),
+    workflow_ids: (project.workflows || []).map((workflow) => workflow.id).sort(),
+    module_ids: (project.modules || []).map((module) => module.id).sort(),
+  };
+};
+
+const logProjectUpdateEvents = async (client, req, beforeProject, afterProject, fields) => {
+  const beforeSnapshot = getProjectSnapshotForEvents(beforeProject);
+  const afterSnapshot = getProjectSnapshotForEvents(afterProject);
+  const { changes, before, after } = buildAdminChangePayload(beforeSnapshot, afterSnapshot, {
+    fields,
+    fieldLabels: {
+      name: "Name",
+      description: "Description",
+      active: "Active",
+      workgroup_codes: "Workgroups",
+      workflow_ids: "Workflows",
+      module_ids: "Modules",
+    },
+  });
+
+  const nonActiveChanges = changes.filter((change) => change.field !== "active");
+  if (nonActiveChanges.length > 0) {
+    await createAdminEvent(client, {
+      req,
+      entity: "project",
+      action: "updated",
+      entityId: afterSnapshot.id,
+      entityName: afterSnapshot.name,
+      changes: nonActiveChanges,
+      before,
+      after,
+    });
+  }
+
+  const activeChange = changes.find((change) => change.field === "active");
+  if (activeChange) {
+    await createAdminEvent(client, {
+      req,
+      entity: "project",
+      action: afterSnapshot.active ? "activated" : "deactivated",
+      entityId: afterSnapshot.id,
+      entityName: afterSnapshot.name,
+      changes: [activeChange],
+      before,
+      after,
+    });
+  }
+};
 
 const listReadableProjects = async (user, { includeAssignments = false } = {}) => {
   const isAdmin = Number(user?.role_id) === 1;
@@ -691,6 +750,23 @@ router.post("/", async (req, res) => {
       await replaceProjectWorkflows(client, projectId, workflowIds, actorId);
       await replaceProjectModules(client, projectId, moduleIds, actorId);
 
+      await createAdminEvent(client, {
+        req,
+        entity: "project",
+        action: "created",
+        entityId: projectId,
+        entityName: String(name).trim(),
+        after: {
+          id: projectId,
+          name: String(name).trim(),
+          description: description || null,
+          active: activeValue,
+          workgroup_codes: workgroupCodes,
+          workflow_ids: workflowIds,
+          module_ids: moduleIds,
+        },
+      });
+
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
@@ -734,8 +810,8 @@ router.put("/:id", async (req, res) => {
   }
 
   try {
-    const existingProject = await ensureProjectExists(id);
-    if (!existingProject) {
+    const beforeProject = await loadProjects(id);
+    if (!beforeProject) {
       return res.status(404).json({ error: "Project not found" });
     }
 
@@ -806,6 +882,34 @@ router.put("/:id", async (req, res) => {
         await replaceProjectModules(client, id, moduleIds, req.user.id);
       }
 
+      const afterProject = {
+        ...beforeProject,
+        name: String(name).trim(),
+        description: description || null,
+        active:
+          normalizeBoolean(active, null) === null
+            ? beforeProject.active
+            : normalizeBoolean(active, null),
+        workgroups: workgroupCodes === null
+          ? beforeProject.workgroups
+          : workgroupCodes.map((code) => ({ code })),
+        workflows: workflowIds === null
+          ? beforeProject.workflows
+          : workflowIds.map((workflowId) => ({ id: workflowId })),
+        modules: moduleIds === null
+          ? beforeProject.modules
+          : moduleIds.map((moduleId) => ({ id: moduleId })),
+      };
+
+      await logProjectUpdateEvents(client, req, beforeProject, afterProject, [
+        "name",
+        "description",
+        "active",
+        "workgroup_codes",
+        "workflow_ids",
+        "module_ids",
+      ]);
+
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
@@ -838,7 +942,7 @@ router.put("/:id/workgroups", async (req, res) => {
   }
 
   try {
-    const project = await ensureProjectExists(id);
+    const project = await loadProjects(id);
     if (!project) {
       return res.status(404).json({ error: "Project not found" });
     }
@@ -857,6 +961,16 @@ router.put("/:id/workgroups", async (req, res) => {
           WHERE id = $2
         `,
         [req.user.id, id]
+      );
+      await logProjectUpdateEvents(
+        client,
+        req,
+        project,
+        {
+          ...project,
+          workgroups: workgroupCodes.map((code) => ({ code })),
+        },
+        ["workgroup_codes"]
       );
       await client.query("COMMIT");
     } catch (err) {
@@ -890,7 +1004,7 @@ router.put("/:id/workflows", async (req, res) => {
   }
 
   try {
-    const project = await ensureProjectExists(id);
+    const project = await loadProjects(id);
     if (!project) {
       return res.status(404).json({ error: "Project not found" });
     }
@@ -909,6 +1023,16 @@ router.put("/:id/workflows", async (req, res) => {
           WHERE id = $2
         `,
         [req.user.id, id]
+      );
+      await logProjectUpdateEvents(
+        client,
+        req,
+        project,
+        {
+          ...project,
+          workflows: workflowIds.map((workflowId) => ({ id: workflowId })),
+        },
+        ["workflow_ids"]
       );
       await client.query("COMMIT");
     } catch (err) {
@@ -942,7 +1066,7 @@ router.put("/:id/modules", async (req, res) => {
   }
 
   try {
-    const project = await ensureProjectExists(id);
+    const project = await loadProjects(id);
     if (!project) {
       return res.status(404).json({ error: "Project not found" });
     }
@@ -960,6 +1084,16 @@ router.put("/:id/modules", async (req, res) => {
           WHERE id = $2
         `,
         [req.user.id, id]
+      );
+      await logProjectUpdateEvents(
+        client,
+        req,
+        project,
+        {
+          ...project,
+          modules: moduleIds.map((moduleId) => ({ id: moduleId })),
+        },
+        ["module_ids"]
       );
       await client.query("COMMIT");
     } catch (err) {

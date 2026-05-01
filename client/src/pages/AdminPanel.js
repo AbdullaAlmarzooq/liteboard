@@ -92,13 +92,13 @@ const AdminPanel = () => {
     setLoading(true);
     try {
       const [empRes, tagsRes, wgRes, modRes, wfRes, projectsRes, rolesRes] = await Promise.all([
-        fetch('http://localhost:8000/api/employees'),
+        fetchWithAuth('http://localhost:8000/api/employees'),
         fetchWithAuth('http://localhost:8000/api/tags'),
-        fetch('http://localhost:8000/api/workgroups'),
+        fetchWithAuth('http://localhost:8000/api/workgroups'),
         fetchWithAuth('http://localhost:8000/api/modules'),
         fetchWithAuth(WORKFLOW_LIST_ENDPOINT),
         fetchWithAuth(PROJECT_LIST_ENDPOINT),
-        fetch('http://localhost:8000/api/employees/roles')
+        fetchWithAuth('http://localhost:8000/api/employees/roles')
       ]);
 
       setEmployees(await empRes.json());
@@ -259,9 +259,8 @@ const AdminPanel = () => {
           color: editForm.color
         };
 
-        const response = await fetch(`http://localhost:8000/api/tags/${editForm.id}`, {
+        const response = await fetchWithAuth(`http://localhost:8000/api/tags/${editForm.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
@@ -315,6 +314,33 @@ const AdminPanel = () => {
         return;
       }
 
+      if (activeTab === 'workgroups') {
+        const payload = {
+          name: editForm.name,
+          description: editForm.description,
+        };
+
+        const response = await fetchWithAuth(`http://localhost:8000/api/workgroups/${editForm.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          throw new Error(errorBody.error || 'Failed to update workgroup');
+        }
+
+        const updatedWorkgroup = await response.json();
+        setWorkgroups((prev) =>
+          prev.map((workgroup) => (workgroup.id === editForm.id ? updatedWorkgroup : workgroup))
+        );
+
+        setEditingItem(null);
+        setEditForm({});
+        showToast('Workgroup updated successfully');
+        return;
+      }
+
       if (editForm.password && editForm.password.length < 6) {
         throw new Error('Password must be at least 6 characters');
       }
@@ -328,9 +354,8 @@ const AdminPanel = () => {
         ...(editForm.password ? { password: editForm.password } : {})
       };
 
-      const response = await fetch(`http://localhost:8000/api/employees/${editForm.id}`, {
+      const response = await fetchWithAuth(`http://localhost:8000/api/employees/${editForm.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
@@ -340,7 +365,7 @@ const AdminPanel = () => {
       }
 
       // Fetch updated employee from backend to get roleName/workgroupName
-      const updatedEmployeeRes = await fetch(`http://localhost:8000/api/employees/${editForm.id}`);
+      const updatedEmployeeRes = await fetchWithAuth(`http://localhost:8000/api/employees/${editForm.id}`);
       const updatedEmployee = await updatedEmployeeRes.json();
 
       setEmployees(prev =>
@@ -469,17 +494,10 @@ const AdminPanel = () => {
 
     try {
       const createEndpoint = `http://localhost:8000/api/${activeTab}`;
-      const response =
-        activeTab === 'modules'
-          ? await fetchWithAuth(createEndpoint, {
-              method: 'POST',
-              body: JSON.stringify(newItem),
-            })
-          : await fetch(createEndpoint, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(newItem),
-            });
+      const response = await fetchWithAuth(createEndpoint, {
+        method: 'POST',
+        body: JSON.stringify(newItem),
+      });
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
@@ -760,8 +778,8 @@ const AdminPanel = () => {
   };
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="w-full">
+      <div className="w-full">
         {toast && (
           <div
             className={`fixed top-4 right-4 z-[70] px-4 py-2 rounded-md text-sm shadow-lg ${
@@ -773,11 +791,6 @@ const AdminPanel = () => {
             {toast.message}
           </div>
         )}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h1 className="text-2xl font-bold">Admin Panel</h1>
-          <p className="mt-1">Manage employees, tags, workgroups, modules, workflows, and projects</p>
-        </div>
-
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
             {tabs.map(tab => {

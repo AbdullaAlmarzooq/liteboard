@@ -419,7 +419,7 @@ CREATE TABLE events (
     ticket_id UUID,
     event_type TEXT NOT NULL,
     entity_type TEXT NOT NULL,
-    entity_id UUID NOT NULL,
+    entity_id TEXT NOT NULL,
     actor_id UUID,
     actor_name TEXT,
     payload JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -434,7 +434,21 @@ CREATE TABLE events (
 
     CONSTRAINT chk_events_event_type_not_blank CHECK (btrim(event_type) <> ''),
     CONSTRAINT chk_events_entity_type CHECK (
-        entity_type IN ('ticket', 'comment', 'attachment', 'tag')
+        entity_type IN (
+            'ticket',
+            'comment',
+            'attachment',
+            'tag',
+            'project',
+            'module',
+            'workflow',
+            'workflow_step',
+            'workgroup',
+            'user',
+            'role',
+            'permission',
+            'system_setting'
+        )
     ),
     CONSTRAINT chk_events_payload_object CHECK (
         jsonb_typeof(payload) = 'object'
@@ -568,6 +582,9 @@ CREATE INDEX idx_events_event_type_occurred
 CREATE INDEX idx_events_actor_occurred
     ON events(actor_id, occurred_at DESC)
     WHERE deleted_at IS NULL AND actor_id IS NOT NULL;
+CREATE INDEX idx_events_entity_type_occurred
+    ON events(entity_type, occurred_at DESC)
+    WHERE deleted_at IS NULL;
 
 -- Status History (audit queries)
 CREATE INDEX idx_status_history_ticket ON status_history(ticket_id);
@@ -817,8 +834,8 @@ COMMENT ON COLUMN attachments.storage_key IS 'Object storage path (e.g., tickets
 COMMENT ON COLUMN attachments.storage_bucket IS 'S3/R2 bucket name';
 COMMENT ON COLUMN events.ticket_id IS 'Nullable ticket reference for ticket-scoped timelines; null for future global/system events';
 COMMENT ON COLUMN events.event_type IS 'Business event name in dot notation (e.g., ticket.updated, attachment.deleted)';
-COMMENT ON COLUMN events.entity_type IS 'Owned entity type affected by the event: ticket, comment, attachment, or tag';
-COMMENT ON COLUMN events.entity_id IS 'Primary entity identifier affected by the event';
+COMMENT ON COLUMN events.entity_type IS 'Owned entity type affected by the event, including ticket entities and admin-managed entities';
+COMMENT ON COLUMN events.entity_id IS 'Primary entity identifier affected by the event; stored as text to support UUID and natural-key admin entities';
 COMMENT ON COLUMN events.actor_name IS 'Actor display-name snapshot kept for historical rendering';
 COMMENT ON COLUMN events.payload IS 'Structured event metadata for backend message generation and integrations';
 COMMENT ON COLUMN workflow_steps.category_code IS '10=open, 20=in progress, 30=closed, 40=cancelled terminal state';

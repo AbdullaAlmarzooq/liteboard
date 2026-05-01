@@ -9,6 +9,21 @@ const FIELD_LABELS = {
   responsible_employee_id: "Assigned",
 };
 
+const ADMIN_ENTITY_LABELS = {
+  project: "project",
+  module: "module",
+  workflow: "workflow",
+  workflow_step: "workflow step",
+  tag: "tag",
+  workgroup: "workgroup",
+  user: "user",
+  role: "role",
+  permission: "permission",
+  system_setting: "system setting",
+};
+
+const SENSITIVE_FIELD_PATTERN = /(password|password_hash|token|reset_token|secret)/i;
+
 const stripHtml = (value) =>
   String(value || "")
     .replace(/<[^>]+>/g, " ")
@@ -78,6 +93,11 @@ const formatChangeValue = (change, side) => {
 const getActorName = (event) => {
   const actorName = String(event.actor_name || "").trim();
   return actorName || "Someone";
+};
+
+const getAdminActorName = (event) => {
+  const actorName = String(event.actor_name || "").trim();
+  return actorName || "Unknown actor";
 };
 
 const formatTicketUpdatedDetails = (payload) => {
@@ -171,6 +191,20 @@ const buildEventPresentation = (event) => {
       };
 
     default:
+      if (String(event.event_type || "").startsWith("admin.")) {
+        const credentialMessage = buildCredentialUpdateMessage(event, payload);
+
+        return {
+          message: credentialMessage || payload.message || buildAdminEventMessage({
+            actorName: getAdminActorName(event),
+            entity: payload.entity_type || event.entity_type,
+            action: payload.action || String(event.event_type).split(".").pop(),
+            entityName: payload.entity_name,
+          }),
+          detail_lines: formatAdminEventDetails(payload),
+        };
+      }
+
       return {
         message: `${actor} performed ${event.event_type}`,
         detail_lines: [],
@@ -240,9 +274,212 @@ const insertEvent = async (
   );
 };
 
+const isSensitiveField = (field) => SENSITIVE_FIELD_PATTERN.test(String(field || ""));
+
+const sanitizeAdminEventValue = (value) => {
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeAdminEventValue);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.entries(value).reduce((safeValue, [key, entryValue]) => {
+      if (!isSensitiveField(key)) {
+        safeValue[key] = sanitizeAdminEventValue(entryValue);
+      }
+      return safeValue;
+    }, {});
+  }
+
+  return value;
+};
+
+const valuesAreEqual = (left, right) => {
+  const normalize = (value) => {
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+
+    if (value === undefined) {
+      return null;
+    }
+
+    return value;
+  };
+
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+};
+
+const buildAdminChangePayload = (before = {}, after = {}, options = {}) => {
+  const beforeSafe = sanitizeAdminEventValue(before || {});
+  const afterSafe = sanitizeAdminEventValue(after || {});
+  const fields = Array.isArray(options.fields) && options.fields.length
+    ? options.fields
+    : [...new Set([...Object.keys(beforeSafe), ...Object.keys(afterSafe)])];
+  const fieldLabels = options.fieldLabels || {};
+
+  const changes = fields
+    .filter((field) => !isSensitiveField(field))
+    .filter((field) => !valuesAreEqual(beforeSafe[field], afterSafe[field]))
+    .map((field) => ({
+      field,
+      label: fieldLabels[field] || field,
+      old_value: beforeSafe[field] ?? null,
+      new_value: afterSafe[field] ?? null,
+    }));
+
+  return {
+    changes,
+    before: beforeSafe,
+    after: afterSafe,
+  };
+};
+
+const formatAdminEventDetails = (payload) => {
+  const changes = Array.isArray(payload?.changes) ? payload.changes : [];
+
+  const details = changes.map((change) => {
+    const label = change.label || change.field;
+    const oldValue = change.old_value === null || change.old_value === undefined || change.old_value === ""
+      ? "Empty"
+      : String(change.old_value);
+    const newValue = change.new_value === null || change.new_value === undefined || change.new_value === ""
+      ? "Empty"
+      : String(change.new_value);
+
+    return `${label}: ${oldValue} -> ${newValue}`;
+  });
+
+  if (payload?.credentials_updated) {
+    const credentialLabel = payload.credential_type === "password" ? "Password" : "Credentials";
+    details.push(`${credentialLabel}: Changed`);
+  }
+
+  return details;
+};
+
+const buildCredentialUpdateMessage = (event, payload) => {
+  if (event.event_type !== "admin.user.updated" || !payload?.credentials_updated) {
+    return null;
+  }
+
+  const actor = getAdminActorName(event);
+  const targetName = payload.entity_name || event.entity_id;
+  const changes = Array.isArray(payload.changes) ? payload.changes : [];
+
+  if (payload.credential_type === "password") {
+    if (changes.length > 0) {
+      return `${actor} updated user "${targetName}" and changed their password`;
+    }
+
+    return `${actor} changed ${targetName}'s password`;
+  }
+
+  return `${actor} updated credentials for user "${targetName}"`;
+};
+
+const buildAdminEventMessage = ({
+  actorName,
+  entity,
+  action,
+  entityName,
+}) => {
+  const actor = String(actorName || "").trim() || "Unknown actor";
+  const entityLabel = ADMIN_ENTITY_LABELS[entity] || String(entity || "item").replace(/_/g, " ");
+  const target = entityName ? ` "${entityName}"` : "";
+
+  switch (action) {
+    case "created":
+      return `${actor} created ${entityLabel}${target}`;
+    case "updated":
+      return `${actor} updated ${entityLabel}${target}`;
+    case "deleted":
+      return `${actor} deleted ${entityLabel}${target}`;
+    case "activated":
+      return `${actor} activated ${entityLabel}${target}`;
+    case "deactivated":
+      return `${actor} deactivated ${entityLabel}${target}`;
+    case "role_changed":
+      return `${actor} changed the role for ${entityLabel}${target}`;
+    default:
+      return `${actor} performed ${action || "an admin action"} on ${entityLabel}${target}`;
+  }
+};
+
+const getActorFromRequest = (req) => ({
+  actorId: req?.user?.id || null,
+  actorName: req?.user?.name || null,
+});
+
+const createAdminEvent = async (
+  executor,
+  {
+    req,
+    entity,
+    action,
+    entityId,
+    entityName = null,
+    changes = [],
+    before = null,
+    after = null,
+    payload = {},
+    occurredAt = null,
+  }
+) => {
+  const { actorId, actorName } = getActorFromRequest(req);
+  const eventType = `admin.${entity}.${action}`;
+  const safePayload = sanitizeAdminEventValue({
+    ...payload,
+    entity_type: entity,
+    entity_id: entityId ? String(entityId) : null,
+    entity_name: entityName,
+    action,
+    changes,
+    before,
+    after,
+  });
+
+  const message = safePayload.message || buildAdminEventMessage({
+    actorName,
+    entity,
+    action,
+    entityName,
+  });
+
+  try {
+    await insertEvent(executor, {
+      ticketId: null,
+      eventType,
+      entityType: entity,
+      entityId: entityId ? String(entityId) : null,
+      actorId,
+      actorName,
+      payload: {
+        ...safePayload,
+        message,
+      },
+      occurredAt,
+    });
+  } catch (error) {
+    if (error?.constraint === "chk_events_entity_type") {
+      error.message =
+        "Admin event logging requires migration 2026-05-01_expand_events_for_admin_actions.sql to be applied.";
+    }
+
+    throw error;
+  }
+};
+
 module.exports = {
+  buildAdminChangePayload,
+  buildAdminEventMessage,
   buildCommentPreview,
   buildEventPresentation,
+  createAdminEvent,
   insertEvent,
   mapEventRow,
+  sanitizeAdminEventValue,
 };

@@ -3,6 +3,7 @@ const db = require("../db/db");
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
 const { buildProjectAccessFilter, getProjectAccess } = require("../utils/projectAccess");
+const { buildAdminChangePayload, createAdminEvent } = require("../utils/events");
 
 // ----------------------------------------------------------------------
 // GET all active modules (for dropdowns/lists)
@@ -24,7 +25,9 @@ router.get("/", authenticateToken(), async (req, res) => {
     const isAdmin = Number(req.user?.role_id) === 1;
     let selectPrefix = "";
     let joinClause = "";
-    let whereClause = "WHERE m.active = true AND m.deleted_at IS NULL";
+    let whereClause = isAdmin && !projectId
+      ? "WHERE m.deleted_at IS NULL"
+      : "WHERE m.active = true AND m.deleted_at IS NULL";
     let queryParams = [];
 
     if (projectId) {
@@ -112,15 +115,37 @@ router.post("/", authenticateToken([1]), async (req, res) => {
         return res.status(409).json({ error: "A module with this name already exists" });
     }
 
-    const { rows } = await db.query(
-      `
-        INSERT INTO modules (name, description)
-        VALUES ($1, $2)
-        RETURNING id, name, description, active, created_at, updated_at
-      `,
-      [trimmedName, description || null]
-    );
-    const createdModule = rows[0];
+    const client = await db.pool.connect();
+    let createdModule = null;
+    try {
+      await client.query("BEGIN");
+
+      const { rows } = await client.query(
+        `
+          INSERT INTO modules (name, description)
+          VALUES ($1, $2)
+          RETURNING id, name, description, active, created_at, updated_at
+        `,
+        [trimmedName, description || null]
+      );
+      createdModule = rows[0];
+
+      await createAdminEvent(client, {
+        req,
+        entity: "module",
+        action: "created",
+        entityId: createdModule.id,
+        entityName: createdModule.name,
+        after: createdModule,
+      });
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     res.status(201).json({
       message: "Module created successfully",
@@ -155,19 +180,90 @@ router.put("/:id", authenticateToken([1]), async (req, res) => {
         return res.status(409).json({ error: "This module name is already in use by another module" });
     }
 
-    const activeValue =
-      typeof active === "boolean" ? active : active === undefined || active === null ? true : active;
-
-    const result = await db.query(
+    const beforeResult = await db.query(
       `
-        UPDATE modules
-        SET name = $1, description = $2, active = $3, updated_at = NOW()
-        WHERE id = $4 AND deleted_at IS NULL
+        SELECT id, name, description, active, created_at, updated_at
+        FROM modules
+        WHERE id = $1 AND deleted_at IS NULL
       `,
-      [trimmedName, description || null, activeValue, id]
+      [id]
     );
+    const beforeModule = beforeResult.rows[0];
 
-    if (result.rowCount === 0) {
+    if (!beforeModule) {
+      return res.status(404).json({ error: "Module not found" });
+    }
+
+    const activeValue =
+      typeof active === "boolean" ? active : active === undefined || active === null ? beforeModule.active : active;
+
+    const client = await db.pool.connect();
+    let rowCount = 0;
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query(
+        `
+          UPDATE modules
+          SET name = $1, description = $2, active = $3, updated_at = NOW()
+          WHERE id = $4 AND deleted_at IS NULL
+          RETURNING id, name, description, active, created_at, updated_at
+        `,
+        [trimmedName, description || null, activeValue, id]
+      );
+      rowCount = result.rowCount;
+
+      if (rowCount > 0) {
+        const afterModule = result.rows[0];
+        const { changes, before, after } = buildAdminChangePayload(beforeModule, afterModule, {
+          fields: ["name", "description"],
+          fieldLabels: {
+            name: "Name",
+            description: "Description",
+          },
+        });
+
+        if (changes.length > 0) {
+          await createAdminEvent(client, {
+            req,
+            entity: "module",
+            action: "updated",
+            entityId: id,
+            entityName: afterModule.name,
+            changes,
+            before,
+            after,
+          });
+        }
+
+        if (beforeModule.active !== afterModule.active) {
+          await createAdminEvent(client, {
+            req,
+            entity: "module",
+            action: afterModule.active ? "activated" : "deactivated",
+            entityId: id,
+            entityName: afterModule.name,
+            changes: [{
+              field: "active",
+              label: "Active",
+              old_value: beforeModule.active,
+              new_value: afterModule.active,
+            }],
+            before: beforeModule,
+            after: afterModule,
+          });
+        }
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    if (rowCount === 0) {
       const existsResult = await db.query(
         "SELECT id FROM modules WHERE id = $1 AND deleted_at IS NULL",
         [id]
@@ -192,16 +288,55 @@ router.delete("/:id", authenticateToken([1]), async (req, res) => {
   const { id } = req.params;
 
   try {
-    const result = await db.query(
+    const beforeResult = await db.query(
       `
-        UPDATE modules
-        SET active = false, deleted_at = NOW(), updated_at = NOW()
+        SELECT id, name, description, active, created_at, updated_at
+        FROM modules
         WHERE id = $1 AND deleted_at IS NULL
       `,
       [id]
     );
+    const beforeModule = beforeResult.rows[0];
 
-    if (result.rowCount === 0) {
+    if (!beforeModule) {
+      return res.status(404).json({ error: "Module not found" });
+    }
+
+    const client = await db.pool.connect();
+    let rowCount = 0;
+    try {
+      await client.query("BEGIN");
+
+      const result = await client.query(
+        `
+          UPDATE modules
+          SET active = false, deleted_at = NOW(), updated_at = NOW()
+          WHERE id = $1 AND deleted_at IS NULL
+        `,
+        [id]
+      );
+      rowCount = result.rowCount;
+
+      if (rowCount > 0) {
+        await createAdminEvent(client, {
+          req,
+          entity: "module",
+          action: "deleted",
+          entityId: beforeModule.id,
+          entityName: beforeModule.name,
+          before: beforeModule,
+        });
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+
+    if (rowCount === 0) {
       return res.status(404).json({ error: "Module not found" });
     }
 

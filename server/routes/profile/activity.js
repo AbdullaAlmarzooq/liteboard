@@ -60,4 +60,43 @@ router.get("/activity", authenticateToken(), async (req, res) => {
   }
 });
 
+router.get("/activity/global", authenticateToken([1]), async (req, res) => {
+  const { page, limit, offset } = parsePagination(req.query);
+
+  try {
+    const totalSql = `
+      SELECT COUNT(*)::int AS total
+      FROM events ev
+      WHERE ev.deleted_at IS NULL
+    `;
+
+    const sql = `
+      SELECT
+        ev.*,
+        t.ticket_code,
+        t.title AS ticket_title
+      FROM events ev
+      LEFT JOIN tickets t ON ev.ticket_id = t.id
+      WHERE ev.deleted_at IS NULL
+      ORDER BY ev.occurred_at DESC, ev.created_at DESC, ev.id DESC
+      LIMIT $1 OFFSET $2
+    `;
+
+    const [{ rows: totalRows }, { rows }] = await Promise.all([
+      db.query(totalSql),
+      db.query(sql, [limit, offset]),
+    ]);
+
+    res.json({
+      items: rows.map(mapEventRow),
+      total: totalRows[0]?.total || 0,
+      page,
+      limit,
+    });
+  } catch (err) {
+    console.error("Error fetching global activity:", err);
+    res.status(500).json({ error: "Failed to fetch global activity" });
+  }
+});
+
 module.exports = router;

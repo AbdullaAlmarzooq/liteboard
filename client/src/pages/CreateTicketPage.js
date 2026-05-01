@@ -364,36 +364,22 @@ const CreateTicketPage = () => {
 
   if (baseError) {
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Create New Ticket
-          </h1>
-          <p className="text-red-600 dark:text-red-400">
-            Error loading setup data: {baseError}
-          </p>
-        </div>
+      <div className="w-full space-y-6">
+        <p className="text-red-600 dark:text-red-400">
+          Error loading setup data: {baseError}
+        </p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="w-full space-y-6">
       <Toast
         message={toast.message}
         type={toast.type}
         onClose={hideToast}
         isVisible={toast.isVisible}
       />
-
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-          Create New Ticket
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300">
-          Start by selecting a project, then complete the ticket details.
-        </p>
-      </div>
 
       <Card className="bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700">
         <CardHeader>

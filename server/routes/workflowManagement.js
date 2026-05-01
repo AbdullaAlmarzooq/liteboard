@@ -3,6 +3,7 @@ const express = require("express");
 const db = require("../db/db");
 const router = express.Router();
 const authenticateToken = require("../middleware/authMiddleware");
+const { buildAdminChangePayload, createAdminEvent } = require("../utils/events");
 const {
   CLOSED_CATEGORY_CODE,
   CANCELLED_CATEGORY_CODE,
@@ -125,6 +126,111 @@ const CATEGORY_NAME_SQL = `
     ELSE 'Open'
   END
 `;
+
+const workflowStepEventId = (workflowId, stepCode) => `${workflowId}:${stepCode}`;
+
+const getWorkflowSnapshot = async (executor, workflowId) => {
+  const workflowResult = await executor.query(
+    `
+      SELECT id, name, description, active, sla_enabled
+      FROM workflows
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [workflowId]
+  );
+  const workflow = workflowResult.rows[0];
+  if (!workflow) return null;
+
+  const stepsResult = await executor.query(
+    `
+      SELECT step_code, step_name, step_order, category_code, workgroup_id, description, sla_days
+      FROM workflow_steps
+      WHERE workflow_id = $1
+      ORDER BY step_order ASC
+    `,
+    [workflowId]
+  );
+
+  return {
+    ...workflow,
+    steps: stepsResult.rows,
+  };
+};
+
+const logWorkflowStepEvents = async (client, req, workflowId, workflowName, beforeSteps, afterSteps) => {
+  const beforeByCode = new Map((beforeSteps || []).map((step) => [step.step_code, step]));
+  const afterByCode = new Map((afterSteps || []).map((step) => [step.step_code, step]));
+
+  for (const afterStep of afterSteps || []) {
+    const beforeStep = beforeByCode.get(afterStep.step_code);
+
+    if (!beforeStep) {
+      await createAdminEvent(client, {
+        req,
+        entity: "workflow_step",
+        action: "created",
+        entityId: workflowStepEventId(workflowId, afterStep.step_code),
+        entityName: afterStep.step_name,
+        after: {
+          workflow_id: workflowId,
+          workflow_name: workflowName,
+          ...afterStep,
+        },
+      });
+      continue;
+    }
+
+    const { changes, before, after } = buildAdminChangePayload(beforeStep, afterStep, {
+      fields: ["step_name", "step_order", "category_code", "workgroup_id", "sla_days"],
+      fieldLabels: {
+        step_name: "Step Name",
+        step_order: "Step Order",
+        category_code: "Category",
+        workgroup_id: "Workgroup",
+        sla_days: "SLA Days",
+      },
+    });
+
+    if (changes.length > 0) {
+      await createAdminEvent(client, {
+        req,
+        entity: "workflow_step",
+        action: "updated",
+        entityId: workflowStepEventId(workflowId, afterStep.step_code),
+        entityName: afterStep.step_name,
+        changes,
+        before: {
+          workflow_id: workflowId,
+          workflow_name: workflowName,
+          ...before,
+        },
+        after: {
+          workflow_id: workflowId,
+          workflow_name: workflowName,
+          ...after,
+        },
+      });
+    }
+  }
+
+  for (const beforeStep of beforeSteps || []) {
+    if (afterByCode.has(beforeStep.step_code)) continue;
+
+    await createAdminEvent(client, {
+      req,
+      entity: "workflow_step",
+      action: "deleted",
+      entityId: workflowStepEventId(workflowId, beforeStep.step_code),
+      entityName: beforeStep.step_name,
+      before: {
+        workflow_id: workflowId,
+        workflow_name: workflowName,
+        ...beforeStep,
+      },
+    });
+  }
+};
 
 const attachTransitionsToSteps = (stepsRows, transitionRows) => {
   const stepMap = new Map();
@@ -410,6 +516,32 @@ router.post("/", async (req, res) => {
 
       await recalculateOpenTicketsDueDatesForWorkflow(workflowId, client);
 
+      const afterSteps = normalizedSteps.map((step, index) => ({
+        step_code: step.stepCode,
+        step_name: step.stepName,
+        step_order: index + 1,
+        category_code: step.normalizedCategory,
+        workgroup_id: step.workgroupId || step.workgroupCode || null,
+        sla_days: step.normalizedSlaDays,
+      }));
+
+      await createAdminEvent(client, {
+        req,
+        entity: "workflow",
+        action: "created",
+        entityId: workflowId,
+        entityName: name,
+        after: {
+          id: workflowId,
+          name,
+          active: true,
+          sla_enabled: normalizedSlaEnabled,
+          steps: afterSteps,
+        },
+      });
+
+      await logWorkflowStepEvents(client, req, workflowId, name, [], afterSteps);
+
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -444,16 +576,7 @@ router.patch("/:id", async (req, res) => {
   }
 
   try {
-    const existingWorkflowResult = await db.query(
-      `
-        SELECT sla_enabled
-        FROM workflows
-        WHERE id = $1
-        LIMIT 1
-      `,
-      [workflowId]
-    );
-    const existingWorkflow = existingWorkflowResult.rows[0];
+    const existingWorkflow = await getWorkflowSnapshot(db, workflowId);
     if (!existingWorkflow) {
       return res.status(404).json({ error: "Workflow not found" });
     }
@@ -479,7 +602,8 @@ router.patch("/:id", async (req, res) => {
 
       const existingStepsResult = await client.query(
         `
-          SELECT step_code, step_name FROM workflow_steps
+          SELECT step_code, step_name, step_order, category_code, workgroup_id, description, sla_days
+          FROM workflow_steps
           WHERE workflow_id = $1
         `,
         [workflowId]
@@ -568,6 +692,50 @@ router.patch("/:id", async (req, res) => {
 
       await recalculateOpenTicketsDueDatesForWorkflow(workflowId, client);
 
+      const afterSteps = normalizedSteps.map((step, index) => ({
+        step_code: step.stepCode,
+        step_name: step.stepName,
+        step_order: index + 1,
+        category_code: step.normalizedCategory,
+        workgroup_id: step.workgroupId || step.workgroupCode || null,
+        sla_days: step.normalizedSlaDays,
+      }));
+      const afterWorkflow = {
+        ...existingWorkflow,
+        name,
+        sla_enabled: normalizedSlaEnabled,
+        steps: afterSteps,
+      };
+      const { changes, before, after } = buildAdminChangePayload(existingWorkflow, afterWorkflow, {
+        fields: ["name", "sla_enabled"],
+        fieldLabels: {
+          name: "Name",
+          sla_enabled: "SLA Enabled",
+        },
+      });
+
+      if (changes.length > 0) {
+        await createAdminEvent(client, {
+          req,
+          entity: "workflow",
+          action: "updated",
+          entityId: workflowId,
+          entityName: afterWorkflow.name,
+          changes,
+          before,
+          after,
+        });
+      }
+
+      await logWorkflowStepEvents(
+        client,
+        req,
+        workflowId,
+        afterWorkflow.name,
+        existingWorkflow.steps,
+        afterSteps
+      );
+
       await client.query("COMMIT");
     } catch (error) {
       await client.query("ROLLBACK");
@@ -598,14 +766,52 @@ router.patch("/:id/active", async (req, res) => {
   }
 
   try {
-    await db.query(
-      `
-        UPDATE workflows
-        SET active = $1, updated_at = NOW()
-        WHERE id = $2
-      `,
-      [active, workflowId]
-    );
+    const beforeWorkflow = await getWorkflowSnapshot(db, workflowId);
+    if (!beforeWorkflow) {
+      return res.status(404).json({ error: "Workflow not found" });
+    }
+
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      await client.query(
+        `
+          UPDATE workflows
+          SET active = $1, updated_at = NOW()
+          WHERE id = $2
+        `,
+        [active, workflowId]
+      );
+
+      if (beforeWorkflow.active !== active) {
+        await createAdminEvent(client, {
+          req,
+          entity: "workflow",
+          action: active ? "activated" : "deactivated",
+          entityId: workflowId,
+          entityName: beforeWorkflow.name,
+          changes: [{
+            field: "active",
+            label: "Active",
+            old_value: beforeWorkflow.active,
+            new_value: active,
+          }],
+          before: beforeWorkflow,
+          after: {
+            ...beforeWorkflow,
+            active,
+          },
+        });
+      }
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
     res.json({ success: true, id: workflowId, active });
   } catch (err) {
     console.error("Failed to toggle workflow active:", err);
@@ -620,15 +826,41 @@ router.delete("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Soft delete by setting active = 0
-    await db.query(
-      `
-        UPDATE workflows
-        SET active = false, updated_at = NOW()
-        WHERE id = $1
-      `,
-      [id]
-    );
+    const beforeWorkflow = await getWorkflowSnapshot(db, id);
+    if (!beforeWorkflow) {
+      return res.status(404).json({ error: "Workflow not found" });
+    }
+
+    const client = await db.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Soft delete by setting active = 0
+      await client.query(
+        `
+          UPDATE workflows
+          SET active = false, updated_at = NOW()
+          WHERE id = $1
+        `,
+        [id]
+      );
+
+      await createAdminEvent(client, {
+        req,
+        entity: "workflow",
+        action: "deleted",
+        entityId: id,
+        entityName: beforeWorkflow.name,
+        before: beforeWorkflow,
+      });
+
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
 
     res.json({ success: true });
   } catch (err) {

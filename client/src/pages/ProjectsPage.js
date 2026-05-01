@@ -47,31 +47,18 @@ const ProjectsPage = () => {
   if (!projects.length) {
     return (
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Projects Overview
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
-            {user?.role_id === 1
-              ? "No projects are available yet."
-              : "No projects assigned to your workgroup. Please contact administration."}
-          </p>
-        </div>
+        <p className="text-gray-600 dark:text-gray-300">
+          {user?.role_id === 1
+            ? "No projects are available yet."
+            : "No projects assigned to your workgroup. Please contact administration."}
+        </p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Projects Overview
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
-            Review ticket volume by project and jump straight into a filtered ticket list.
-          </p>
-        </div>
+      <div className="flex justify-end">
         <Badge variant="outline" className="w-fit">
           {projects.length} {projects.length === 1 ? "project" : "projects"}
         </Badge>

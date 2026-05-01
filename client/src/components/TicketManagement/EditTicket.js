@@ -674,9 +674,6 @@ const EditTicket = () => {
               ← Back to Tickets
             </button>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-            Edit Ticket
-          </h1>
           <p className="text-gray-600 dark:text-gray-300 font-mono text-sm">
             {ticket.ticket_code || ticket.ticketCode || ticket.id}
           </p>
