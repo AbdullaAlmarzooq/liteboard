@@ -576,7 +576,6 @@ const EditTicket = () => {
         workgroupId: formData.workgroupId,
         moduleId: formData.moduleId,
         responsibleEmployeeId: formData.responsibleEmployeeId,
-        startDate: formData.startDate,
         tags: formData.tags,
       };
 

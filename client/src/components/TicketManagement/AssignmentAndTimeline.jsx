@@ -1,15 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../Card";
 
-const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employees, moduleOptions }) => {
-  const toDateInputValue = (value) => {
-    if (!value) return "";
-    if (typeof value === "string" && value.length >= 10) {
-      // Supports ISO timestamps and plain YYYY-MM-DD strings.
-      return value.slice(0, 10);
-    }
-    return "";
-  };
-
+const AssignmentAndTimeline = ({
+  formData,
+  handleInputChange,
+  workgroups,
+  employees,
+  moduleOptions,
+}) => {
   // Filter employees by current workGroup
   const eligibleEmployees = employees
     ? employees.filter(emp => String(emp.workgroupId) === String(formData.workgroupId))
@@ -104,27 +101,6 @@ const AssignmentAndTimeline = ({ formData, handleInputChange, workgroups, employ
               <option disabled>No modules available</option>
             )}
           </select>
-        </div>
-
-        {/* Timeline Section */}
-        <CardHeader>
-          <CardTitle>Timeline</CardTitle>
-        </CardHeader>
-        <div>
-          <label
-            htmlFor="startDate"
-            className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Start Date
-          </label>
-          <input
-            id="startDate"
-            name="startDate"
-            type="date"
-            value={toDateInputValue(formData.startDate)}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-          />
         </div>
       </CardContent>
     </Card>

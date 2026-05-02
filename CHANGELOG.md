@@ -41,6 +41,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Create/Edit ticket UI no longer allows manual due-date editing.
 - Create Ticket now defaults `start_date` to the initiate-date day (Bahrain timezone) when the field is left empty.
 - Create Ticket form no longer shows a start-date calendar input; users cannot override automatic start-date assignment.
+- Edit Ticket no longer shows the Timeline/Start Date section, and ticket updates preserve the original `start_date` instead of accepting edits to it.
+- View Ticket date-only fields now display in `dd/mm/yyyy` format.
 - Tickets page list and search UI now use SLA badges (`No SLA`, `On Time`, `Due Today`, `Overdue`) instead of displaying due dates directly.
 - SLA status logic now treats Closed/Cancelled tickets as terminal even when `completed_at` is missing, preventing legacy terminal rows from appearing as active overdue.
 - SLA badge logic now returns `no_sla` when `workflow.sla_enabled = false`, even if legacy tickets still have a historical `due_date`.
@@ -51,6 +53,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Modules API now requires authentication for reads, enforces Admin-only create/update/delete, and supports `GET /api/modules?project_id=...` for project-scoped module reads.
 - Create Ticket and Edit Ticket pages now load modules using the selected ticket project (`project_id`) instead of a global modules list.
 - Tickets create/update API now enforces strict module-project assignment validation: submitted (or currently retained) `module_id` must belong to the ticket project through `project_modules`.
+
+### Fixed
+- PostgreSQL `DATE` columns now remain plain `YYYY-MM-DD` strings in Node responses, preventing date-only values from shifting to the previous day when serialized through UTC.
+- Ticket creation now derives automatic `start_date` and SLA due-date baselines from the Bahrain calendar date while keeping audit timestamps as real UTC instants.
 
 ## [2026-04-18]
 

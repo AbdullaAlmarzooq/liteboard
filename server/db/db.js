@@ -1,6 +1,10 @@
 // server/db/db.js
 require("dotenv").config();
-const { Pool } = require("pg");
+const { Pool, types } = require("pg");
+
+// Keep PostgreSQL DATE columns as YYYY-MM-DD strings. Parsing them as
+// JavaScript Date objects shifts date-only values across timezones.
+types.setTypeParser(1082, (value) => value);
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {

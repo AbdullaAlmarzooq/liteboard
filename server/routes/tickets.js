@@ -17,6 +17,7 @@ const {
   determineTicketSlaStatus,
 } = require("../utils/sla");
 const MAX_LIST_PAGE_SIZE = 100;
+const APP_TIME_ZONE = "Asia/Bahrain";
 
 const parsePagination = (query) => {
   const page = Math.max(1, Number.parseInt(query.page, 10) || 1);
@@ -281,6 +282,23 @@ const normalizeDate = (value) => {
   if (!value) return null;
   if (typeof value === "string" && value.trim() === "") return null;
   return value;
+};
+
+const getAppDateOnly = (date = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+
+  return `${values.year}-${values.month}-${values.day}`;
 };
 
 const normalizeUuid = (value) => {
@@ -1203,10 +1221,10 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
   try {
     const safeDescription = sanitizeTicketDescription(description);
     const now = new Date();
-    const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
-    const timestamp = bahrainTime.toISOString();
+    const timestamp = now.toISOString();
+    const appDateToday = getAppDateOnly(now);
     const normalizedStartDate = normalizeDate(start_date);
-    const startDateForInsert = normalizedStartDate || timestamp.slice(0, 10);
+    const startDateForInsert = normalizedStartDate || appDateToday;
     const code = id || ticket_code || `TCK-${Date.now()}`;
     let completedAt = null;
     const normalizedTagIds = normalizeUuidArray(tag_ids || []);
@@ -1312,7 +1330,7 @@ router.post("/", authenticateToken([1, 2]), async (req, res) => {
       }
 
       const calculatedDueDate = await calculateTicketDueDate(
-        timestamp,
+        appDateToday,
         workflow_id,
         client
       );
@@ -1419,7 +1437,7 @@ router.put(
   const { 
     title, description, priority,
     workflowId, workgroupId, moduleId,
-    responsibleEmployeeId, startDate, tags, stepCode
+    responsibleEmployeeId, tags, stepCode
   } = req.body;
 
   let step_code = stepCode || null;
@@ -1429,7 +1447,7 @@ router.put(
       description !== undefined ? sanitizeTicketDescription(description) : undefined;
     const ticket = await getTicketByParam(
       id,
-      "id, workflow_id, project_id, created_by, title, description, due_date, initiate_date, created_at"
+      "id, workflow_id, project_id, created_by, title, description, due_date, start_date, initiate_date, created_at"
     );
     if (!ticket) {
       return res.status(404).json({ error: "Ticket not found" });
@@ -1488,9 +1506,7 @@ router.put(
       }
     }
 
-    const now = new Date();
-    const bahrainTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Bahrain" }));
-    const timestamp = bahrainTime.toISOString();
+    const timestamp = new Date().toISOString();
 
     const client = await db.pool.connect();
     try {
@@ -1578,7 +1594,7 @@ router.put(
           effectiveModuleId,
           normalizeUuid(responsibleEmployeeId),
           normalizeDate(recalculatedDueDate),
-          normalizeDate(startDate),
+          ticket.start_date,
           step_code,
           timestamp,
           ticket.id,

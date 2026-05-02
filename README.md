@@ -118,7 +118,7 @@ server/
 ├── server.js              # Express app bootstrap & route registration
 ├── .env                   # Environment variables (JWT_SECRET, DATABASE_URL)
 ├── db/
-│   ├── db.js              # PostgreSQL pool wrapper
+│   ├── db.js              # PostgreSQL pool wrapper + DATE parser
 │   ├── schema.sql         # Complete database schema
 │   └── migrations/        # Incremental SQL migrations
 ├── middleware/
@@ -294,9 +294,12 @@ erDiagram
 - the selected workflow must be assigned to the selected project
 - the selected module (if provided) must be assigned to the selected project
 - all selected tags must belong to the selected project
-- `due_date` is system-controlled and calculated from workflow SLA settings; client-submitted due dates are ignored
-- `start_date` defaults to the ticket initiate date (current Bahrain timezone day) when omitted
+- `due_date` is system-controlled and calculated from workflow SLA settings using the Bahrain calendar date as the SLA baseline; client-submitted due dates are ignored
+- `start_date` defaults to the ticket initiate date (current Bahrain calendar day) when omitted
 - Create Ticket UI no longer exposes a start-date calendar input; start date is assigned automatically
+- Edit Ticket UI no longer exposes Timeline/Start Date, and ticket updates preserve the existing `start_date`
+- PostgreSQL `DATE` values such as `start_date` and `due_date` are returned as plain `YYYY-MM-DD` strings to avoid timezone day-shifts in Node/React
+- View Ticket displays date-only fields in `dd/mm/yyyy` format
 - SLA status now respects `workflow.sla_enabled`; workflows with SLA disabled return `No SLA` even if legacy `due_date` exists
 - SLA status for terminal tickets (Closed/Cancelled) now resolves as terminal even when legacy rows are missing `completed_at`, and tickets with a legacy `completed_at` timestamp are treated as completed for badge logic
 - Existing workflow-step logic remains in place, and the create route still uses workflow step data to set the ticket's initial workflow state.
@@ -553,8 +556,8 @@ This middleware remains unchanged and continues to enforce workflow-step/workgro
 | GET `/search` | Route | Search tickets across the current project/filter scope |
 | GET `/export` | Route | Export all tickets matching the current project/filter scope |
 | GET `/:id` | Route | Single ticket with comments, attachments |
-| POST `/` | Route | Create ticket (Admin/Editor, with transaction; server-calculates `due_date` and defaults `start_date` to initiate-date day when omitted) |
-| PUT `/:id` | Route | Update ticket (Admin/Editor + same workgroup; `title`/`description` are creator-only; manual `due_date` edits are ignored) |
+| POST `/` | Route | Create ticket (Admin/Editor, with transaction; server-calculates `due_date` from workflow SLA and defaults `start_date` to the Bahrain initiate-date day when omitted) |
+| PUT `/:id` | Route | Update ticket (Admin/Editor + same workgroup; `title`/`description` are creator-only; manual `due_date` edits are ignored and `start_date` is preserved) |
 | DELETE `/:id` | Route | Delete ticket (Admin only, cascading delete) |
 | POST `/:id/transition` | Route | Workflow state change with validation |
 | GET `/:id/allowed-steps` | Route | Get valid next workflow steps |

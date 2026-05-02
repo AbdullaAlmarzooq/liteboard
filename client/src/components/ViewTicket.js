@@ -425,6 +425,20 @@ const ticket = useMemo(() => {
     })
   }
 
+  const formatDateOnly = (value) => {
+    if (!value) return "N/A"
+
+    if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [year, month, day] = value.split("-")
+      return `${day}/${month}/${year}`
+    }
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return "N/A"
+
+    return date.toLocaleDateString("en-GB")
+  }
+
   const commentsById = useMemo(() => {
     const entries = (ticket?.comments || []).map((comment) => [String(comment.id), comment])
     return new Map(entries)
@@ -919,8 +933,8 @@ const renderTag = (tag, index) => {
               <div><label className="text-sm font-medium">Workgroup</label><div>{ticket.workGroup}</div></div>
               <div><label className="text-sm font-medium">Responsible</label><div>{ticket.responsible}</div></div>
               <div><label className="text-sm font-medium">Module</label><div>{ticket.module}</div></div>
-              <div><label className="text-sm font-medium">Start Date</label><div>{ticket.startDate ? new Date(ticket.startDate).toLocaleDateString() : 'N/A'}</div></div>
-              <div><label className="text-sm font-medium">Due Date</label><div>{ticket.dueDate ? new Date(ticket.dueDate).toLocaleDateString() : 'N/A'}</div></div>
+              <div><label className="text-sm font-medium">Start Date</label><div>{formatDateOnly(ticket.startDate)}</div></div>
+              <div><label className="text-sm font-medium">Due Date</label><div>{formatDateOnly(ticket.dueDate)}</div></div>
             </CardContent>
           </Card>
 
