@@ -67,6 +67,14 @@ const buildCommentPreview = (value, maxLength = 160) => {
   return `${preview.slice(0, Math.max(0, maxLength - 1)).trimEnd()}...`
 }
 
+const formatAttachmentSize = (size) => {
+  const bytes = Number(size);
+  if (!Number.isFinite(bytes) || bytes <= 0) return "Unknown size";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
 
 const WorkflowDiagram = ({ steps, currentStepName }) => {
   if (!steps || steps.length === 0) return null;
@@ -938,24 +946,30 @@ const renderTag = (tag, index) => {
             </CardContent>
           </Card>
 
-          {/* NEW SECTION: Display and download attachments */}
-          {ticket.attachments && ticket.attachments.length > 0 && (
-            <Card className="bg-white">
-              <CardHeader><CardTitle className="text-xl">Attachments</CardTitle></CardHeader>
-              <CardContent>
+          <Card className="bg-white">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-xl">Attachments</CardTitle>
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                  {ticket.attachments?.length || 0}
+                </span>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {ticket.attachments && ticket.attachments.length > 0 ? (
                 <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                   {ticket.attachments.map((file, index) => {
-                    const isImage = file.type.startsWith('image/');
+                    const isImage = file.type?.startsWith('image/');
                     const blobData = attachmentBlobs[file.id];
                     return (
-                      <li key={index} className="flex items-center justify-between py-2">
+                      <li key={file.id || index} className="flex items-center justify-between gap-3 py-3">
                         <div className="flex items-center gap-3">
                           {isImage && blobData && (
                             <img src={blobData} alt="Attachment preview" className="w-10 h-10 object-cover rounded-md" />
                           )}
                           <div>
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{file.name}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{(file.size / 1024).toFixed(2)} KB</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{formatAttachmentSize(file.size)}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -980,9 +994,13 @@ const renderTag = (tag, index) => {
                     );
                   })}
                 </ul>
-              </CardContent>
-            </Card>
-          )}
+              ) : (
+                <div className="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  No attachments on this ticket.
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 

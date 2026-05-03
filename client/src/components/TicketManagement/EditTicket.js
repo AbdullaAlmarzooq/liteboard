@@ -107,7 +107,8 @@ const EditTicket = () => {
   // Attachments state
   const [savedAttachments, setSavedAttachments] = useState([]);
   const [attachmentBlobs, setAttachmentBlobs] = useState({});
-  const [, setNewAttachments] = useState([]);
+  const [newAttachments, setNewAttachments] = useState([]);
+  const [removedAttachmentIds, setRemovedAttachmentIds] = useState([]);
 
   // Submit state
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -172,6 +173,7 @@ const EditTicket = () => {
       });
       setComments(ticket.comments || []);
       setSavedAttachments(ticket.attachments || []);
+      setRemovedAttachmentIds([]);
     }
   }, [ticket]);
 
@@ -336,6 +338,11 @@ const EditTicket = () => {
 
   const handleRemoveSavedAttachment = (fileToRemove) => {
     setSavedAttachments(savedAttachments.filter(file => file.id !== fileToRemove.id));
+    if (fileToRemove?.id) {
+      setRemovedAttachmentIds((current) =>
+        current.includes(fileToRemove.id) ? current : [...current, fileToRemove.id]
+      );
+    }
   };
 
   const fetchAttachmentBlob = async (attachmentId) => {
@@ -368,6 +375,51 @@ const EditTicket = () => {
       await fetchAttachmentBlob(file.id);
     } catch (err) {
       console.error("Failed to load attachment preview:", err);
+    }
+  };
+
+  const formatAttachmentSize = (size) => {
+    const bytes = Number(size);
+    if (!Number.isFinite(bytes) || bytes <= 0) return "Unknown size";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const uploadNewAttachments = async () => {
+    if (newAttachments.length === 0) return;
+
+    const ticketRef = ticket.id || ticket.ticket_code || ticket.ticketCode || ticketId;
+
+    for (const attachment of newAttachments) {
+      const response = await fetchWithAuth("http://localhost:8000/api/attachments", {
+        method: "POST",
+        body: JSON.stringify({
+          ticket_id: ticketRef,
+          name: attachment.name,
+          type: attachment.type,
+          size: attachment.size,
+          data: attachment.data,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, `Failed to upload ${attachment.name}.`));
+      }
+    }
+  };
+
+  const deleteRemovedAttachments = async () => {
+    if (removedAttachmentIds.length === 0) return;
+
+    for (const attachmentId of removedAttachmentIds) {
+      const response = await fetchWithAuth(`http://localhost:8000/api/attachments/${attachmentId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error(await getApiErrorMessage(response, "Failed to delete attachment."));
+      }
     }
   };
 
@@ -589,8 +641,12 @@ const EditTicket = () => {
         throw new Error(errorData.error || 'Failed to update ticket');
       }
       
+      await deleteRemovedAttachments();
+      await uploadNewAttachments();
+
       // Success - navigate away
       setNewAttachments([]);
+      setRemovedAttachmentIds([]);
       navigate(`/view-ticket/${ticketId}`);
       
     } catch (err) {
@@ -699,7 +755,12 @@ const EditTicket = () => {
               descriptionCharacterCount={descriptionCharacterCount}
             />
 
-            <AttachmentUploader onAttachmentsChange={handleNewAttachmentsChange} />
+            <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow space-y-3">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Add Attachments
+              </h4>
+              <AttachmentUploader onAttachmentsChange={handleNewAttachmentsChange} />
+            </div>
 
             <CommentSection
               comments={comments}
@@ -738,11 +799,16 @@ const EditTicket = () => {
               moduleOptions={modules || []} // Pass modules from API
             />
 
-            {savedAttachments.length > 0 && (
-              <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow space-y-3">
+            <div className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow space-y-3">
+              <div className="flex items-center justify-between gap-3">
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Attachments
+                  Current Attachments
                 </h4>
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                  {savedAttachments.length}
+                </span>
+              </div>
+              {savedAttachments.length > 0 ? (
                 <ul className="divide-y divide-gray-200 dark:divide-gray-700">
                   {savedAttachments.map(file => {
                     const isImage = file.type?.startsWith('image/');
@@ -762,7 +828,7 @@ const EditTicket = () => {
                               {file.name}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {(file.size / 1024).toFixed(2)} KB
+                              {formatAttachmentSize(file.size)}
                             </p>
                           </div>
                         </div>
@@ -795,8 +861,12 @@ const EditTicket = () => {
                     );
                   })}
                 </ul>
-              </div>
-            )}
+              ) : (
+                <div className="rounded-lg border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  No attachments on this ticket.
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

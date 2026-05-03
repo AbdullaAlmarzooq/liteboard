@@ -113,7 +113,7 @@ Projects extend the existing workgroup model rather than replacing it:
 
 ### Feature-Based Refactor Note
 
-LiteBoard is being prepared for a staged feature-based refactor. Phase 0 adds empty server and client feature-folder skeletons only; existing route files, middleware names, API endpoint URLs, and database schema remain unchanged until later approved phases.
+LiteBoard is being prepared for a staged feature-based refactor. Phase 0 added empty server and client feature-folder skeletons only. Tickets, comments, and attachments backend code have started moving under `server/features/*` while preserving existing middleware names, API endpoint URLs, and database schema.
 
 ### Directory Structure
 
@@ -221,7 +221,7 @@ erDiagram
 | `/api/modules` | GET, POST, PUT, DELETE | Token | Module management (`GET` for authenticated users; `POST`/`PUT`/`DELETE` are Admin-only, and `GET` supports optional `project_id` filtering) |
 | `/api/tags` | GET, POST, PUT, DELETE | Token / Token + Admin | Tag management, with optional `project_id` filtering on reads and Admin-only writes |
 | `/api/comments` | GET, POST, PUT, DELETE | Token | Ticket comments |
-| `/api/attachments` | GET, POST, DELETE | Token | File attachments |
+| `/api/attachments` | GET, POST, DELETE | Token | File attachments, including metadata and inline blob retrieval |
 | `/api/workgroups` | GET, POST, PUT, DELETE | None / Token + Admin | Workgroup list and Admin-only management |
 | `/api/profile/*` | GET, PUT | Token | User profile operations |
 | `/api/profile/activity/global` | GET | Token + Admin | Global event activity feed, including Admin Panel events |
@@ -545,9 +545,15 @@ This middleware remains unchanged and continues to enforce workflow-step/workgro
 
 ---
 
-#### `server/routes/tickets.js` - Ticket API (439 lines)
+#### `server/features/tickets/tickets.routes.js` - Ticket API
 
 **Purpose**: Complete ticket lifecycle management
+
+The legacy `server/routes/tickets.js` path is currently a compatibility re-export for the feature router during the staged refactor. Ticket HTTP handling now lives in `server/features/tickets/tickets.controller.js`, while ticket SQL and business rules live in `server/features/tickets/tickets.service.js`. The router preserves existing `/api/tickets` middleware and URL behavior.
+
+Comment backend handling is also staged under `server/features/comments`, with `comments.routes.js`, `comments.controller.js`, and `comments.service.js` preserving the existing `/api/comments` API surface.
+
+Attachment backend handling is staged under `server/features/attachments`, with `attachments.routes.js`, `attachments.controller.js`, and `attachments.service.js` preserving the existing `/api/attachments` metadata, inline blob, upload, and delete behavior.
 
 **Key Functions:**
 

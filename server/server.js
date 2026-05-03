@@ -3,14 +3,14 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const ticketsRouter = require("./routes/tickets");
+const ticketsRouter = require("./features/tickets");
 const workgroupsRouter = require("./routes/workgroups");
 const statusHistoryRouter = require("./routes/status_history");
 const workflowsRouter = require("./routes/workflows");
 const tagsRouter = require("./routes/tags");
 const workflowStepsRouter = require("./routes/workflowSteps");
-const commentsRouter = require("./routes/comments");
-const attachmentsRouter = require("./routes/attachments");
+const commentsRouter = require("./features/comments");
+const attachmentsRouter = require("./features/attachments");
 const employeesRouter = require("./routes/employees");
 const modulesRouter = require("./routes/modules");
 const ticketTagsRouter = require("./routes/tickets_tags");

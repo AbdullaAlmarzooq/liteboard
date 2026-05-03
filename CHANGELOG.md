@@ -26,6 +26,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
+- Moved `/api/attachments` into `server/features/attachments` with separate routes, controller, and service layers while preserving existing attachment URLs, inline blob storage behavior, 1 MB validation, and attachment event logging.
+- Moved `/api/comments` into `server/features/comments` with separate routes, controller, and service layers while preserving existing comment URLs, middleware behavior, and comment event logging.
+- Added `server/features/tickets/tickets.controller.js` so `/api/tickets` HTTP request/response handling is separated from route declarations and ticket service logic.
+- Extracted `/api/tickets` SQL and business logic into `server/features/tickets/tickets.service.js`, leaving the tickets router responsible for middleware and HTTP response translation.
+- Moved the `/api/tickets` router mount to the new `server/features/tickets` feature module while keeping existing ticket route paths, middleware chains, SQL, and response behavior unchanged.
 - Client Jest setup now mocks Quill during tests so CRA test runs are not blocked by Quill's ESM package entrypoint.
 - Server startup now exports the Express app for backend tests while preserving normal `node server.js` startup through a CommonJS `require.main === module` listen guard.
 - Replaced the crowded top navigation with a responsive sidebar app shell.
@@ -58,6 +63,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Tickets create/update API now enforces strict module-project assignment validation: submitted (or currently retained) `module_id` must belong to the ticket project through `project_modules`.
 
 ### Fixed
+- Edit Ticket now persists newly selected attachments through `/api/attachments`, so uploads create attachment metadata, inline blobs, and `attachment.uploaded` audit events instead of being discarded after ticket save.
+- View Ticket and Edit Ticket now keep the attachments panel visible with an empty state, making missing attachments distinguishable from hidden UI.
 - PostgreSQL `DATE` columns now remain plain `YYYY-MM-DD` strings in Node responses, preventing date-only values from shifting to the previous day when serialized through UTC.
 - Ticket creation now derives automatic `start_date` and SLA due-date baselines from the Bahrain calendar date while keeping audit timestamps as real UTC instants.
 
