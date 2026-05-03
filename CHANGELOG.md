@@ -26,6 +26,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
+- Client Jest setup now mocks Quill during tests so CRA test runs are not blocked by Quill's ESM package entrypoint.
 - Server startup now exports the Express app for backend tests while preserving normal `node server.js` startup through a CommonJS `require.main === module` listen guard.
 - Replaced the crowded top navigation with a responsive sidebar app shell.
 - Moved Profile into the sidebar while keeping the theme toggle and logout action in the top header.
