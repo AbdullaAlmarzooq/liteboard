@@ -5,15 +5,14 @@ const express = require("express");
 const cors = require("cors");
 const ticketsRouter = require("./features/tickets");
 const workgroupsRouter = require("./routes/workgroups");
-const statusHistoryRouter = require("./routes/status_history");
+const statusHistoryRouter = require("./features/tickets/status-history.routes");
 const workflowsRouter = require("./routes/workflows");
-const tagsRouter = require("./routes/tags");
+const { tagsRouter, ticketTagsRouter } = require("./features/tags");
 const workflowStepsRouter = require("./routes/workflowSteps");
 const commentsRouter = require("./features/comments");
 const attachmentsRouter = require("./features/attachments");
 const employeesRouter = require("./routes/employees");
 const modulesRouter = require("./routes/modules");
-const ticketTagsRouter = require("./routes/tickets_tags");
 const workflowTransitionsRouter = require('./routes/workflow_transitions');
 const workflowManagementRouter = require('./routes/workflowManagement');
 const projectsRouter = require("./routes/projects");
@@ -29,10 +28,11 @@ const myPasswordRoutes = require("./routes/profile/myPassword");
 
 const app = express();
 const PORT = 8000;
+const JSON_BODY_LIMIT = "2mb";
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
 // Routes
 app.use("/api/tickets", ticketsRouter);
@@ -63,6 +63,16 @@ app.use("/api/profile", myPasswordRoutes);
 // Root check
 app.get("/", (req, res) => {
   res.json({ message: "Liteboard API is running 🚀" });
+});
+
+app.use((err, req, res, next) => {
+  if (err?.type === "entity.too.large") {
+    return res.status(413).json({
+      error: "Request body too large. Attachments are limited to 1 MB.",
+    });
+  }
+
+  next(err);
 });
 
 if (require.main === module) {

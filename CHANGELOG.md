@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- DB migration `server/db/migrations/2026-05-03_scope_tag_uniqueness_to_project.sql` replaces global tag-label uniqueness with project-scoped, case-insensitive active tag uniqueness.
 - Phase 0 feature-based refactor preparation with empty server/client feature folder skeletons and a manual refactor testing checklist. No routes, API behavior, middleware names, or database schema changed in this phase.
 - Collapsible desktop sidebar navigation with icon-only mode and persisted `liteboard.sidebarCollapsed` localStorage state.
 - Mobile drawer navigation opened from a hamburger button for small screens.
@@ -26,6 +27,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
+- Moved public `/api/status_history` handling under `server/features/tickets` with status-history route, controller, and service files while preserving existing URLs, middleware behavior, and response shapes.
+- Tag labels are now unique within each project instead of globally, allowing different projects to use the same tag label while still blocking duplicates inside one project.
+- Moved `/api/tags` and `/api/ticket_tags` into `server/features/tags` with separate routes, controller, and service layers while preserving existing tag management URLs, ticket-tag relation URLs, middleware behavior, and tag event logging.
 - Moved `/api/attachments` into `server/features/attachments` with separate routes, controller, and service layers while preserving existing attachment URLs, inline blob storage behavior, 1 MB validation, and attachment event logging.
 - Moved `/api/comments` into `server/features/comments` with separate routes, controller, and service layers while preserving existing comment URLs, middleware behavior, and comment event logging.
 - Added `server/features/tickets/tickets.controller.js` so `/api/tickets` HTTP request/response handling is separated from route declarations and ticket service logic.
@@ -63,6 +67,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Tickets create/update API now enforces strict module-project assignment validation: submitted (or currently retained) `module_id` must belong to the ticket project through `project_modules`.
 
 ### Fixed
+- Admin Panel tag creation now scopes its duplicate-label check to the selected project, matching the backend's project-scoped tag uniqueness rule.
+- Increased the Express JSON body limit enough for valid 1 MB attachments after base64 encoding and return a clean JSON `413` response when uploads exceed the supported size.
 - Edit Ticket now persists newly selected attachments through `/api/attachments`, so uploads create attachment metadata, inline blobs, and `attachment.uploaded` audit events instead of being discarded after ticket save.
 - View Ticket and Edit Ticket now keep the attachments panel visible with an empty state, making missing attachments distinguishable from hidden UI.
 - PostgreSQL `DATE` columns now remain plain `YYYY-MM-DD` strings in Node responses, preventing date-only values from shifting to the previous day when serialized through UTC.

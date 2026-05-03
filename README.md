@@ -113,7 +113,7 @@ Projects extend the existing workgroup model rather than replacing it:
 
 ### Feature-Based Refactor Note
 
-LiteBoard is being prepared for a staged feature-based refactor. Phase 0 added empty server and client feature-folder skeletons only. Tickets, comments, and attachments backend code have started moving under `server/features/*` while preserving existing middleware names, API endpoint URLs, and database schema.
+LiteBoard is being prepared for a staged feature-based refactor. Phase 0 added empty server and client feature-folder skeletons only. Tickets, status history, comments, attachments, and tags backend code have started moving under `server/features/*` while preserving existing middleware names, API endpoint URLs, and database schema.
 
 ### Directory Structure
 
@@ -214,12 +214,14 @@ erDiagram
 | `/api/tickets/:id` | GET, PUT, DELETE | Token + Project Access + Role/Workgroup | Single ticket operations (`PUT` keeps general management editable for authorized users but restricts `title`/`description` to ticket creator only) |
 | `/api/tickets/:id/transition` | POST | Token + Admin/Editor + Project Access + Workgroup | Workflow state change |
 | `/api/tickets/:id/allowed-steps` | GET | Token | Get valid next steps |
+| `/api/status_history` | GET, POST | Token / Ticket Editable | Legacy ticket status-history reads and manual history insertion |
 | `/api/employees` | GET, POST | None / Token + Admin | Employee list and Admin-only create |
 | `/api/employees/:id` | GET, PUT | None / Token + Admin | Single employee read and Admin-only update |
 | `/api/workflows` | GET | Token | List active workflows, with optional `project_id` filtering for project-scoped ticket creation |
 | `/api/workflow_management` | GET, POST, PATCH, DELETE | Token + Admin | Admin workflow CRUD (including SLA config) |
 | `/api/modules` | GET, POST, PUT, DELETE | Token | Module management (`GET` for authenticated users; `POST`/`PUT`/`DELETE` are Admin-only, and `GET` supports optional `project_id` filtering) |
 | `/api/tags` | GET, POST, PUT, DELETE | Token / Token + Admin | Tag management, with optional `project_id` filtering on reads and Admin-only writes |
+| `/api/ticket_tags` | GET, POST, PUT, DELETE | Token | Ticket-tag associations and replacement while preserving ticket editability checks |
 | `/api/comments` | GET, POST, PUT, DELETE | Token | Ticket comments |
 | `/api/attachments` | GET, POST, DELETE | Token | File attachments, including metadata and inline blob retrieval |
 | `/api/workgroups` | GET, POST, PUT, DELETE | None / Token + Admin | Workgroup list and Admin-only management |
@@ -551,9 +553,13 @@ This middleware remains unchanged and continues to enforce workflow-step/workgro
 
 The legacy `server/routes/tickets.js` path is currently a compatibility re-export for the feature router during the staged refactor. Ticket HTTP handling now lives in `server/features/tickets/tickets.controller.js`, while ticket SQL and business rules live in `server/features/tickets/tickets.service.js`. The router preserves existing `/api/tickets` middleware and URL behavior.
 
+The legacy `/api/status_history` route is also implemented inside `server/features/tickets` as `status-history.routes.js`, `status-history.controller.js`, and `status-history.service.js` because the records are ticket-scoped. The mount path remains `/api/status_history` for compatibility.
+
 Comment backend handling is also staged under `server/features/comments`, with `comments.routes.js`, `comments.controller.js`, and `comments.service.js` preserving the existing `/api/comments` API surface.
 
 Attachment backend handling is staged under `server/features/attachments`, with `attachments.routes.js`, `attachments.controller.js`, and `attachments.service.js` preserving the existing `/api/attachments` metadata, inline blob, upload, and delete behavior.
+
+Tag backend handling is staged under `server/features/tags`, with tag CRUD and ticket-tag relation routers exported from the same feature module while preserving the existing `/api/tags` and `/api/ticket_tags` API surfaces.
 
 **Key Functions:**
 
@@ -833,6 +839,14 @@ This migration:
 This migration:
 
 - Adds `idx_events_entity_type_occurred` for Admin Audit Logs entity filtering ordered by event time
+
+6. [2026-05-03_scope_tag_uniqueness_to_project.sql](server/db/migrations/2026-05-03_scope_tag_uniqueness_to_project.sql)
+
+This migration:
+
+- Replaces global active tag-label uniqueness with project-scoped, case-insensitive uniqueness
+- Allows different projects to use the same tag label
+- Still prevents duplicate active tag labels inside the same project
 
 ### Legacy SQLite Migration Note
 

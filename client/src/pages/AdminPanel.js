@@ -477,7 +477,10 @@ const AdminPanel = () => {
         return;
       }
 
-      const isDuplicate = tags.some(tag => tag.label.toLowerCase() === newItem.label.toLowerCase());
+      const isDuplicate = tags.some(tag =>
+        String(tag.project_id || '') === String(newItem.project_id || '') &&
+        String(tag.label || '').toLowerCase() === String(newItem.label || '').toLowerCase()
+      );
       if (isDuplicate) {
         setAlertMessage('A tag with this label already exists.');
         setShowAlertModal(true);

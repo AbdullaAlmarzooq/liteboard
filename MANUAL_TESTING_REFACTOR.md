@@ -123,3 +123,49 @@ Suggested smoke checks:
 - Attempt to upload a file larger than 1 MB and confirm it is rejected.
 - Delete the test attachment and confirm it is removed and activity still renders.
 - Attempt attachment upload/delete on a closed or cancelled ticket and confirm it is still blocked.
+
+## Phase 1G - Tags Feature Migration
+
+Phase 1G moves `/api/tags` and `/api/ticket_tags` into `server/features/tags` with route, controller, and service layers. Existing tag-management URLs, ticket-tag relation URLs, middleware behavior, response payloads, and tag event logging should remain unchanged.
+
+Expected behavior:
+
+- `GET /api/tags` should still require authentication and apply project visibility filtering.
+- `GET /api/tags?project_id=...` should still validate project access and active-project rules for non-admin users.
+- `POST /api/tags`, `PUT /api/tags/:id`, and `DELETE /api/tags/:id` should remain Admin-only and continue writing admin tag events.
+- `GET /api/ticket_tags/:ticketId` should still require authentication and readable ticket access.
+- `POST /api/ticket_tags` should still require authentication and editable ticket state, then create a `tag.added` event.
+- `DELETE /api/ticket_tags/:ticketId/:tagId` should still require authentication and editable ticket state, then create a `tag.removed` event.
+- `PUT /api/ticket_tags/:ticketId` should still replace ticket tags in one transaction and write `tag.added`/`tag.removed` events for differences.
+
+Suggested smoke checks:
+
+- As Admin, create a test tag for a project and confirm it appears in Admin Panel tag management.
+- Create a tag with the same label in a different project and confirm it is allowed.
+- Attempt to create a second active tag with the same label in the same project and confirm it is rejected.
+- Update the test tag label or color and confirm the change appears in tag lists and Audit Logs.
+- Add the test tag to an editable ticket and confirm it appears on the ticket and in ticket activity.
+- Replace a ticket's selected tags from Edit Ticket and confirm only added/removed tag activity entries are created.
+- Remove the test tag from the ticket and confirm it disappears and activity still renders.
+- Attempt tag add/remove/replace on a closed or cancelled ticket and confirm it is still blocked.
+- Delete the test tag from Admin Panel only if the dataset is disposable.
+
+## Phase 1H - Status History Migration
+
+Phase 1H keeps `/api/status_history` as a public compatibility API, but moves its implementation under `server/features/tickets` because status-history records are ticket-scoped. Existing URLs, middleware behavior, response payloads, and transition/event behavior should remain unchanged.
+
+Expected behavior:
+
+- `GET /api/status_history?ticketId=...` should still require authentication and readable ticket access.
+- Missing `ticketId` should still return `400` with `ticketId query parameter is required`.
+- The GET response should still return transformed history rows with `type`, `fieldName`, `oldValue`, `newValue`, `timestamp`, and `changedBy`.
+- `POST /api/status_history` should still use the existing ticket-editability middleware and create a manual history record with the same response shape.
+- Ticket transitions should continue using the current ticket event/activity flow unchanged.
+
+Suggested smoke checks:
+
+- View a ticket timeline/activity and confirm transition events still render.
+- Call `GET /api/status_history?ticketId=<ticket>` with an authenticated readable ticket and confirm any legacy history rows still load.
+- Call `GET /api/status_history` without `ticketId` and confirm the existing `400` response.
+- In a disposable dataset only, create a manual status-history record through `POST /api/status_history` and confirm it can be read back.
+- Attempt the POST against a closed or cancelled ticket and confirm it is still blocked by ticket editability rules.
