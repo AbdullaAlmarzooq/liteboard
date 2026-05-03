@@ -169,3 +169,48 @@ Suggested smoke checks:
 - Call `GET /api/status_history` without `ticketId` and confirm the existing `400` response.
 - In a disposable dataset only, create a manual status-history record through `POST /api/status_history` and confirm it can be read back.
 - Attempt the POST against a closed or cancelled ticket and confirm it is still blocked by ticket editability rules.
+
+## Phase 2A - Workflows Feature Migration
+
+Phase 2A moves workflow-related backend APIs into `server/features/workflows` with route, controller, and service layers. Existing workflow URLs, middleware behavior, response payloads, workflow SLA rules, transition behavior, and admin event logging should remain unchanged.
+
+Expected behavior:
+
+- `GET /api/workflows` and `GET /api/workflows/:id` should still require authentication and return active workflows with steps.
+- `GET /api/workflows?project_id=...` should still enforce project access before returning project-assigned workflows.
+- `GET /api/workflow_steps/allowed/:ticketId` should keep its existing unauthenticated middleware behavior and return adjacent steps plus the synthetic Cancelled option.
+- `/api/workflow_transitions` should keep its existing unauthenticated middleware behavior for list, step lookup, create, update, and delete operations.
+- `/api/workflow_management` should remain Admin-only for list, detail, create, update, active toggle, and delete.
+- Admin workflow create/update should still validate SLA days, generate step codes, rebuild transitions, recalculate open ticket due dates, and write workflow/workflow-step admin events.
+
+Suggested smoke checks:
+
+- Open Admin Panel workflow management as an Admin and confirm workflow list/detail still load.
+- Create a disposable workflow with at least two active steps and one terminal step, then confirm it appears in Admin Panel.
+- Edit the workflow name, step order/name/workgroup, transition choices, and SLA settings, then confirm the save succeeds and Audit Logs show workflow/workflow-step activity.
+- Toggle the workflow active state and confirm the response/UI matches previous behavior.
+- From ticket create/edit flows, confirm project-scoped workflow dropdowns still load from `/api/workflows`.
+- Open an existing ticket and confirm allowed workflow steps still load and transition behavior is unchanged.
+- If using direct API checks, call `GET /api/workflow_transitions?workflow_id=<id>` and `GET /api/workflow_transitions/step/<step_code>` and compare the shape to the previous rows.
+
+## Phase 2B - Smaller Server Feature Migrations
+
+Phase 2B moves projects, workgroups, employees, and modules backend APIs into their own `server/features/*` folders with route, controller, and service layers. Existing URLs, middleware behavior, response payloads, project visibility rules, and admin event logging should remain unchanged.
+
+Expected behavior:
+
+- `/api/projects/available`, `/api/projects`, and `/api/projects/dashboard` should still require normal authentication and apply readable project filtering.
+- `/api/projects/list`, `/api/projects/:id`, project create/update, and project assignment updates should remain Admin-only and continue logging project admin events.
+- `/api/workgroups` should still list workgroups without auth, while create/update/delete remain Admin-only.
+- `/api/employees/roles`, `/api/employees`, and `/api/employees/:id` should keep their existing no-auth read behavior, while employee create/update remain Admin-only.
+- `/api/modules` and `/api/modules/:id` should still require authentication, including project-scoped module filtering on `project_id`.
+- Module create/update/delete should remain Admin-only and continue logging module admin events.
+
+Suggested smoke checks:
+
+- As Admin, open Projects and confirm project list, dashboard counts, and project details still load.
+- Create or edit a disposable project assignment set and confirm workgroup/workflow/module assignment changes persist and appear in Audit Logs.
+- Open Admin Panel workgroups and confirm list, create, edit, activate/deactivate, and delete flows still behave as before.
+- Open Admin Panel employees and confirm roles, employee list, employee detail/edit, password update, role change, and active toggle still behave as before.
+- Open Admin Panel modules and confirm list, create, edit, activate/deactivate, delete, and duplicate-name validation still behave as before.
+- In ticket create/edit flows, confirm module dropdowns still load from `/api/modules?project_id=<project>`.

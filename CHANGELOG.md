@@ -27,6 +27,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
+- Moved `/api/projects`, `/api/workgroups`, `/api/employees`, and `/api/modules` into feature folders with route, controller, and service layers while preserving existing URLs, middleware behavior, response shapes, and admin event logging.
+- Moved workflow read APIs, workflow step helpers, workflow transition APIs, and Admin workflow management under `server/features/workflows` with route, controller, and service layers while preserving `/api/workflows`, `/api/workflow_steps`, `/api/workflow_transitions`, and `/api/workflow_management` URLs and middleware behavior.
+- Admin event logging helper now accepts explicit actor context so feature services can preserve audit attribution without depending on Express request objects.
 - Moved public `/api/status_history` handling under `server/features/tickets` with status-history route, controller, and service files while preserving existing URLs, middleware behavior, and response shapes.
 - Tag labels are now unique within each project instead of globally, allowing different projects to use the same tag label while still blocking duplicates inside one project.
 - Moved `/api/tags` and `/api/ticket_tags` into `server/features/tags` with separate routes, controller, and service layers while preserving existing tag management URLs, ticket-tag relation URLs, middleware behavior, and tag event logging.

@@ -4,18 +4,20 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const ticketsRouter = require("./features/tickets");
-const workgroupsRouter = require("./routes/workgroups");
+const workgroupsRouter = require("./features/workgroups");
 const statusHistoryRouter = require("./features/tickets/status-history.routes");
-const workflowsRouter = require("./routes/workflows");
+const {
+  workflowsRouter,
+  workflowStepsRouter,
+  workflowTransitionsRouter,
+  workflowManagementRouter,
+} = require("./features/workflows");
 const { tagsRouter, ticketTagsRouter } = require("./features/tags");
-const workflowStepsRouter = require("./routes/workflowSteps");
 const commentsRouter = require("./features/comments");
 const attachmentsRouter = require("./features/attachments");
-const employeesRouter = require("./routes/employees");
-const modulesRouter = require("./routes/modules");
-const workflowTransitionsRouter = require('./routes/workflow_transitions');
-const workflowManagementRouter = require('./routes/workflowManagement');
-const projectsRouter = require("./routes/projects");
+const employeesRouter = require("./features/employees");
+const modulesRouter = require("./features/modules");
+const projectsRouter = require("./features/projects");
 const auditLogsRouter = require("./routes/auditLogs");
 const authRouter = require("./routes/auth");
 const profileStats = require("./routes/profile/stats");

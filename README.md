@@ -113,7 +113,7 @@ Projects extend the existing workgroup model rather than replacing it:
 
 ### Feature-Based Refactor Note
 
-LiteBoard is being prepared for a staged feature-based refactor. Phase 0 added empty server and client feature-folder skeletons only. Tickets, status history, comments, attachments, and tags backend code have started moving under `server/features/*` while preserving existing middleware names, API endpoint URLs, and database schema.
+LiteBoard is being prepared for a staged feature-based refactor. Phase 0 added empty server and client feature-folder skeletons only. Tickets, status history, comments, attachments, tags, workflows, projects, workgroups, employees, and modules backend code have started moving under `server/features/*` while preserving existing middleware names, API endpoint URLs, and database schema.
 
 ### Directory Structure
 
@@ -497,9 +497,11 @@ app.listen(8000, () => console.log("Server running"));
 
 ---
 
-#### `server/routes/projects.js` - Project Access + Admin Management
+#### `server/features/projects/projects.routes.js` - Project Access + Admin Management
 
 **Purpose**: Readable project lists for authenticated users plus admin CRUD and assignment APIs
+
+Project HTTP handling now lives in `server/features/projects/projects.controller.js`, while project read filtering, dashboard counts, assignment replacement, validation, and admin event logging live in `server/features/projects/projects.service.js`. The legacy `server/routes/projects.js` path is a compatibility re-export during the staged refactor.
 
 **Endpoints:**
 - `GET /api/projects`: list readable projects (`all` for Admin, active accessible projects for non-admin users)
@@ -561,6 +563,10 @@ Attachment backend handling is staged under `server/features/attachments`, with 
 
 Tag backend handling is staged under `server/features/tags`, with tag CRUD and ticket-tag relation routers exported from the same feature module while preserving the existing `/api/tags` and `/api/ticket_tags` API surfaces.
 
+Workflow backend handling is staged under `server/features/workflows`, with workflow read APIs, workflow step helpers, transition APIs, and Admin workflow management exported from the same feature module while preserving the existing `/api/workflows`, `/api/workflow_steps`, `/api/workflow_transitions`, and `/api/workflow_management` API surfaces.
+
+Smaller Admin-support backend handling is also staged under `server/features/projects`, `server/features/workgroups`, `server/features/employees`, and `server/features/modules`, preserving the existing `/api/projects`, `/api/workgroups`, `/api/employees`, and `/api/modules` API surfaces.
+
 **Key Functions:**
 
 | Function | Endpoint | Description |
@@ -591,19 +597,21 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 
 ---
 
-#### `server/routes/workflowManagement.js` - Admin Workflow CRUD (319 lines)
+#### `server/features/workflows/workflows.routes.js` - Workflow APIs
 
-**Purpose**: Create, update, and manage workflow definitions
+**Purpose**: Workflow read APIs, step helpers, transition rules, and Admin workflow CRUD
 
 **Key Features:**
 - Admin-authenticated workflow CRUD
-- Auto-generates workflow IDs (`WF-001`, `WF-002`, ...)
-- Auto-generates step codes (`WF-001-01`, `WF-001-02`, ...)
+- Preserves existing public mount paths: `/api/workflows`, `/api/workflow_steps`, `/api/workflow_transitions`, and `/api/workflow_management`
+- Auto-generates step codes from workflow IDs
 - Manages workflow transitions (bidirectional)
 - Workflow-level planned SLA toggle (`sla_enabled`)
 - Step-level SLA day validation (`sla_days`, 1-99) for non-terminal categories only
 - Recalculates due dates for existing open/in-progress tickets when workflow SLA settings change
 - Soft delete via `active = 0`
+
+HTTP request/response handling lives in `server/features/workflows/workflows.controller.js`, while SQL, validation, transition construction, SLA recalculation, and admin event logging live in `server/features/workflows/workflows.service.js`. The legacy workflow route files currently re-export these feature routers for compatibility during the staged refactor.
 
 **Step Category Codes:**
 | Code | Meaning |
