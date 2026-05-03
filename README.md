@@ -111,6 +111,10 @@ Projects extend the existing workgroup model rather than replacing it:
 
 ## 3. Backend Architecture
 
+### Feature-Based Refactor Note
+
+LiteBoard is being prepared for a staged feature-based refactor. Phase 0 adds empty server and client feature-folder skeletons only; existing route files, middleware names, API endpoint URLs, and database schema remain unchanged until later approved phases.
+
 ### Directory Structure
 
 ```

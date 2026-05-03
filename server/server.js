@@ -60,12 +60,15 @@ app.use("/api/profile", myPasswordRoutes);
 
 
 
-
 // Root check
 app.get("/", (req, res) => {
   res.json({ message: "Liteboard API is running 🚀" });
 });
 
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`✅ Server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

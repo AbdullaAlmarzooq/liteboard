@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- Phase 0 feature-based refactor preparation with empty server/client feature folder skeletons and a manual refactor testing checklist. No routes, API behavior, middleware names, or database schema changed in this phase.
 - Collapsible desktop sidebar navigation with icon-only mode and persisted `liteboard.sidebarCollapsed` localStorage state.
 - Mobile drawer navigation opened from a hamburger button for small screens.
 - Admin sidebar section grouping for Audit Logs and Admin Panel.
@@ -25,6 +26,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
+- Server startup now exports the Express app for backend tests while preserving normal `node server.js` startup through a CommonJS `require.main === module` listen guard.
 - Replaced the crowded top navigation with a responsive sidebar app shell.
 - Moved Profile into the sidebar while keeping the theme toggle and logout action in the top header.
 - Preserved existing role-based navigation visibility for Dashboard, Tickets, Projects, Create Ticket, Audit Logs, Admin Panel, and Profile.
