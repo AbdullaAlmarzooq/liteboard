@@ -1,3 +1,4 @@
+import { apiUrl } from "../../lib/api";
 import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import Pagination from "../Profile/Pagination.jsx";
@@ -33,7 +34,7 @@ const RecentActivity = () => {
           page: String(currentPage),
           limit: String(itemsPerPage),
         });
-        const res = await fetch(`http://localhost:8000/api/profile/activity?${params.toString()}`, {
+        const res = await fetch(apiUrl(`/api/profile/activity?${params.toString()}`), {
           signal: abortController.signal,
           headers: { Authorization: `Bearer ${token}` },
         });

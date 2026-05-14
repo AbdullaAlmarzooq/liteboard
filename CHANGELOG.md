@@ -27,6 +27,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
+- Removed legacy `server/routes/*` compatibility re-exports, old moved client page/component paths, the old standalone `client/src/useFetch.js`, and the unused `client/src/utils/fetchWithAuth.js` wrapper after active imports were verified against the feature-based structure.
+- Replaced hardcoded frontend API host usage with `client/src/lib/api.js`, centralizing `REACT_APP_API_URL` handling, authenticated fetch calls, and the existing `useFetch` behavior while preserving endpoint paths and auth headers.
+- Moved client ticket, dashboard, projects, admin, profile pages and feature-specific components into `client/src/features/*` folders while preserving route URLs, UI behavior, API calls, file extensions, and existing data-fetching behavior.
 - Moved `/api/auth`, `/api/profile`, and `/api/audit-logs` into feature folders with route, controller, and service layers while preserving login token behavior, profile activity behavior, and audit-log pagination/filtering.
 - Moved `/api/projects`, `/api/workgroups`, `/api/employees`, and `/api/modules` into feature folders with route, controller, and service layers while preserving existing URLs, middleware behavior, response shapes, and admin event logging.
 - Moved workflow read APIs, workflow step helpers, workflow transition APIs, and Admin workflow management under `server/features/workflows` with route, controller, and service layers while preserving `/api/workflows`, `/api/workflow_steps`, `/api/workflow_transitions`, and `/api/workflow_management` URLs and middleware behavior.

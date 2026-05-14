@@ -244,9 +244,9 @@ Phase 2D verifies the server-side feature refactor before client migration start
 Verification expectations:
 
 - `server/server.js` should mount active API routers from `server/features/*`.
-- Legacy `server/routes/*` files should remain compatibility re-exports only until the cleanup phase.
+- Legacy `server/routes/*` compatibility re-exports should be absent after final cleanup.
 - No duplicate `app.use("/api/...")` mounts should exist.
-- Feature and compatibility route files should import without broken module paths.
+- Feature route files should import without broken module paths.
 - Backend startup should still return the root API health response.
 
 Full backend regression checklist:
@@ -271,3 +271,69 @@ Suggested final smoke:
 - Confirm unauthenticated protected APIs still return `401`.
 - Log in as Admin and exercise Admin Panel projects, workflows, tags, modules, workgroups, employees, and audit logs.
 - Log in as Editor/Viewer and confirm project visibility and role restrictions remain unchanged.
+
+## Phase 3A - Client Feature Folder Migration
+
+Phase 3A moves client pages and feature-specific components under `client/src/features/*` while preserving the same route URLs, UI behavior, API calls, file extensions, and existing `useFetch.js` usage. Login remains in `client/src/pages` for now, and shared primitives remain in `client/src/components`.
+
+Expected behavior:
+
+- Sidebar and direct URL navigation should still reach the same screens.
+- Dashboard, Tickets, Create Ticket, View Ticket, Edit Ticket, Projects, Profile, Admin Panel, and Audit Logs should render as before.
+- Ticket filters, search, pagination, export, comments, attachments, tags, transitions, and edit actions should keep using the same API calls.
+- Admin tabs and modals for projects, workflows, tags, modules, workgroups, and employees should behave as before.
+- Profile overview/activity and Audit Logs pagination/filtering should still work.
+
+Suggested smoke checks:
+
+- Start the frontend and log in as an Admin.
+- Navigate through Dashboard, Tickets, Projects, Profile, Audit Logs, and Admin Panel from the sidebar.
+- Open `/tickets`, `/create-ticket`, `/view-ticket/:id`, and `/edit-ticket/:id` directly in the browser and confirm route protection still works.
+- On Tickets, test project filtering, search, pagination, and export.
+- Open a ticket and confirm comments, attachments, tags, status history, and allowed transitions still render.
+- As Admin, open each Admin Panel tab and confirm list data and modals load.
+- Log in as a non-Admin and confirm Admin-only navigation/routes remain blocked.
+
+## Phase 3B - Central Client API Helper
+
+Phase 3B replaces hardcoded frontend API host strings and the old standalone `useFetch.js` file with `client/src/lib/api.js`. Endpoint paths, request methods, authentication headers, response handling, and the default local API host should remain unchanged.
+
+Expected behavior:
+
+- Omitting `REACT_APP_API_URL` should still call the local backend at `http://localhost:8000`.
+- Setting `REACT_APP_API_URL` before `npm start` or `npm run build` should point all client API calls at that base URL.
+- Authenticated GET requests should still include the same Bearer token behavior and missing-token errors.
+- Imperative authenticated writes should still use the same JSON headers and return raw `Response` objects to callers.
+- Login should still work without a token and should store the returned token/user in `localStorage`.
+
+Suggested smoke checks:
+
+- Start backend and frontend without `REACT_APP_API_URL`; log in and confirm Dashboard data loads.
+- Open Tickets and confirm list, project filter, search, pagination, export, view, edit, and delete flows still hit the same endpoint paths.
+- Create a disposable ticket and confirm project/workflow/module/tag dropdown data still loads.
+- Open a ticket and test comments, attachments, allowed transitions, and status activity.
+- Open Projects, Profile, Audit Logs, and each Admin Panel tab as Admin.
+- Restart the frontend with `REACT_APP_API_URL=http://localhost:8000` and confirm the same screens still load.
+
+## Phase 4B - Final Cleanup Regression
+
+Phase 4B removes old compatibility files after the backend and client feature structures are active. API URLs, client route URLs, middleware behavior, database schema, and user-visible behavior should remain unchanged.
+
+Expected behavior:
+
+- `server/server.js` should import API routers directly from `server/features/*`.
+- No active import should reference deleted `server/routes/*`, old client page paths, old feature-specific component folders, `client/src/useFetch.js`, or `client/src/utils/fetchWithAuth.js`.
+- The only remaining hardcoded local API host should be the default fallback in `client/src/lib/api.js`.
+- Empty feature skeletons may remain only where future work is intentionally pending.
+
+Full regression checklist:
+
+- Auth: login success, invalid login, inactive account handling, token storage, logout, and protected route redirects.
+- Dashboard: project filter, workflow/status/module/workgroup filtering, charts, loading states, and non-admin project visibility.
+- Tickets: list, filter options, search, pagination, export, create, view, edit, restricted creator-only fields, delete, and terminal-ticket locking.
+- Ticket detail: comments, attachments, tag display, status history/activity, allowed transitions, workflow transition, and attachment blob download.
+- Projects: overview cards, project deep links into Tickets, Admin project create/update, and assignment replacement.
+- Admin Panel: employees, tags, workgroups, modules, workflows, projects, modal open/save/cancel, duplicate validation, active toggles, and audit events.
+- Profile: overview stats, charts, personal activity, assigned tickets, workgroup tickets, pagination, and password change.
+- Audit Logs: filters, search, sorting, pagination, row expansion, and Admin-only access.
+- API environment: run once with the default local API host and once with `REACT_APP_API_URL=http://localhost:8000`.

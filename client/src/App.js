@@ -1,19 +1,19 @@
 "use client"
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom"
 import AppLayout from "./components/Layout/AppLayout"
-import Admin from "./pages/AdminPanel"
-import Dashboard from "./pages/Dashboard"
-import TicketsPage from "./pages/TicketsPage"
-import CreateTicketPage from "./pages/CreateTicketPage"
-import ViewTicket from "./components/ViewTicket"
-import EditTicket from "./components/TicketManagement/EditTicket"
+import Admin from "./features/admin/pages/AdminPanel"
+import Dashboard from "./features/dashboard/pages/Dashboard"
+import TicketsPage from "./features/tickets/pages/TicketsPage"
+import CreateTicketPage from "./features/tickets/pages/CreateTicketPage"
+import ViewTicket from "./features/tickets/components/ViewTicket"
+import EditTicket from "./features/tickets/components/EditTicket"
 import { ThemeProvider } from "./contexts/ThemeContext"
 import ProtectedRoute from "./components/Auth/ProtectedRoute"
 import LoginPage from "./pages/LoginPage"
 import { ToastContainer } from "react-toastify";
-import ProfileActivity from "./pages/ProfileActivity"
-import ProjectsPage from "./pages/ProjectsPage"
-import AuditLogsPage from "./pages/AuditLogsPage"
+import ProfileActivity from "./features/profile/pages/ProfileActivity"
+import ProjectsPage from "./features/projects/pages/ProjectsPage"
+import AuditLogsPage from "./features/admin/pages/AuditLogsPage"
 
 
 function AppRoutes() {

@@ -1,0 +1,664 @@
+import { useFetch, apiUrl } from "../../../lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/Card"
+import Badge from "../../../components/Badge"
+import Button from "../../../components/Button"
+import TicketFilter from "../components/TicketFilter"
+import { useAuth } from "../../../components/hooks/useAuth"
+import { TicketsPageSkeleton } from "../../../components/PageSkeletons"
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import SearchBar from "../components/SearchBar";
+import TicketExporter from "../components/TicketExporter"
+import Pagination from "../../../components/Pagination"
+import {
+  appendTicketFilterParams,
+  createInitialTicketFilters,
+} from "../components/ticketFilterQuery";
+import { Eye, Edit, Trash2, AlertTriangle, X } from 'lucide-react';
+
+const isTerminalStatusVariant = (variant) =>
+  variant === "new" || variant === "destructive";
+
+const normalizeDateOnly = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+};
+
+const resolveSlaStatus = (ticket) => {
+  if (ticket.slaStatus) return ticket.slaStatus;
+  if (!ticket.dueDate) return 'no_sla';
+
+  const due = normalizeDateOnly(ticket.dueDate);
+  const today = normalizeDateOnly(new Date());
+  if (!due || !today) return 'no_sla';
+
+  if (Number(ticket.stepCategoryCode) === 30 && ticket.completedAt) {
+    const completed = normalizeDateOnly(ticket.completedAt);
+    if (!completed) return 'on_time';
+    return completed <= due ? 'closed_in_time' : 'closed_late';
+  }
+
+  if (due < today) return 'overdue';
+  if (due.getTime() === today.getTime()) return 'due_today';
+  return 'on_time';
+};
+
+const getSlaBadgeConfig = (slaStatus) => {
+  switch (slaStatus) {
+    case 'on_time':
+    case 'closed_in_time':
+      return { label: 'On Time', variant: 'new' };
+    case 'due_today':
+      return { label: 'Due Today', variant: 'secondary' };
+    case 'overdue':
+    case 'closed_late':
+      return { label: 'Overdue', variant: 'destructive' };
+    case 'no_sla':
+    default:
+      return { label: 'No SLA', variant: 'outline' };
+  }
+};
+
+const TicketsPage = () => {
+
+  const { user } = useAuth();
+  const canEdit = user && (user.role_id === 1 || user.role_id === 2);
+
+  const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [isDeleting, setIsDeleting] = useState(null);
+  const [activeFilters, setActiveFilters] = useState(createInitialTicketFilters);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState(null);
+  const [currentPage, setCurrentPage_] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedProjectId, setSelectedProjectId] = useState(searchParams.get('project_id') || '');
+  const ticketsListUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      page: String(currentPage),
+      limit: String(itemsPerPage),
+    });
+
+    if (selectedProjectId) {
+      params.set('project_id', selectedProjectId);
+    }
+    appendTicketFilterParams(params, activeFilters);
+
+    return apiUrl(`/api/tickets/list?${params.toString()}`);
+  }, [currentPage, itemsPerPage, selectedProjectId, activeFilters]);
+  const filterOptionsUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (selectedProjectId) {
+      params.set('project_id', selectedProjectId);
+    }
+
+    const query = params.toString();
+    return apiUrl(`/api/tickets/filter-options${query ? `?${query}` : ''}`);
+  }, [selectedProjectId]);
+  const { data: ticketsData, isPending, error } = useFetch(ticketsListUrl);
+  const { data: ticketFilterOptionsData } = useFetch(filterOptionsUrl);
+  const { data: projectsData, isPending: projectsPending, error: projectsError } = useFetch(apiUrl("/api/projects/available"));
+
+  // Transform the data from database format to component format
+  const tickets = useMemo(() => {
+    const pageItems = Array.isArray(ticketsData?.items) ? ticketsData.items : [];
+    if (!pageItems.length) return [];
+    
+    return pageItems.map(ticket => ({
+      id: ticket.id,
+      ticketCode: ticket.ticket_code,
+      projectId: ticket.project_id || "",
+      projectName: ticket.project_name || "No Project",
+      title: ticket.title,
+      status: ticket.status,
+      statusVariant: ticket.status_variant || 'outline',
+      isTerminal: isTerminalStatusVariant(ticket.status_variant),
+      priority: ticket.priority,
+      workflow: ticket.workflow_name || 'No Workflow',
+      workGroup: ticket.workgroup_name || 'Unassigned',
+      module: ticket.module_name || 'No Module',
+      stepCategoryCode: ticket.step_category_code,
+      completedAt: ticket.completed_at,
+      initiateDate: ticket.initiate_date || ticket.created_at,
+      createdAt: ticket.created_at,
+      updatedAt: ticket.updated_at,
+      createdBy: ticket.created_by_name || 'Unknown',
+      responsible: ticket.responsible_name || 'Unassigned',
+      tags: ticket.tags || [],
+      dueDate: ticket.due_date,
+      slaStatus: ticket.sla_status,
+    }));
+  }, [ticketsData]);
+  const totalTickets = Number(ticketsData?.total) || 0;
+
+  const getDisplayTicketCode = (ticket) => ticket.ticketCode || ticket.id;
+
+  const projects = useMemo(() => Array.isArray(projectsData) ? projectsData : [], [projectsData]);
+  const ticketsToDisplay = tickets;
+  const currentTickets = ticketsToDisplay;
+  const paginationTotalItems = totalTickets;
+
+  useEffect(() => {
+    const queryProjectId = searchParams.get('project_id') || '';
+    setSelectedProjectId(queryProjectId);
+    setCurrentPage_(1);
+    setActiveFilters(createInitialTicketFilters());
+  }, [searchParams]);
+
+  // Reset to first page when page size changes
+  useEffect(() => {
+    setCurrentPage_(1);
+  }, [itemsPerPage]);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage_(pageNumber);
+  };
+
+  const handleItemsPerPageChange = (size) => {
+    setItemsPerPage(size);
+  };
+
+  const getStatusVariant = (status, statusVariant) => {
+    if (statusVariant) return statusVariant;
+    switch (status) {
+      case "Closed":
+        return "new";
+      case "In Progress":
+        return "secondary";
+      case "Cancelled":
+        return "destructive";
+      case "Open":
+        return "default";
+      default:
+        return "outline";
+    }
+  }
+
+  const getPriorityVariant = priority => {
+    switch (priority) {
+      case "Critical":
+        return "destructive"
+      case "High":
+        return "destructive"
+      case "Medium":
+        return "secondary"
+      case "Low":
+        return "outline"
+      default:
+        return "outline"
+    }
+  }
+
+  const handleEdit = (ticketId, isTerminal) => {
+    if (isTerminal) return;
+    navigate(`/edit-ticket/${ticketId}`);
+  };
+
+  const openDeleteModal = (ticket) => {
+    setTicketToDelete(ticket);
+    setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setTicketToDelete(null);
+  };
+
+  const handleDelete = async () => {
+    if (!ticketToDelete) return;
+
+    setIsDeleting(ticketToDelete.id);
+    
+    try {
+      // Fixed: Updated API endpoint to match server route structure
+      const response = await fetch(apiUrl(`/api/tickets/${getDisplayTicketCode(ticketToDelete)}`), {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        closeDeleteModal();
+        window.location.reload();
+      } else {
+        alert('Failed to delete ticket');
+      }
+    } catch (error) {
+      console.error('Error deleting ticket:', error);
+      alert('Error deleting ticket');
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
+  const handleView = (ticketId) => {
+    navigate(`/view-ticket/${ticketId}`);
+  };
+
+  const handleProjectChange = (projectId) => {
+    setSelectedProjectId(projectId);
+    setCurrentPage_(1);
+    const nextParams = new URLSearchParams(searchParams);
+    if (projectId) {
+      nextParams.set('project_id', projectId);
+    } else {
+      nextParams.delete('project_id');
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  const handleFiltersChange = useCallback((nextFilters) => {
+    setActiveFilters(nextFilters);
+    setCurrentPage_(1);
+  }, []);
+
+  if (isPending || projectsPending) {
+    return <TicketsPageSkeleton />;
+  }
+
+  if (error || projectsError) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-red-600 dark:text-red-400">Error loading tickets: {error || projectsError}</div>
+      </div>
+    );
+  }
+
+  if (!projects.length) {
+    return (
+      <div className="space-y-6">
+        <p className="text-gray-600 dark:text-gray-300">
+          {user?.role_id === 1
+            ? "No projects are available yet."
+            : "No projects assigned to your workgroup. Please contact administration."}
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">  
+      <div className="flex justify-end">
+        <TicketExporter
+          selectedProjectId={selectedProjectId}
+          activeFilters={activeFilters}
+          totalItems={totalTickets}
+        />
+      </div>
+
+      <TicketFilter
+        tickets={tickets}
+        filterOptions={ticketFilterOptionsData}
+        resetKey={selectedProjectId || "all-projects"}
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        onProjectChange={handleProjectChange}
+        onFiltersChange={handleFiltersChange}
+        projectAllLabel={user?.role_id === 1 ? "All projects" : "All accessible projects"}
+      />
+
+      <SearchBar
+        resetKey={selectedProjectId || "all-projects"}
+        selectedProjectId={selectedProjectId}
+        activeFilters={activeFilters}
+      />
+
+      {/* Desktop Table View */}
+      <div className="hidden lg:block">
+        <Card className="bg-white dark:bg-gray-800 shadow-sm">
+          <CardHeader>
+            <CardTitle></CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-300 dark:border-gray-700">
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      ID
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      Title
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      Status
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      Priority
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      WorkGroup
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      Responsible
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      Module
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      Tags
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      SLA
+                    </th>
+                    <th className="text-left p-3 font-medium text-gray-700 dark:text-gray-300">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentTickets.map(ticket => {
+                    const slaBadge = getSlaBadgeConfig(resolveSlaStatus(ticket));
+                    return (
+                      <tr
+                        key={ticket.id}
+                        className="border-b border-gray-300 dark:border-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700/50"
+                      >
+                        <td className="p-3 font-mono text-sm text-gray-600 dark:text-gray-400">
+                          {getDisplayTicketCode(ticket)}
+                        </td>
+                        <td className="p-3 font-medium text-gray-900 dark:text-white">
+                          {ticket.title}
+                        </td>
+                        <td className="p-3">
+                          <Badge variant={getStatusVariant(ticket.status, ticket.statusVariant)}>
+                            {ticket.status}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          <Badge variant={getPriorityVariant(ticket.priority)}>
+                            {ticket.priority}
+                          </Badge>
+                        </td>
+                        <td className="p-3 text-gray-700 dark:text-gray-300">
+                          {ticket.workGroup}
+                        </td>
+                        <td className="p-3 text-gray-700 dark:text-gray-300">
+                          {ticket.responsible}
+                        </td>
+                        <td className="p-3 text-gray-700 dark:text-gray-300">
+                          {ticket.module}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-wrap gap-1">
+                  {ticket.tags?.length > 0 ? (
+                    ticket.tags.map(tag => (
+                      <span
+                        key={tag.id}
+                        className="px-2 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: tag.color || '#E5E7EB',
+                          color: tag.color
+                            ? '#fff'
+                            : '#374151',
+                        }}
+                      >
+                        {tag.name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-400 text-xs">No tags</span>
+                  )}
+
+                          </div>
+                        </td>
+                        <td className="p-3 text-sm text-gray-600 dark:text-gray-400">
+                          <Badge variant={slaBadge.variant}>
+                            {slaBadge.label}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => navigate(`/view-ticket/${getDisplayTicketCode(ticket)}`)}
+                              className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 flex items-center gap-1 transition-colors duration-200"
+                            >
+                              <Eye className="w-3 h-3" />
+                            </button>
+                            {canEdit && !ticket.isTerminal && (
+                            <button
+                              onClick={() => navigate(`/edit-ticket/${getDisplayTicketCode(ticket)}`)}
+                              className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 flex items-center gap-1 transition-colors duration-200"
+                            >
+                              <Edit className="w-3 h-3" />
+                            </button>
+                            )}
+                            {user?.role_id === 1 && !ticket.isTerminal && (
+                            <button
+                              onClick={() => openDeleteModal(ticket)}
+                              disabled={isDeleting === ticket.id}
+                              className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 hover:text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-800/30 dark:hover:text-red-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors duration-200"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              {isDeleting === ticket.id ? 'Deleting...' : ''}
+                            </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="lg:hidden space-y-4">
+        {currentTickets.map(ticket => {
+          const slaBadge = getSlaBadgeConfig(resolveSlaStatus(ticket));
+          return (
+            <Card key={ticket.id}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm text-gray-500 dark:text-gray-400">
+                    {getDisplayTicketCode(ticket)}
+                  </span>
+                  <div className="flex gap-2">
+                    <Badge variant={getStatusVariant(ticket.status, ticket.statusVariant)}>
+                      {ticket.status}
+                    </Badge>
+                    <Badge variant={getPriorityVariant(ticket.priority)}>
+                      {ticket.priority}
+                    </Badge>
+                    <Badge variant={slaBadge.variant}>
+                      {slaBadge.label}
+                    </Badge>
+                  </div>
+                </div>
+                <CardTitle className="text-lg">{ticket.title}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      WorkGroup:
+                    </span>
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {ticket.workGroup}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Module:
+                    </span>
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {ticket.module}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Responsible:
+                    </span>
+                    <div className="font-medium text-gray-900 dark:text-white">
+                      {ticket.responsible}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-gray-500 dark:text-gray-400 text-sm">
+                    Tags:
+                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                  {ticket.tags?.length > 0 ? (
+                    ticket.tags.map(tag => (
+                      <span
+                        key={tag.id}
+                        className="px-2 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: tag.color || '#E5E7EB',
+                          color: tag.color
+                            ? '#fff'
+                            : '#374151',
+                        }}
+                      >
+                        {tag.name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-gray-400 text-xs">No tags</span>
+                  )}
+
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => handleView(getDisplayTicketCode(ticket))}
+                    className="flex-1 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-800/30 dark:hover:text-blue-200 disabled:opacity-50 flex items-center justify-center gap-1"
+                  >
+                    <Eye className="w-3 h-3" />
+                    View
+                  </button>
+                  {canEdit && !ticket.isTerminal && (
+                  <button
+                    onClick={() => handleEdit(getDisplayTicketCode(ticket), ticket.isTerminal)}
+                    className="flex-1 px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded hover:bg-gray-300 hover:text-gray-900 dark:bg-gray-900/20 dark:text-gray-400 dark:hover:bg-gray-800/30 dark:hover:text-gray-300 disabled:opacity-50 flex items-center justify-center gap-1"
+                  >
+                    <Edit className="w-3 h-3" />
+                    Edit
+                  </button>
+                  )}
+                  {user?.role_id === 1 && !ticket.isTerminal && (
+                  <button
+                    onClick={() => openDeleteModal(ticket)}
+                    disabled={isDeleting === ticket.id}
+                    className="flex-1 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 hover:text-red-800 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-800/30 dark:hover:text-red-200 disabled:opacity-50 flex items-center justify-center gap-1"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    {isDeleting === ticket.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* No tickets message */}
+      {ticketsToDisplay.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-8">
+            <p className="text-gray-500 dark:text-gray-400">
+              No tickets found for the current filters.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add the Pagination component here */}
+      <Pagination
+        totalItems={paginationTotalItems}
+        itemsPerPage={itemsPerPage}
+        currentPage={currentPage}
+        onPageChange={handlePageChange}
+        onItemsPerPageChange={handleItemsPerPageChange}
+      />
+
+      {/* Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-full">
+                  <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Delete Ticket
+                </h3>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">
+                Are you sure you want to delete this ticket? This action cannot be undone.
+              </p>
+              
+              {ticketToDelete && (
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-mono text-sm text-gray-500 dark:text-gray-400">
+                      {getDisplayTicketCode(ticketToDelete)}
+                    </span>
+                    <div className="flex gap-2">
+                      <Badge variant={getStatusVariant(ticketToDelete.status, ticketToDelete.statusVariant)} className="text-xs">
+                        {ticketToDelete.status}
+                      </Badge>
+                      <Badge variant={getPriorityVariant(ticketToDelete.priority)} className="text-xs">
+                        {ticketToDelete.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                  <h4 className="font-medium text-gray-900 dark:text-white">
+                    {ticketToDelete.title}
+                  </h4>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
+              <Button
+                variant="outline"
+                onClick={closeDeleteModal}
+                className="flex-1"
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white font-medium rounded-md transition-colors flex items-center justify-center"
+              >
+                {isDeleting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Delete Ticket
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default TicketsPage

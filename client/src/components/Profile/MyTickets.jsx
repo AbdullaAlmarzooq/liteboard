@@ -1,3 +1,4 @@
+import { apiUrl } from "../../lib/api";
 import { useEffect, useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../Card";
 import { Link } from "react-router-dom";
@@ -30,7 +31,7 @@ const MyTickets = () => {
           page: String(currentPage),
           limit: String(itemsPerPage),
         });
-        const res = await fetch(`http://localhost:8000/api/profile/my-tickets?${params.toString()}`, {
+        const res = await fetch(apiUrl(`/api/profile/my-tickets?${params.toString()}`), {
           signal: abortController.signal,
           headers: { Authorization: `Bearer ${token}` },
         });

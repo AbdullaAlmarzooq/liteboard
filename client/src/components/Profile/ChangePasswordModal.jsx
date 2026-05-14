@@ -1,3 +1,4 @@
+import { apiUrl } from "../../lib/api";
 import { useState } from "react";
 import { Lock, Eye, EyeOff, X } from "lucide-react";
 
@@ -62,7 +63,7 @@ const ChangePasswordModal = ({ isOpen, onClose }) => {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8000/api/profile/myPassword", {
+      const res = await fetch(apiUrl("/api/profile/myPassword"), {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
