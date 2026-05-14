@@ -111,41 +111,42 @@ Projects extend the existing workgroup model rather than replacing it:
 
 ## 3. Backend Architecture
 
+### Feature-Based Refactor Note
+
+LiteBoard now uses a feature-based structure for the backend and main client screens. Server route, controller, and service code lives under `server/features/*`; client feature pages and feature-specific components live under `client/src/features/*`. Existing middleware names, API endpoint URLs, database schema, route URLs, and data-fetching behavior are preserved.
+
 ### Directory Structure
 
 ```
 server/
-├── server.js              # Express app bootstrap & route registration
-├── .env                   # Environment variables (JWT_SECRET, DATABASE_URL)
-├── db/
-│   ├── db.js              # PostgreSQL pool wrapper + DATE parser
-│   ├── schema.sql         # Complete database schema
-│   └── migrations/        # Incremental SQL migrations
-├── middleware/
-│   ├── authMiddleware.js  # JWT verification + role enforcement
-│   ├── ensureProjectAccess.js  # Project-based ticket visibility enforcement
-│   └── ensureSameWorkgroup.js  # Workgroup-based access control
-└── routes/
-    ├── auth.js            # Login endpoint
-    ├── projects.js        # Admin-only project management + assignments
-    ├── tickets.js         # Ticket CRUD + workflow transitions
-    ├── employees.js       # Employee management + password handling
-    ├── workflows.js       # Read-only workflow queries
-    ├── workflowManagement.js  # Admin workflow CRUD
-    ├── workflowSteps.js   # Workflow step queries
-    ├── workflow_transitions.js # Transition rules
-    ├── modules.js         # Module management
-    ├── tags.js            # Tag management
-    ├── tickets_tags.js    # Ticket-tag associations
-    ├── comments.js        # Ticket comments
-    ├── attachments.js     # File attachments
-    ├── status_history.js  # Audit trail
-    ├── workgroups.js      # Workgroup management
-    └── profile/
-        ├── stats.js       # User statistics
-        ├── activity.js    # Activity feed
-        ├── myTickets.js   # User's tickets
-        └── myPassword.js  # Password change
+|-- server.js              # Express app bootstrap, middleware, and feature route registration
+|-- .env                   # Environment variables (JWT_SECRET, DATABASE_URL)
+|-- db/
+|   |-- db.js              # PostgreSQL pool wrapper + DATE parser
+|   |-- schema.sql         # Complete database schema
+|   `-- migrations/        # Incremental SQL migrations
+|-- middleware/
+|   |-- authMiddleware.js  # JWT verification + role enforcement
+|   |-- ensureProjectAccess.js
+|   |-- ensureSameWorkgroup.js
+|   `-- ensureTicketIsEditable.js
+|-- features/
+|   |-- attachments/
+|   |-- audit-logs/
+|   |-- auth/
+|   |-- comments/
+|   |-- employees/
+|   |-- modules/
+|   |-- profile/
+|   |-- projects/
+|   |-- tags/
+|   |-- tickets/
+|   |-- workflows/
+|   `-- workgroups/
+`-- utils/
+    |-- events.js
+    |-- projectAccess.js
+    `-- sla.js
 ```
 
 ### Database Schema (20 Tables)
@@ -210,14 +211,16 @@ erDiagram
 | `/api/tickets/:id` | GET, PUT, DELETE | Token + Project Access + Role/Workgroup | Single ticket operations (`PUT` keeps general management editable for authorized users but restricts `title`/`description` to ticket creator only) |
 | `/api/tickets/:id/transition` | POST | Token + Admin/Editor + Project Access + Workgroup | Workflow state change |
 | `/api/tickets/:id/allowed-steps` | GET | Token | Get valid next steps |
+| `/api/status_history` | GET, POST | Token / Ticket Editable | Legacy ticket status-history reads and manual history insertion |
 | `/api/employees` | GET, POST | None / Token + Admin | Employee list and Admin-only create |
 | `/api/employees/:id` | GET, PUT | None / Token + Admin | Single employee read and Admin-only update |
 | `/api/workflows` | GET | Token | List active workflows, with optional `project_id` filtering for project-scoped ticket creation |
 | `/api/workflow_management` | GET, POST, PATCH, DELETE | Token + Admin | Admin workflow CRUD (including SLA config) |
 | `/api/modules` | GET, POST, PUT, DELETE | Token | Module management (`GET` for authenticated users; `POST`/`PUT`/`DELETE` are Admin-only, and `GET` supports optional `project_id` filtering) |
 | `/api/tags` | GET, POST, PUT, DELETE | Token / Token + Admin | Tag management, with optional `project_id` filtering on reads and Admin-only writes |
+| `/api/ticket_tags` | GET, POST, PUT, DELETE | Token | Ticket-tag associations and replacement while preserving ticket editability checks |
 | `/api/comments` | GET, POST, PUT, DELETE | Token | Ticket comments |
-| `/api/attachments` | GET, POST, DELETE | Token | File attachments |
+| `/api/attachments` | GET, POST, DELETE | Token | File attachments, including metadata and inline blob retrieval |
 | `/api/workgroups` | GET, POST, PUT, DELETE | None / Token + Admin | Workgroup list and Admin-only management |
 | `/api/profile/*` | GET, PUT | Token | User profile operations |
 | `/api/profile/activity/global` | GET | Token + Admin | Global event activity feed, including Admin Panel events |
@@ -356,36 +359,42 @@ erDiagram
 
 ```
 client/src/
-├── App.js                 # Root component with routing
-├── index.js               # React entry point
-├── index.css              # Global styles + Tailwind directives
-├── useFetch.js            # Custom hook for authenticated API calls
-├── contexts/
-│   └── ThemeContext.js    # Dark/light theme provider
-├── components/
-│   ├── Layout/            # Responsive sidebar app shell, header, and navigation metadata
-│   ├── Badge.js           # Status/priority badges
-│   ├── Button.js          # Reusable button component
-│   ├── Card.js            # Card container
-│   ├── ViewTicket.js      # Ticket detail view (25KB)
-│   ├── hooks/             # Custom hooks
-│   ├── Auth/
-│   │   └── ProtectedRoute.jsx # Route guard with role checking
-│   ├── Dashboard/         # 7 dashboard chart components
-│   ├── Profile/           # Profile widgets + activity summary helper
-│   ├── AdminPanel/        # 9 admin components
-│   ├── TicketManagement/  # 5 ticket form components
-│   └── TicketsPage/       # 4 ticket list components
-├── pages/
-│   ├── LoginPage.jsx      # Authentication page
-│   ├── Dashboard.js       # Analytics dashboard
-│   ├── ProjectsPage.js    # Project-level overview cards
-│   ├── TicketsPage.js     # Ticket list with filters
-│   ├── CreateTicketPage.js # Ticket creation form
-│   ├── ProfileActivity.jsx # User profile
-│   └── AdminPanel.js      # Admin settings
-└── constants/
-    └── ...                # Application constants
+|-- App.js                 # Root component with routing
+|-- index.js               # React entry point
+|-- index.css              # Global styles + Tailwind directives
+|-- lib/
+|   `-- api.js             # API base URL, authenticated fetch helper, and compatibility fetch hook
+|-- contexts/
+|   `-- ThemeContext.js    # Dark/light theme provider
+|-- components/
+|   |-- Auth/              # Route guard
+|   |-- Layout/            # Responsive sidebar app shell, header, and navigation metadata
+|   |-- Profile/           # Shared profile widgets + activity summary helper
+|   |-- hooks/             # Shared hooks
+|   |-- Badge.js           # Shared status/priority badge
+|   |-- Button.js          # Shared button component
+|   |-- Card.js            # Shared card container
+|   |-- PageSkeletons.js   # Shared loading skeletons
+|   |-- Pagination.jsx     # Shared pagination used by tickets and audit logs
+|   `-- ProjectFilterSelect.jsx # Shared project selector
+|-- features/
+|   |-- admin/
+|   |   |-- pages/         # Admin Panel and Audit Logs pages
+|   |   `-- components/    # Admin-only tabs and modals
+|   |-- dashboard/
+|   |   |-- pages/         # Dashboard page
+|   |   `-- components/    # Dashboard-only filters and charts
+|   |-- profile/
+|   |   `-- pages/         # Profile activity page
+|   |-- projects/
+|   |   `-- pages/         # Projects overview page
+|   `-- tickets/
+|       |-- pages/         # Tickets list and Create Ticket pages
+|       `-- components/    # Ticket detail, edit, filter, export, comments, attachments
+|-- pages/
+|   `-- LoginPage.jsx      # Authentication page
+`-- constants/
+    `-- ...                # Application constants
 ```
 
 ### Routing Configuration
@@ -418,20 +427,22 @@ The application uses a **hooks-based architecture** without external state manag
 
 1. **Authentication State**: `localStorage` for token + user object
 2. **Theme State**: React Context (`ThemeContext`)
-3. **Data Fetching**: Custom `useFetch` hook with JWT injection
+3. **Data Fetching**: `client/src/lib/api.js` centralizes API base URL resolution, authenticated fetch calls, and the compatibility `useFetch` hook with JWT injection
 4. **Form State**: Local `useState` per component
 
 ### Custom Hooks
 
-#### `useFetch(url)` - Authenticated Data Fetcher
+#### `client/src/lib/api.js` - API Client Helpers
 
 ```javascript
-// Automatically injects JWT from localStorage
-// Returns: { data, isPending, error }
-const { data, isPending, error } = useFetch("http://localhost:8000/api/tickets");
+import { apiUrl, fetchWithAuth, useFetch } from "./lib/api";
+
+const { data, isPending, error } = useFetch(apiUrl("/api/tickets"));
+const response = await fetchWithAuth(apiUrl("/api/tickets"), { method: "POST" });
 ```
 
 **Key Features:**
+- Uses `REACT_APP_API_URL` when set, falling back to `http://localhost:8000` for local development
 - Automatically includes `Authorization: Bearer <token>` header
 - Blocks requests to `/api/*` routes without token
 - Handles 401/403 responses with descriptive errors
@@ -491,9 +502,11 @@ app.listen(8000, () => console.log("Server running"));
 
 ---
 
-#### `server/routes/projects.js` - Project Access + Admin Management
+#### `server/features/projects/projects.routes.js` - Project Access + Admin Management
 
 **Purpose**: Readable project lists for authenticated users plus admin CRUD and assignment APIs
+
+Project HTTP handling lives in `server/features/projects/projects.controller.js`, while project read filtering, dashboard counts, assignment replacement, validation, and admin event logging live in `server/features/projects/projects.service.js`.
 
 **Endpoints:**
 - `GET /api/projects`: list readable projects (`all` for Admin, active accessible projects for non-admin users)
@@ -541,9 +554,27 @@ This middleware remains unchanged and continues to enforce workflow-step/workgro
 
 ---
 
-#### `server/routes/tickets.js` - Ticket API (439 lines)
+#### `server/features/tickets/tickets.routes.js` - Ticket API
 
 **Purpose**: Complete ticket lifecycle management
+
+Ticket HTTP handling lives in `server/features/tickets/tickets.controller.js`, while ticket SQL and business rules live in `server/features/tickets/tickets.service.js`. The router preserves existing `/api/tickets` middleware and URL behavior.
+
+`/api/status_history` is implemented inside `server/features/tickets` as `status-history.routes.js`, `status-history.controller.js`, and `status-history.service.js` because the records are ticket-scoped. The mount path remains `/api/status_history` for compatibility.
+
+Comment backend handling lives under `server/features/comments`, with `comments.routes.js`, `comments.controller.js`, and `comments.service.js` preserving the existing `/api/comments` API surface.
+
+Attachment backend handling lives under `server/features/attachments`, with `attachments.routes.js`, `attachments.controller.js`, and `attachments.service.js` preserving the existing `/api/attachments` metadata, inline blob, upload, and delete behavior.
+
+Tag backend handling lives under `server/features/tags`, with tag CRUD and ticket-tag relation routers exported from the same feature module while preserving the existing `/api/tags` and `/api/ticket_tags` API surfaces.
+
+Workflow backend handling lives under `server/features/workflows`, with workflow read APIs, workflow step helpers, transition APIs, and Admin workflow management exported from the same feature module while preserving the existing `/api/workflows`, `/api/workflow_steps`, `/api/workflow_transitions`, and `/api/workflow_management` API surfaces.
+
+Smaller Admin-support backend handling lives under `server/features/projects`, `server/features/workgroups`, `server/features/employees`, and `server/features/modules`, preserving the existing `/api/projects`, `/api/workgroups`, `/api/employees`, and `/api/modules` API surfaces.
+
+Auth, profile, and audit-log backend handling lives under `server/features/auth`, `server/features/profile`, and `server/features/audit-logs`, preserving the existing `/api/auth`, `/api/profile`, and `/api/audit-logs` API surfaces, including token creation, profile activity pagination, and audit-log filtering.
+
+Final cleanup removed the legacy `server/routes/*` compatibility re-exports. Active `server.js` API mounts import directly from `server/features/*`.
 
 **Key Functions:**
 
@@ -575,19 +606,21 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 
 ---
 
-#### `server/routes/workflowManagement.js` - Admin Workflow CRUD (319 lines)
+#### `server/features/workflows/workflows.routes.js` - Workflow APIs
 
-**Purpose**: Create, update, and manage workflow definitions
+**Purpose**: Workflow read APIs, step helpers, transition rules, and Admin workflow CRUD
 
 **Key Features:**
 - Admin-authenticated workflow CRUD
-- Auto-generates workflow IDs (`WF-001`, `WF-002`, ...)
-- Auto-generates step codes (`WF-001-01`, `WF-001-02`, ...)
+- Preserves existing public mount paths: `/api/workflows`, `/api/workflow_steps`, `/api/workflow_transitions`, and `/api/workflow_management`
+- Auto-generates step codes from workflow IDs
 - Manages workflow transitions (bidirectional)
 - Workflow-level planned SLA toggle (`sla_enabled`)
 - Step-level SLA day validation (`sla_days`, 1-99) for non-terminal categories only
 - Recalculates due dates for existing open/in-progress tickets when workflow SLA settings change
 - Soft delete via `active = 0`
+
+HTTP request/response handling lives in `server/features/workflows/workflows.controller.js`, while SQL, validation, transition construction, SLA recalculation, and admin event logging live in `server/features/workflows/workflows.service.js`.
 
 **Step Category Codes:**
 | Code | Meaning |
@@ -599,7 +632,7 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 
 ---
 
-#### `server/routes/employees.js` - Employee Management (245 lines)
+#### `server/features/employees/*` - Employee Management
 
 **Purpose**: User account management with password handling
 
@@ -670,7 +703,7 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 
 ---
 
-#### `client/src/pages/Dashboard.js` - Analytics Dashboard
+#### `client/src/features/dashboard/pages/Dashboard.js` - Analytics Dashboard
 
 **Purpose**: Interactive ticket analytics with filtering
 
@@ -685,7 +718,7 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 
 ---
 
-#### `client/src/components/ViewTicket.js` - Ticket Detail View (25KB)
+#### `client/src/features/tickets/components/ViewTicket.js` - Ticket Detail View
 
 **Purpose**: Complete ticket view with actions
 
@@ -699,7 +732,7 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 
 ---
 
-#### `client/src/pages/ProfileActivity.jsx` + `client/src/components/Profile/*` - Profile Experience
+#### `client/src/features/profile/pages/ProfileActivity.jsx` + `client/src/components/Profile/*` - Profile Experience
 
 **Purpose**: User profile overview, pending workgroup queue, and personal recent activity feed
 
@@ -723,7 +756,7 @@ const isValidTransition = (workflowId, fromStepCode, toStepCode) => {
 
 | Variable | Description |
 |----------|-------------|
-| N/A | No environment variables; API URL hardcoded to `http://localhost:8000` |
+| `REACT_APP_API_URL` | Optional API base URL for the React app; defaults to `http://localhost:8000` in development |
 
 ### Storage Locations
 
@@ -824,6 +857,14 @@ This migration:
 
 - Adds `idx_events_entity_type_occurred` for Admin Audit Logs entity filtering ordered by event time
 
+6. [2026-05-03_scope_tag_uniqueness_to_project.sql](server/db/migrations/2026-05-03_scope_tag_uniqueness_to_project.sql)
+
+This migration:
+
+- Replaces global active tag-label uniqueness with project-scoped, case-insensitive uniqueness
+- Allows different projects to use the same tag label
+- Still prevents duplicate active tag labels inside the same project
+
 ### Legacy SQLite Migration Note
 
 The SQLite-to-PostgreSQL migration utilities have been removed from the active repository because the application now runs directly on PostgreSQL/Neon.
@@ -842,6 +883,19 @@ node server.js
 cd client
 npm start
 # Opens http://localhost:3000 in browser
+```
+
+To point the frontend at a non-default API host, set `REACT_APP_API_URL` before starting or building the client. For local development this can be omitted because the client defaults to `http://localhost:8000`.
+
+### Testing
+
+```bash
+# Backend smoke test, no real database connection required
+npm run test:backend
+
+# Frontend tests
+cd client
+npm test -- --watchAll=false
 ```
 
 ### Default Access
@@ -880,7 +934,7 @@ Since there's no registration endpoint, ensure at least one admin user exists in
 1. **Connection Management**: Performance depends on Neon sizing, connection limits, and pooling configuration
 2. **File Storage**: Attachments stored as BLOBs in database (memory-intensive for large files)
 3. **Session State**: Stateless JWT (no server-side session invalidation)
-4. **API URL**: Hardcoded `localhost:8000` requires configuration for deployment
+4. **API URL**: Frontend API host is configurable through `REACT_APP_API_URL`; deployment still needs the correct environment value
 
 ---
 
@@ -893,7 +947,7 @@ Since there's no registration endpoint, ensure at least one admin user exists in
 | **No HTTPS enforcement** | Add SSL/TLS termination; enforce secure cookies |
 | **Missing rate limiting** | Add `express-rate-limit` middleware |
 | **No input validation** | Implement schema validation (Joi, Zod, or express-validator) |
-| **Hardcoded API URL** | Move to environment variable (`REACT_APP_API_URL`) |
+| **Environment-specific API URL** | Set `REACT_APP_API_URL` per deployment target |
 | **No password reset** | Implement email-based password recovery |
 | **CORS unrestricted** | Configure allowed origins for production |
 

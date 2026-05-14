@@ -414,10 +414,22 @@ const getActorFromRequest = (req) => ({
   actorName: req?.user?.name || null,
 });
 
+const getActorFromContext = ({ req, actor }) => {
+  if (actor) {
+    return {
+      actorId: actor.id || actor.actorId || null,
+      actorName: actor.name || actor.actorName || null,
+    };
+  }
+
+  return getActorFromRequest(req);
+};
+
 const createAdminEvent = async (
   executor,
   {
     req,
+    actor = null,
     entity,
     action,
     entityId,
@@ -429,7 +441,7 @@ const createAdminEvent = async (
     occurredAt = null,
   }
 ) => {
-  const { actorId, actorName } = getActorFromRequest(req);
+  const { actorId, actorName } = getActorFromContext({ req, actor });
   const eventType = `admin.${entity}.${action}`;
   const safePayload = sanitizeAdminEventValue({
     ...payload,

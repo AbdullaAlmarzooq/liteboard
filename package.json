@@ -1,4 +1,7 @@
 {
+  "scripts": {
+    "test:backend": "node server/__tests__/server.smoke.test.js"
+  },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "class-variance-authority": "^0.7.1",

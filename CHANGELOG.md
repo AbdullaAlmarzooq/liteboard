@@ -7,6 +7,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- Backend smoke test command `npm run test:backend` using Node's built-in test runner to verify the Express app imports without listening and the root health endpoint responds without requiring production database data.
+- DB migration `server/db/migrations/2026-05-03_scope_tag_uniqueness_to_project.sql` replaces global tag-label uniqueness with project-scoped, case-insensitive active tag uniqueness.
+- Phase 0 feature-based refactor preparation with empty server/client feature folder skeletons and a manual refactor testing checklist. No routes, API behavior, middleware names, or database schema changed in this phase.
 - Collapsible desktop sidebar navigation with icon-only mode and persisted `liteboard.sidebarCollapsed` localStorage state.
 - Mobile drawer navigation opened from a hamburger button for small screens.
 - Admin sidebar section grouping for Audit Logs and Admin Panel.
@@ -25,6 +28,24 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Reusable SLA backend utilities in `server/utils/sla.js` for workflow SLA day calculation, ticket due-date calculation, ticket SLA status derivation, and workflow-level open-ticket due-date recalculation.
 
 ### Changed
+- Removed legacy `server/routes/*` compatibility re-exports, old moved client page/component paths, the old standalone `client/src/useFetch.js`, and the unused `client/src/utils/fetchWithAuth.js` wrapper after active imports were verified against the feature-based structure.
+- Replaced hardcoded frontend API host usage with `client/src/lib/api.js`, centralizing `REACT_APP_API_URL` handling, authenticated fetch calls, and the existing `useFetch` behavior while preserving endpoint paths and auth headers.
+- Moved client ticket, dashboard, projects, admin, profile pages and feature-specific components into `client/src/features/*` folders while preserving route URLs, UI behavior, API calls, file extensions, and existing data-fetching behavior.
+- Moved `/api/auth`, `/api/profile`, and `/api/audit-logs` into feature folders with route, controller, and service layers while preserving login token behavior, profile activity behavior, and audit-log pagination/filtering.
+- Moved `/api/projects`, `/api/workgroups`, `/api/employees`, and `/api/modules` into feature folders with route, controller, and service layers while preserving existing URLs, middleware behavior, response shapes, and admin event logging.
+- Moved workflow read APIs, workflow step helpers, workflow transition APIs, and Admin workflow management under `server/features/workflows` with route, controller, and service layers while preserving `/api/workflows`, `/api/workflow_steps`, `/api/workflow_transitions`, and `/api/workflow_management` URLs and middleware behavior.
+- Admin event logging helper now accepts explicit actor context so feature services can preserve audit attribution without depending on Express request objects.
+- Moved public `/api/status_history` handling under `server/features/tickets` with status-history route, controller, and service files while preserving existing URLs, middleware behavior, and response shapes.
+- Tag labels are now unique within each project instead of globally, allowing different projects to use the same tag label while still blocking duplicates inside one project.
+- Moved `/api/tags` and `/api/ticket_tags` into `server/features/tags` with separate routes, controller, and service layers while preserving existing tag management URLs, ticket-tag relation URLs, middleware behavior, and tag event logging.
+- Moved `/api/attachments` into `server/features/attachments` with separate routes, controller, and service layers while preserving existing attachment URLs, inline blob storage behavior, 1 MB validation, and attachment event logging.
+- Moved `/api/comments` into `server/features/comments` with separate routes, controller, and service layers while preserving existing comment URLs, middleware behavior, and comment event logging.
+- Added `server/features/tickets/tickets.controller.js` so `/api/tickets` HTTP request/response handling is separated from route declarations and ticket service logic.
+- Extracted `/api/tickets` SQL and business logic into `server/features/tickets/tickets.service.js`, leaving the tickets router responsible for middleware and HTTP response translation.
+- Moved the `/api/tickets` router mount to the new `server/features/tickets` feature module while keeping existing ticket route paths, middleware chains, SQL, and response behavior unchanged.
+- Completed Phase 2D server-side verification for feature-based mounts, compatibility route re-exports, duplicate mount checks, and broken import checks before client migration.
+- Client Jest setup now mocks Quill during tests so CRA test runs are not blocked by Quill's ESM package entrypoint.
+- Server startup now exports the Express app for backend tests while preserving normal `node server.js` startup through a CommonJS `require.main === module` listen guard.
 - Replaced the crowded top navigation with a responsive sidebar app shell.
 - Moved Profile into the sidebar while keeping the theme toggle and logout action in the top header.
 - Preserved existing role-based navigation visibility for Dashboard, Tickets, Projects, Create Ticket, Audit Logs, Admin Panel, and Profile.
@@ -55,6 +76,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Tickets create/update API now enforces strict module-project assignment validation: submitted (or currently retained) `module_id` must belong to the ticket project through `project_modules`.
 
 ### Fixed
+- Replaced the obsolete default CRA `App.test.js` render assertion with a LiteBoard app export smoke test so the client Jest command passes without changing runtime behavior.
+- Admin Panel tag creation now scopes its duplicate-label check to the selected project, matching the backend's project-scoped tag uniqueness rule.
+- Increased the Express JSON body limit enough for valid 1 MB attachments after base64 encoding and return a clean JSON `413` response when uploads exceed the supported size.
+- Edit Ticket now persists newly selected attachments through `/api/attachments`, so uploads create attachment metadata, inline blobs, and `attachment.uploaded` audit events instead of being discarded after ticket save.
+- View Ticket and Edit Ticket now keep the attachments panel visible with an empty state, making missing attachments distinguishable from hidden UI.
 - PostgreSQL `DATE` columns now remain plain `YYYY-MM-DD` strings in Node responses, preventing date-only values from shifting to the previous day when serialized through UTC.
 - Ticket creation now derives automatic `start_date` and SLA due-date baselines from the Bahrain calendar date while keeping audit timestamps as real UTC instants.
 

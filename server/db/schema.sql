@@ -266,7 +266,6 @@ CREATE TABLE tags (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at TIMESTAMPTZ,
     
-    CONSTRAINT uq_tags_label_active UNIQUE NULLS NOT DISTINCT (label, deleted_at),
     CONSTRAINT chk_tags_color_format CHECK (color IS NULL OR color ~* '^#[0-9A-Fa-f]{6}$')
 );
 
@@ -551,6 +550,11 @@ CREATE INDEX idx_tickets_responsible_step_code ON tickets(responsible_employee_i
 CREATE INDEX idx_tickets_title_trgm ON tickets USING gin(title gin_trgm_ops) 
     WHERE deleted_at IS NULL;
 CREATE INDEX idx_tickets_description_trgm ON tickets USING gin(description gin_trgm_ops) 
+    WHERE deleted_at IS NULL;
+
+-- Tags
+CREATE UNIQUE INDEX uq_tags_project_label_active
+    ON tags (COALESCE(project_id, ''), lower(label))
     WHERE deleted_at IS NULL;
 
 -- Ticket Tags

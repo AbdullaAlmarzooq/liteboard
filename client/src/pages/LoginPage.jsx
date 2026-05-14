@@ -1,4 +1,5 @@
-"use client"
+"use client";
+import { apiUrl } from "../lib/api"
 import React, { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useTheme } from "../contexts/ThemeContext"
@@ -18,7 +19,7 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch("http://localhost:8000/api/auth/login", {
+      const response = await fetch(apiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
