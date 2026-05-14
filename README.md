@@ -113,7 +113,7 @@ Projects extend the existing workgroup model rather than replacing it:
 
 ### Feature-Based Refactor Note
 
-LiteBoard is being prepared for a staged feature-based refactor. Phase 0 added empty server and client feature-folder skeletons only. Tickets, status history, comments, attachments, tags, workflows, projects, workgroups, employees, and modules backend code have started moving under `server/features/*` while preserving existing middleware names, API endpoint URLs, and database schema.
+LiteBoard is being prepared for a staged feature-based refactor. Phase 0 added empty server and client feature-folder skeletons only. Tickets, status history, comments, attachments, tags, workflows, projects, workgroups, employees, modules, auth, profile, and audit-log backend code have started moving under `server/features/*` while preserving existing middleware names, API endpoint URLs, and database schema.
 
 ### Directory Structure
 
@@ -566,6 +566,10 @@ Tag backend handling is staged under `server/features/tags`, with tag CRUD and t
 Workflow backend handling is staged under `server/features/workflows`, with workflow read APIs, workflow step helpers, transition APIs, and Admin workflow management exported from the same feature module while preserving the existing `/api/workflows`, `/api/workflow_steps`, `/api/workflow_transitions`, and `/api/workflow_management` API surfaces.
 
 Smaller Admin-support backend handling is also staged under `server/features/projects`, `server/features/workgroups`, `server/features/employees`, and `server/features/modules`, preserving the existing `/api/projects`, `/api/workgroups`, `/api/employees`, and `/api/modules` API surfaces.
+
+Auth, profile, and audit-log backend handling is staged under `server/features/auth`, `server/features/profile`, and `server/features/audit-logs`, preserving the existing `/api/auth`, `/api/profile`, and `/api/audit-logs` API surfaces, including token creation, profile activity pagination, and audit-log filtering.
+
+Server-side feature refactor verification confirms active `server.js` API mounts now import from `server/features/*`. Legacy `server/routes/*` files remain as compatibility re-exports until the cleanup phase.
 
 **Key Functions:**
 

@@ -214,3 +214,60 @@ Suggested smoke checks:
 - Open Admin Panel employees and confirm roles, employee list, employee detail/edit, password update, role change, and active toggle still behave as before.
 - Open Admin Panel modules and confirm list, create, edit, activate/deactivate, delete, and duplicate-name validation still behave as before.
 - In ticket create/edit flows, confirm module dropdowns still load from `/api/modules?project_id=<project>`.
+
+## Phase 2C - Auth, Profile, and Audit Logs Feature Migration
+
+Phase 2C moves auth, profile, and audit-log backend APIs into `server/features/auth`, `server/features/profile`, and `server/features/audit-logs`. Existing URLs, middleware behavior, login/session token behavior, profile activity behavior, and audit-log pagination/filtering should remain unchanged.
+
+Expected behavior:
+
+- `POST /api/auth/login` should still validate email/password, block inactive accounts, sign the same JWT payload, and return the same user object.
+- `/api/profile/stats`, `/api/profile/overview`, `/api/profile/activity`, `/api/profile/my-tickets`, and `/api/profile/myPassword` should still require normal authentication.
+- `/api/profile/activity/global` should remain Admin-only.
+- `/api/profile/activity` and `/api/profile/my-tickets` should keep pagination behavior and project access filtering.
+- `/api/audit-logs` and `/api/audit-logs/filters` should remain Admin-only.
+- Audit logs should keep server-side pagination, search, actor/entity/event/action/date filtering, sorting, and mapped event details.
+
+Suggested smoke checks:
+
+- Log in with a valid active user and confirm the returned token and user shape still match the frontend expectations.
+- Attempt login with a bad password and confirm the existing invalid-credentials response.
+- Open Profile overview and activity pages and confirm stats, charts, recent activity, and workgroup tickets load.
+- Change the current user's password only in a disposable account and confirm old/new password validation behaves as before.
+- As Admin, open global activity and Audit Logs; test search, filters, sorting, pagination, and expanded details.
+- As non-Admin, confirm Audit Logs and global activity remain blocked.
+
+## Phase 2D - Server Refactor Verification
+
+Phase 2D verifies the server-side feature refactor before client migration starts. No client code, schema, API URLs, or business behavior should change in this phase.
+
+Verification expectations:
+
+- `server/server.js` should mount active API routers from `server/features/*`.
+- Legacy `server/routes/*` files should remain compatibility re-exports only until the cleanup phase.
+- No duplicate `app.use("/api/...")` mounts should exist.
+- Feature and compatibility route files should import without broken module paths.
+- Backend startup should still return the root API health response.
+
+Full backend regression checklist:
+
+- Auth: valid login, invalid login, inactive account rejection, JWT expiry behavior, and user payload shape.
+- Tickets: list, search, export, detail, create, update, delete, creator-only fields, project access, workgroup access, terminal lock, transition, allowed steps, and event activity.
+- Status history: authenticated read, missing `ticketId` validation, manual insert if still used, and terminal-ticket blocking.
+- Comments: list, create, edit, delete, ownership checks, terminal-ticket blocking, and comment events.
+- Attachments: list metadata, fetch blob, upload below 1 MB, reject above limit, delete, terminal-ticket blocking, and attachment events.
+- Tags: project-scoped tag list, create/update/delete, duplicate label in same project blocked, duplicate label across projects allowed, ticket add/remove/replace, and tag events.
+- Workflows: active workflow reads, project-scoped workflow reads, allowed-step helper, transition APIs, Admin workflow CRUD, SLA validation, due-date recalculation, and workflow admin events.
+- Projects: available projects, project dashboard counts, Admin project list/detail/create/update, and workgroup/workflow/module assignment replacement.
+- Workgroups: list, create, edit, activate/deactivate, delete, and admin events.
+- Employees: roles, list, detail, create, update, password update, role change, active toggle, and admin events.
+- Modules: authenticated list/detail, project-scoped list, create/update/delete, duplicate-name validation, and admin events.
+- Profile: stats, overview, personal activity, global Admin activity, workgroup tickets, password change, pagination, and project access filtering.
+- Audit Logs: filter metadata, paginated list, search, actor/entity/event/action/date filters, sorting, detail expansion, and Admin-only access.
+
+Suggested final smoke:
+
+- Start the backend and confirm `GET /` returns the LiteBoard API health response.
+- Confirm unauthenticated protected APIs still return `401`.
+- Log in as Admin and exercise Admin Panel projects, workflows, tags, modules, workgroups, employees, and audit logs.
+- Log in as Editor/Viewer and confirm project visibility and role restrictions remain unchanged.

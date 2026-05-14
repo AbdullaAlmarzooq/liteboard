@@ -18,13 +18,9 @@ const attachmentsRouter = require("./features/attachments");
 const employeesRouter = require("./features/employees");
 const modulesRouter = require("./features/modules");
 const projectsRouter = require("./features/projects");
-const auditLogsRouter = require("./routes/auditLogs");
-const authRouter = require("./routes/auth");
-const profileStats = require("./routes/profile/stats");
-const profileOverviewRoutes = require("./routes/profile/overview");
-const profileActivityRoutes = require("./routes/profile/activity");
-const myTicketsRoutes = require("./routes/profile/myTickets");
-const myPasswordRoutes = require("./routes/profile/myPassword");
+const auditLogsRouter = require("./features/audit-logs");
+const authRouter = require("./features/auth");
+const profileRouter = require("./features/profile");
 
 
 
@@ -53,11 +49,7 @@ app.use("/api/workflow_management", workflowManagementRouter);
 app.use("/api/projects", projectsRouter);
 app.use("/api/audit-logs", auditLogsRouter);
 app.use("/api/auth", authRouter);
-app.use("/api/profile", profileStats);
-app.use("/api/profile", profileOverviewRoutes);
-app.use("/api/profile", profileActivityRoutes);
-app.use("/api/profile", myTicketsRoutes);
-app.use("/api/profile", myPasswordRoutes);
+app.use("/api/profile", profileRouter);
 
 
 
