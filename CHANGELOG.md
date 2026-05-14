@@ -7,6 +7,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- Backend smoke test command `npm run test:backend` using Node's built-in test runner to verify the Express app imports without listening and the root health endpoint responds without requiring production database data.
 - DB migration `server/db/migrations/2026-05-03_scope_tag_uniqueness_to_project.sql` replaces global tag-label uniqueness with project-scoped, case-insensitive active tag uniqueness.
 - Phase 0 feature-based refactor preparation with empty server/client feature folder skeletons and a manual refactor testing checklist. No routes, API behavior, middleware names, or database schema changed in this phase.
 - Collapsible desktop sidebar navigation with icon-only mode and persisted `liteboard.sidebarCollapsed` localStorage state.
@@ -75,6 +76,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Tickets create/update API now enforces strict module-project assignment validation: submitted (or currently retained) `module_id` must belong to the ticket project through `project_modules`.
 
 ### Fixed
+- Replaced the obsolete default CRA `App.test.js` render assertion with a LiteBoard app export smoke test so the client Jest command passes without changing runtime behavior.
 - Admin Panel tag creation now scopes its duplicate-label check to the selected project, matching the backend's project-scoped tag uniqueness rule.
 - Increased the Express JSON body limit enough for valid 1 MB attachments after base64 encoding and return a clean JSON `413` response when uploads exceed the supported size.
 - Edit Ticket now persists newly selected attachments through `/api/attachments`, so uploads create attachment metadata, inline blobs, and `attachment.uploaded` audit events instead of being discarded after ticket save.

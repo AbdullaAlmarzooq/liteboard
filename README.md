@@ -887,6 +887,17 @@ npm start
 
 To point the frontend at a non-default API host, set `REACT_APP_API_URL` before starting or building the client. For local development this can be omitted because the client defaults to `http://localhost:8000`.
 
+### Testing
+
+```bash
+# Backend smoke test, no real database connection required
+npm run test:backend
+
+# Frontend tests
+cd client
+npm test -- --watchAll=false
+```
+
 ### Default Access
 
 Since there's no registration endpoint, ensure at least one admin user exists in the database with a bcrypt-hashed password.
